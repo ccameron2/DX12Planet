@@ -50,7 +50,7 @@ private:
 	void OnMouseUp(WPARAM buttonState, int x, int y) {}
 	void OnMouseMove(WPARAM buttonState, int x, int y) {}
 
-	bool InitMainWindow();
+	bool InitWindow();
 	bool InitDirect3D();
 
 	void CreateCommandObjects(); // Creates command queue, command list allocator, and a command list
@@ -79,8 +79,8 @@ private:
 	bool mResizing = false;
 	bool mFullscreen = false;
 
-	bool m4xMSAA = true;
-	bool m4xMSAAQuality = 0; // Quality level of MSAA
+	//bool m4xMSAA = false;
+	//bool m4xMSAAQuality = 0; // Quality level of MSAA
 
 	Timer mTimer;
 
@@ -114,7 +114,7 @@ private:
 	D3D_DRIVER_TYPE mD3DDriverType = D3D_DRIVER_TYPE_HARDWARE;
 	DXGI_FORMAT mBackBufferFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
 	DXGI_FORMAT mDepthStencilFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
-	int mWidth = 800;
-	int mHeight = 600;
+	int mWidth = 1920;
+	int mHeight = 1080;
 };
 
