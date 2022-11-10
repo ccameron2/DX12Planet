@@ -14,6 +14,9 @@
 #include <DirectXMath.h>
 #include <DirectXColors.h>
 #include <string>
+#include <vector>
+#include <array>
+#include <algorithm>
 //#include "DDSTextureLoader.h"
 #include "Timer.h"
 
@@ -23,6 +26,7 @@
 #pragma comment(lib, "dxgi.lib")
 
 using Microsoft::WRL::ComPtr;
+using namespace DirectX;
 
 class D3DApp
 {
@@ -46,9 +50,16 @@ private:
 	void Update(float frameTime);
 	void Draw(float frameTime);
 	
-	void OnMouseDown(WPARAM buttonState, int x,int y){ }
-	void OnMouseUp(WPARAM buttonState, int x, int y) {}
-	void OnMouseMove(WPARAM buttonState, int x, int y) {}
+	void OnMouseDown(WPARAM buttonState, int x, int y) { mLastMousePos.x = x; mLastMousePos.y = y; SetCapture(mHWND); }
+	void OnMouseUp(WPARAM buttonState, int x, int y) { ReleaseCapture(); }
+	void OnMouseMove(WPARAM buttonState, int x, int y);
+
+	ComPtr<ID3DBlob> CompileShader(const std::wstring& filename, const D3D_SHADER_MACRO* defines, const std::string& entrypoint, const std::string& target);
+	void CreateConstantBuffers();
+	void CreateRootSignature();
+	void CreateShaders();
+	void CreateCube();
+	void CreatePSO();
 
 	bool InitWindow();
 	bool InitDirect3D();
@@ -63,9 +74,13 @@ private:
 
 	void CalcFrameStats(); // Calculates average FPS and ms per frame
 
-	//void LogAdapters(); // Enumerates adapters on system
-	//void LogAdapterOutputs(IDXGIAdapter* adapter); // Enumerates all outputs associated with given adapter
-	//void LogOutputDisplayModes(IDXGIOutput* output, DXGI_FORMAT format); // Enumerates all display modes an output supports for format
+	ComPtr<ID3D12Resource> CreateDefaultBuffer(const void* initData, UINT64 byteSize, Microsoft::WRL::ComPtr<ID3D12Resource>& uploadBuffer);
+	D3D12_VERTEX_BUFFER_VIEW VertexBufferView();
+	D3D12_INDEX_BUFFER_VIEW IndexBufferView();
+	void DisposeUploaders();
+
+	XMFLOAT4X4 Identity4x4();
+
 
 private:
 	static D3DApp* mApp;
@@ -78,6 +93,9 @@ private:
 	bool mMaximised = false;
 	bool mResizing = false;
 	bool mFullscreen = false;
+
+	POINT mLastMousePos;
+	float PI = 3.14159;
 
 	//bool m4xMSAA = false;
 	//bool m4xMSAAQuality = 0; // Quality level of MSAA
@@ -100,8 +118,9 @@ private:
 	ComPtr<ID3D12Resource> mSwapChainBuffer[SwapChainBufferCount];
 	ComPtr<ID3D12Resource> mDepthStencilBuffer;
 
-	ComPtr<ID3D12DescriptorHeap> mRtvHeap;
-	ComPtr<ID3D12DescriptorHeap> mDsvHeap;
+	ComPtr<ID3D12DescriptorHeap> mRTVHeap;
+	ComPtr<ID3D12DescriptorHeap> mDSVHeap;
+	ComPtr<ID3D12DescriptorHeap> mCBVHeap;
 
 	D3D12_VIEWPORT mViewport;
 	D3D12_RECT mScissorRect;
@@ -110,11 +129,70 @@ private:
 	UINT mDsvDescriptorSize = 0;
 	UINT mCbvSrvUavDescriptorSize = 0;
 
+	// Per Object constant buffer
+	Microsoft::WRL::ComPtr<ID3D12Resource> mPerObjectConstantBuffer;
+	struct mPerObjectConstants
+	{
+		XMFLOAT4X4 WorldViewProj;
+	};
+	BYTE* mPerObjMappedData = nullptr;
+	UINT mPerObjElementByteSize = 0;
+	int mPerObjElementCount = 1;
+	/////////////////////////////
+
+	ComPtr<ID3D12RootSignature> mRootSignature;
+
+	// Shader variables
+	ComPtr<ID3DBlob> mVSByteCode = nullptr;
+	ComPtr<ID3DBlob> mPSByteCode = nullptr;
+
+	// Input layout
+	std::vector<D3D12_INPUT_ELEMENT_DESC> mInputLayout;
+
+	static UINT CalcConstantBufferByteSize(UINT byteSize);
+
+	// Vertex structure
+	struct Vertex
+	{
+		XMFLOAT3 Pos;
+		XMFLOAT4 Color;
+	};
+
+	int mIndicesCount = 0;
+
+	// Vertex and index buffers on CPU side
+	Microsoft::WRL::ComPtr<ID3DBlob> VertexBufferCPU = nullptr;
+	Microsoft::WRL::ComPtr<ID3DBlob> IndexBufferCPU = nullptr;
+
+	// Vertex and index buffers on GPU side
+	Microsoft::WRL::ComPtr<ID3D12Resource> VertexBufferGPU = nullptr;
+	Microsoft::WRL::ComPtr<ID3D12Resource> IndexBufferGPU = nullptr;
+
+	// Vertex and index buffer uploaders
+	Microsoft::WRL::ComPtr<ID3D12Resource> VertexBufferUploader = nullptr;
+	Microsoft::WRL::ComPtr<ID3D12Resource> IndexBufferUploader = nullptr;
+
+	// Data about the buffers.
+	UINT VertexByteStride = 0;
+	UINT VertexBufferByteSize = 0;
+	DXGI_FORMAT IndexFormat = DXGI_FORMAT_R16_UINT;
+	UINT IndexBufferByteSize = 0;
+
+	ComPtr<ID3D12PipelineState> mPSO = nullptr;
+
+	XMFLOAT4X4 mWorld = Identity4x4();
+	XMFLOAT4X4 mView = Identity4x4();
+	XMFLOAT4X4 mProj = Identity4x4();
+
+	float mTheta = 1.5f * XM_PI;
+	float mPhi = XM_PIDIV4;
+	float mRadius = 5.0f;
+
 	std::wstring mMainCaption = L"D3D App";
 	D3D_DRIVER_TYPE mD3DDriverType = D3D_DRIVER_TYPE_HARDWARE;
 	DXGI_FORMAT mBackBufferFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
 	DXGI_FORMAT mDepthStencilFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
-	int mWidth = 1920;
-	int mHeight = 1080;
+	int mWidth = 800;
+	int mHeight = 600;
 };
 
