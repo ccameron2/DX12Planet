@@ -14,7 +14,9 @@
 #include <algorithm>
 #include <memory>
 #include "Utility.h"
-
+#include "UploadBuffer.h"
+#include <memory>
+#include "GeometryData.h"
 using namespace DirectX;
 using Microsoft::WRL::ComPtr;
 
@@ -58,15 +60,44 @@ public:
 	XMFLOAT4X4 mViewMatrix = MakeIdentity4x4();
 	XMFLOAT4X4 mProjectionMatrix = MakeIdentity4x4();
 
+	struct mPerObjectConstants
+	{
+		XMFLOAT4X4 WorldViewProj;
+	};
+
+	// Per Object constant buffer
+	unique_ptr <UploadBuffer<mPerObjectConstants>> mPerObjectConstantBuffer;
+	ComPtr<ID3D12DescriptorHeap> mCBVHeap;
+
+	ComPtr<ID3D12RootSignature> mRootSignature;
+
+	// Shader variables
+	ComPtr<ID3DBlob> mVSByteCode = nullptr;
+	ComPtr<ID3DBlob> mPSByteCode = nullptr;
+
+	// Input layout
+	std::vector<D3D12_INPUT_ELEMENT_DESC> mInputLayout;
+
+	ComPtr<ID3D12PipelineState> mPSO = nullptr;
+
 	bool InitD3D();
 	void CreateCommandObjects();
 	void CreateSwapChain(HWND hWND, int width, int height);
-	void OnResize(int width, int height);
-	void FlushCommandQueue();
+	void Resize(int width, int height);
+	void EmptyCommandQueue();
 	ID3D12Resource* CurrentBackBuffer(); // Returns current back buffer in swap chain
 	D3D12_CPU_DESCRIPTOR_HANDLE CurrentBackBufferView(); // Returns Render Target View to current back buffer
 	D3D12_CPU_DESCRIPTOR_HANDLE DepthStencilView(); // Returns Depth / Stencil View  to main depth buffer
 	XMFLOAT4X4 MakeIdentity4x4();
+	void Draw(float frameTime, vector<GeometryData*> geometry);
+	void ExecuteCommands();
+	void CreateConstantBuffers();
+	void CreateDescriptorHeaps();
+	ComPtr<ID3DBlob> CompileShader(const std::wstring& filename, const D3D_SHADER_MACRO* defines, const std::string& entrypoint, const std::string& target);
+	void CreateRootSignature();
+	void CreateShaders();
+	void CreatePSO();
+
 };
 
 

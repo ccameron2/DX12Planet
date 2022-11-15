@@ -10,7 +10,5 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE prevInstance, PSTR cmdLine, in
     #endif
 
     auto app = std::make_unique<App>(hInstance);
-
-    if (!app->Initialize()) return 0;
-    return app->Run();  
+    return 0;
 }

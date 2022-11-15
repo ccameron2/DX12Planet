@@ -23,7 +23,6 @@
 #include "Timer.h"
 #include "Utility.h"
 #include "Icosahedron.h"
-#include "Common.h"
 #include "Graphics.h"
 #include "UploadBuffer.h"
 
@@ -56,20 +55,13 @@ private:
 
 	bool InitWindow();
 	void CalcFrameStats();
-	void CreateDescriptorHeaps();
 	void Update(float frameTime);
-	void Draw(float frameTime);
 	
-	void OnMouseDown(WPARAM buttonState, int x, int y) { mLastMousePos.x = x; mLastMousePos.y = y; SetCapture(mHWND); }
-	void OnMouseUp(WPARAM buttonState, int x, int y) { ReleaseCapture(); }
-	void OnMouseMove(WPARAM buttonState, int x, int y);
+	void MouseDown(WPARAM buttonState, int x, int y) { mLastMousePos.x = x; mLastMousePos.y = y; SetCapture(mHWND); }
+	void MouseUp(WPARAM buttonState, int x, int y) { ReleaseCapture(); }
+	void MouseMove(WPARAM buttonState, int x, int y);
 
-	ComPtr<ID3DBlob> CompileShader(const std::wstring& filename, const D3D_SHADER_MACRO* defines, const std::string& entrypoint, const std::string& target);
-	void CreateConstantBuffers();
-	void CreateRootSignature();
-	void CreateShaders();
 	void CreateIcosohedron();
-	void CreatePSO();
 
 private:
 	static App* mApp;
@@ -90,30 +82,7 @@ private:
 	int mWidth = 800;
 	int mHeight = 600;
 
-	//bool m4xMSAA = false;
-	//bool m4xMSAAQuality = 0; // Quality level of MSAA
-	ComPtr<ID3D12DescriptorHeap> mCBVHeap;
-
-	struct mPerObjectConstants
-	{
-		XMFLOAT4X4 WorldViewProj;
-	};
-
-	// Per Object constant buffer
-	unique_ptr <UploadBuffer<mPerObjectConstants>> mPerObjectConstantBuffer;
-
-	ComPtr<ID3D12RootSignature> mRootSignature;
-
-	// Shader variables
-	ComPtr<ID3DBlob> mVSByteCode = nullptr;
-	ComPtr<ID3DBlob> mPSByteCode = nullptr;
-
-	// Input layout
-	std::vector<D3D12_INPUT_ELEMENT_DESC> mInputLayout;
-
 	std::unique_ptr<Icosahedron> mIcosohedron;
-
-	ComPtr<ID3D12PipelineState> mPSO = nullptr;
 
 	float mTheta = 1.5f * XM_PI;
 	float mPhi = XM_PIDIV4;
@@ -123,3 +92,44 @@ private:
 	std::wstring mMainCaption = L"D3D12";
 };
 
+
+struct Cube
+{
+	vector<Vertex> vertices =
+	{
+		Vertex({ XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT4(Colors::White) }),
+		Vertex({ XMFLOAT3(-1.0f, +1.0f, -1.0f), XMFLOAT4(Colors::Black) }),
+		Vertex({ XMFLOAT3(+1.0f, +1.0f, -1.0f), XMFLOAT4(Colors::Red) }),
+		Vertex({ XMFLOAT3(+1.0f, -1.0f, -1.0f), XMFLOAT4(Colors::Green) }),
+		Vertex({ XMFLOAT3(-1.0f, -1.0f, +1.0f), XMFLOAT4(Colors::Blue) }),
+		Vertex({ XMFLOAT3(-1.0f, +1.0f, +1.0f), XMFLOAT4(Colors::Yellow) }),
+		Vertex({ XMFLOAT3(+1.0f, +1.0f, +1.0f), XMFLOAT4(Colors::Cyan) }),
+		Vertex({ XMFLOAT3(+1.0f, -1.0f, +1.0f), XMFLOAT4(Colors::Magenta) })
+	};
+	vector<uint16_t> indices =
+	{
+		// front face
+		0, 1, 2,
+		0, 2, 3,
+
+		// back face
+		4, 6, 5,
+		4, 7, 6,
+
+		// left face
+		4, 5, 1,
+		4, 1, 0,
+
+		// right face
+		3, 2, 6,
+		3, 6, 7,
+
+		// top face
+		1, 5, 6,
+		1, 6, 2,
+
+		// bottom face
+		4, 0, 3,
+		4, 3, 7
+	};
+};

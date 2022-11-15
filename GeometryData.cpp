@@ -24,23 +24,22 @@ void GeometryData::EmptyUploaders()
 
 void GeometryData::CalculateBufferData(ID3D12Device* d3DDevice, ID3D12GraphicsCommandList* commandList)
 {
-	indicesCount = indices.size();
-	const UINT vbSize = (UINT)vertices.size() * sizeof(Vertex);
-	const UINT ibSize = (UINT)indices.size() * sizeof(std::uint16_t);
+	indicesCount = mIndices.size();
+	const UINT vBSize = (UINT)mVertices.size() * sizeof(Vertex);
+	const UINT iBSize = (UINT)mIndices.size() * sizeof(std::uint16_t);
 
+	D3DCreateBlob(vBSize, &CPUVertexBuffer);
+	CopyMemory(CPUVertexBuffer->GetBufferPointer(), mVertices.data(), vBSize);
 
-	D3DCreateBlob(vbSize, &CPUVertexBuffer);
-	CopyMemory(CPUVertexBuffer->GetBufferPointer(), vertices.data(), vbSize);
+	D3DCreateBlob(iBSize, &CPUIndexBuffer);
+	CopyMemory(CPUIndexBuffer->GetBufferPointer(), mIndices.data(), iBSize);
 
-	D3DCreateBlob(ibSize, &CPUIndexBuffer);
-	CopyMemory(CPUIndexBuffer->GetBufferPointer(), indices.data(), ibSize);
+	GPUVertexBuffer = CreateDefaultBuffer(mVertices.data(), vBSize, vertexBufferUploader, d3DDevice, commandList);
 
-	GPUVertexBuffer = CreateDefaultBuffer(vertices.data(), vbSize, vertexBufferUploader, d3DDevice, commandList);
-
-	GPUIndexBuffer = CreateDefaultBuffer(indices.data(), ibSize, indexBufferUploader, d3DDevice, commandList);
+	GPUIndexBuffer = CreateDefaultBuffer(mIndices.data(), iBSize, indexBufferUploader, d3DDevice, commandList);
 
 	vertexByteStride = sizeof(Vertex);
-	vertexBufferByteSize = vbSize;
+	vertexBufferByteSize = vBSize;
 	indexFormat = DXGI_FORMAT_R16_UINT;
-	indexBufferByteSize = ibSize;
+	indexBufferByteSize = iBSize;
 }
