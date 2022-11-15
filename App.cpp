@@ -21,36 +21,37 @@ App::App(HINSTANCE hInstance) : mHInstance(hInstance)
 
 bool App::InitWindow()
 {
-	// Register windows class
-	WNDCLASS wc;
-	wc.style = CS_HREDRAW | CS_VREDRAW;
-	wc.lpfnWndProc = WndProc;
-	wc.cbClsExtra = 0;
-	wc.cbWndExtra = 0;
-	wc.hInstance = mHInstance;
-	wc.hIcon = LoadIcon(0, IDI_APPLICATION);
-	wc.hCursor = LoadCursor(0, IDC_ARROW);
-	wc.hbrBackground = (HBRUSH)GetStockObject(NULL_BRUSH);
-	wc.lpszMenuName = 0;
-	wc.lpszClassName = L"Wnd";
-	if (!RegisterClass(&wc)) { MessageBox(0, L"Register Class Failed.", L"Error", MB_OK); return false; }
+	mWindow.create(sf::VideoMode(mWidth, mHeight), "D3D12 Masters Project", sf::Style::Default);
+	//// Register windows class
+	//WNDCLASS wc;
+	//wc.style = CS_HREDRAW | CS_VREDRAW;
+	//wc.lpfnWndProc = App::WndProc;
+	//wc.cbClsExtra = 0;
+	//wc.cbWndExtra = 0;
+	//wc.hInstance = mHInstance;
+	//wc.hIcon = LoadIcon(0, IDI_APPLICATION);
+	//wc.hCursor = LoadCursor(0, IDC_ARROW);
+	//wc.hbrBackground = (HBRUSH)GetStockObject(NULL_BRUSH);
+	//wc.lpszMenuName = 0;
+	//wc.lpszClassName = L"Wnd";
+	//if (!RegisterClass(&wc)) { MessageBox(0, L"Register Class Failed.", L"Error", MB_OK); return false; }
 
-	// Calc window dimensions
-	RECT rect = { 0, 0, mWidth, mHeight };
-	AdjustWindowRect(&rect, WS_OVERLAPPEDWINDOW, false);
-	int width = rect.right - rect.left;
-	int height = rect.bottom - rect.top;
+	//// Calc window dimensions
+	//RECT rect = { 0, 0, mWidth, mHeight };
+	//AdjustWindowRect(&rect, WS_OVERLAPPEDWINDOW, false);
+	//int width = rect.right - rect.left;
+	//int height = rect.bottom - rect.top;
 
-	// Create window and handle
-	mHWND = CreateWindow(L"Wnd", L"D3D12", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, width, height, 0, 0, mHInstance, 0);
-	if (!mHWND)
-	{
-		MessageBox(0, L"Create Window Failed.", L"Error", MB_OK);
-		return false;
-	}
+	//// Create window and handle
+	//mHWND = CreateWindow(L"Wnd", L"D3D12", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, width, height, 0, 0, mHInstance, 0);
+	//if (!mHWND)
+	//{
+	//	MessageBox(0, L"Create Window Failed.", L"Error", MB_OK);
+	//	return false;
+	//}
 
-	ShowWindow(mHWND, SW_SHOW);
-	UpdateWindow(mHWND);
+	//ShowWindow(mHWND, SW_SHOW);
+	//UpdateWindow(mHWND);
 
 	return true;
 }
@@ -104,38 +105,60 @@ int App::Run()
 	// Collect all geometry into vector
 	vector<GeometryData*> geometryData = { mIcosohedron->mGeometryData.get(),geometry.get()};
 
-	// While window is open
-	while (msg.message != WM_QUIT)
+	sf::Event event;
+	while (mWindow.isOpen())
 	{
-		// Process windows messages
-		if (PeekMessage(&msg, 0, 0, 0, PM_REMOVE))
+		float frameTime = mTimer.GetLapTime();
+		while (mWindow.pollEvent(event))
 		{
-			TranslateMessage(&msg);
-			DispatchMessage(&msg);
-		}
-		else // No messages left
-		{
-			// Get frametime from timer
-			float frameTime = mTimer.GetLapTime();
-
-			// If app isnt paused
-			if (!mAppPaused)
+			switch (event.type)
 			{
-				CalcFrameStats();
-				Update(frameTime);
-				mGraphics->Draw(frameTime, geometryData);
+			case sf::Event::Closed:
+				mWindow.close();
+				break;
+			default:
+				break;
 			}
-			else { Sleep(100); }
 		}
+		CalcFrameStats();
+		Update(frameTime);
+		mGraphics->Draw(frameTime, geometryData);
 	}
+	
+	
+	return 0;
+	//// While window is open
+	//while (msg.message != WM_QUIT)
+	//{
+	//	// Process windows messages
+	//	if (PeekMessage(&msg, 0, 0, 0, PM_REMOVE))
+	//	{
+	//		TranslateMessage(&msg);
+	//		DispatchMessage(&msg);
+	//	}
+	//	else // No messages left
+	//	{
+	//		// Get frametime from timer
+	//		float frameTime = mTimer.GetLapTime();
 
-	return (int)msg.wParam;
+	//		// If app isnt paused
+	//		if (!mAppPaused)
+	//		{
+	//			CalcFrameStats();
+	//			Update(frameTime);
+	//			mGraphics->Draw(frameTime, geometryData);
+	//		}
+	//		else { Sleep(100); }
+	//	}
+	//}
+
+	//return (int)msg.wParam;
 }
 
 bool App::Initialize()
 {
 	if (!InitWindow()) { return false; }
-	mGraphics = make_unique<Graphics>(mHWND, mWidth, mHeight);
+	mGraphics = make_unique<Graphics>(mWindow.getSystemHandle(), mWidth, mHeight);
 
 	CreateIcosohedron();
 

@@ -1,6 +1,5 @@
 #include "Icosahedron.h"
 #include "FastNoiseLite.h"
-
 Icosahedron::Icosahedron(int numVertices, int numIndices, ID3D12Device* d3DDevice, ID3D12GraphicsCommandList* commandList)
 {
 	CreateGeometry(numVertices, numIndices, d3DDevice, commandList);
@@ -24,6 +23,8 @@ float distance(const XMFLOAT3& v1, const XMFLOAT3& v2)
 
 void Icosahedron::CreateGeometry(int numVertices, int numIndices, ID3D12Device* d3DDevice, ID3D12GraphicsCommandList* commandList)
 {
+
+
 	mGeometryData = std::make_unique<GeometryData>();
 
 	const float X = 0.525731112119133606f;
@@ -67,23 +68,23 @@ void Icosahedron::CreateGeometry(int numVertices, int numIndices, ID3D12Device* 
 		SubdivideIcosphere();
 	}
 
-	FastNoiseLite noise;
-	noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
+	//FastNoiseLite noise;
+	//noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
 
-	for (auto& vertex : mVertices)
-	{
-		/*XMVECTOR pos = XMLoadFloat3(&vertex.Pos);
-		pos = XMVectorMultiply(pos, { 1000,1000,1000 });
-		XMFLOAT3 position; XMStoreFloat3(&position, pos);
-		auto ElevationValue = 1 + FractalBrownianMotion(position, mOctaves, mFrequency);*/
-		auto ElevationValue = 1 + noise.GetNoise(0.5 * vertex.Pos.x * 100, 0.5 * vertex.Pos.y * 100, 0.5 * vertex.Pos.z * 100);
-		auto Radius = distance(vertex.Pos, XMFLOAT3{ 0,0,0 });
-		vertex.Pos.x *= 1 + (ElevationValue / Radius);
-		vertex.Pos.y *= 1 + (ElevationValue / Radius);
-		vertex.Pos.z *= 1 + (ElevationValue / Radius);
-	}
+	//for (auto& vertex : mVertices)
+	//{
+	//	/*XMVECTOR pos = XMLoadFloat3(&vertex.Pos);
+	//	pos = XMVectorMultiply(pos, { 1000,1000,1000 });
+	//	XMFLOAT3 position; XMStoreFloat3(&position, pos);
+	//	auto ElevationValue = 1 + FractalBrownianMotion(position, mOctaves, mFrequency);*/
+	//	auto ElevationValue = 1 + noise.GetNoise(0.5 * vertex.Pos.x * 100, 0.5 * vertex.Pos.y * 100, 0.5 * vertex.Pos.z * 100);
+	//	auto Radius = distance(vertex.Pos, XMFLOAT3{ 0,0,0 });
+	//	vertex.Pos.x *= 1 + (ElevationValue / Radius);
+	//	vertex.Pos.y *= 1 + (ElevationValue / Radius);
+	//	vertex.Pos.z *= 1 + (ElevationValue / Radius);
+	//}
 
-	mIndices.clear();
+	//mIndices.clear();
 
 	for (int i = 0; i < mTriangles.size(); i++)
 	{

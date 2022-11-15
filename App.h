@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <memory>
 //#include "DDSTextureLoader.h"
+#include <SFML/Window.hpp>
 
 #include "Timer.h"
 #include "Utility.h"
@@ -66,7 +67,7 @@ private:
 private:
 	static App* mApp;
 	unique_ptr<Graphics> mGraphics;
-
+	sf::Window mWindow;
 	HINSTANCE mHInstance = nullptr; // App instance handle
 	HWND mHWND = nullptr; // Window handle
 
