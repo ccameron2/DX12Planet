@@ -58,16 +58,12 @@ void Graphics::Draw(float frameTime, vector<GeometryData*> geometry)
 	mCommandList->RSSetViewports(1, &mViewport);
 	mCommandList->RSSetScissorRects(1, &mScissorRect);
 
-	// Indicate a state transition on the resource usage.
-
-
 	// Clear the back buffer and depth buffer.
 	mCommandList->ClearRenderTargetView(MSAAView(), mBackgroundColour, 0, nullptr);
 	mCommandList->ClearDepthStencilView(DepthStencilView(), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
 
-	mCommandList->OMSetRenderTargets(1, 
-		&CD3DX12_CPU_DESCRIPTOR_HANDLE(mRTVHeap->GetCPUDescriptorHandleForHeapStart(),2, mRtvDescriptorSize),
-		true, &DepthStencilView());
+	// Select MSAA texture as render target
+	mCommandList->OMSetRenderTargets(1, &MSAAView(), true, &DepthStencilView());
 
 	// Specify the buffers we are going to render to.
 	//mCommandList->OMSetRenderTargets(1, &CurrentBackBufferView(), true, &DepthStencilView());
@@ -88,18 +84,22 @@ void Graphics::Draw(float frameTime, vector<GeometryData*> geometry)
 		mCommandList->DrawIndexedInstanced(geometry[i]->indicesCount, 1, 0, 0, 0);
 	}
 
+	// Transition MSAA texture to resolve source
 	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(mMSAARenderTarget.Get(),
 		D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_RESOLVE_SOURCE));
 
+	// Transition Back buffer to resolve destination
 	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
 		D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RESOLVE_DEST));
 
+	// Resolve MSAA to back buffer
 	mCommandList->ResolveSubresource(CurrentBackBuffer(), 0, mMSAARenderTarget.Get(), 0, mBackBufferFormat);
 
-	// Indicate a state transition on the resource usage.
+	// Transition back buffer to present
 	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
 		D3D12_RESOURCE_STATE_RESOLVE_DEST, D3D12_RESOURCE_STATE_PRESENT));
-	
+
+	// Transition MSAA texture to render target for use next frame
 	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(mMSAARenderTarget.Get(),
 		D3D12_RESOURCE_STATE_RESOLVE_SOURCE, D3D12_RESOURCE_STATE_RENDER_TARGET));
 
