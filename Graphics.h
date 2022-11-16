@@ -40,7 +40,10 @@ public:
 
 	const static int mSwapChainBufferCount = 2;
 	DXGI_FORMAT mBackBufferFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
-	DXGI_FORMAT mDepthStencilFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
+	DXGI_FORMAT mDepthStencilFormat = DXGI_FORMAT_D32_FLOAT;
+	//DXGI_FORMAT mDepthStencilFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
+
+	UINT mMSAAQuality = 0;
 
 	D3D12_VIEWPORT mViewport;
 	D3D12_RECT mScissorRect;
@@ -52,6 +55,9 @@ public:
 	int mCurrentBackBuffer = 0;
 	ComPtr<ID3D12Resource> mSwapChainBuffer[mSwapChainBufferCount];
 	ComPtr<ID3D12Resource> mDepthStencilBuffer;
+
+	D3D12_CPU_DESCRIPTOR_HANDLE MSAAView();
+	ComPtr<ID3D12Resource> mMSAARenderTarget;
 
 	ComPtr<ID3D12DescriptorHeap> mRTVHeap;
 	ComPtr<ID3D12DescriptorHeap> mDSVHeap;
@@ -75,6 +81,8 @@ public:
 	ComPtr<ID3DBlob> mVSByteCode = nullptr;
 	ComPtr<ID3DBlob> mPSByteCode = nullptr;
 
+	XMVECTORF32 mBackgroundColour = DirectX::Colors::Purple;
+
 	// Input layout
 	std::vector<D3D12_INPUT_ELEMENT_DESC> mInputLayout;
 
@@ -83,17 +91,23 @@ public:
 	bool InitD3D();
 	void CreateCommandObjects();
 	void CreateSwapChain(HWND hWND, int width, int height);
+
 	void Resize(int width, int height);
 	void EmptyCommandQueue();
+
 	ID3D12Resource* CurrentBackBuffer(); // Returns current back buffer in swap chain
 	D3D12_CPU_DESCRIPTOR_HANDLE CurrentBackBufferView(); // Returns Render Target View to current back buffer
 	D3D12_CPU_DESCRIPTOR_HANDLE DepthStencilView(); // Returns Depth / Stencil View  to main depth buffer
 	XMFLOAT4X4 MakeIdentity4x4();
+
 	void Draw(float frameTime, vector<GeometryData*> geometry);
+
 	void ExecuteCommands();
 	void CreateConstantBuffers();
 	void CreateDescriptorHeaps();
+
 	ComPtr<ID3DBlob> CompileShader(const std::wstring& filename, const D3D_SHADER_MACRO* defines, const std::string& entrypoint, const std::string& target);
+
 	void CreateRootSignature();
 	void CreateShaders();
 	void CreatePSO();

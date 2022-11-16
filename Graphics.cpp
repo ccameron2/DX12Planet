@@ -5,12 +5,10 @@
 
 Graphics::Graphics(HWND hWND, int width, int height)
 {
+	// Break on D3D12 errors
 	InitD3D();
-	CreateCommandObjects();
-	CreateSwapChain(hWND, width, height);
 
 #if defined(DEBUG) || defined(_DEBUG) 
-	// Break on D3D12 errors
 	ID3D12InfoQueue* infoQueue = nullptr;
 	mD3DDevice->QueryInterface(IID_PPV_ARGS(&infoQueue));
 
@@ -21,8 +19,9 @@ Graphics::Graphics(HWND hWND, int width, int height)
 	infoQueue->Release();
 #endif
 
+	CreateCommandObjects();
+	CreateSwapChain(hWND, width, height);
 	CreateDescriptorHeaps();
-
 	Resize(width, height);
 
 	if (FAILED(mCommandList->Reset(mCommandAllocator.Get(), nullptr)))
@@ -60,16 +59,18 @@ void Graphics::Draw(float frameTime, vector<GeometryData*> geometry)
 	mCommandList->RSSetScissorRects(1, &mScissorRect);
 
 	// Indicate a state transition on the resource usage.
-	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
-		D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET));
+
 
 	// Clear the back buffer and depth buffer.
-	mCommandList->ClearRenderTargetView(CurrentBackBufferView(), DirectX::Colors::Purple, 0, nullptr);
+	mCommandList->ClearRenderTargetView(MSAAView(), mBackgroundColour, 0, nullptr);
 	mCommandList->ClearDepthStencilView(DepthStencilView(), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
 
-	// Specify the buffers we are going to render to.
-	mCommandList->OMSetRenderTargets(1, &CurrentBackBufferView(), true, &DepthStencilView());
+	mCommandList->OMSetRenderTargets(1, 
+		&CD3DX12_CPU_DESCRIPTOR_HANDLE(mRTVHeap->GetCPUDescriptorHandleForHeapStart(),2, mRtvDescriptorSize),
+		true, &DepthStencilView());
 
+	// Specify the buffers we are going to render to.
+	//mCommandList->OMSetRenderTargets(1, &CurrentBackBufferView(), true, &DepthStencilView());
 
 	ID3D12DescriptorHeap* descriptorHeaps[] = { mCBVHeap.Get() };
 	mCommandList->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
@@ -86,10 +87,21 @@ void Graphics::Draw(float frameTime, vector<GeometryData*> geometry)
 
 		mCommandList->DrawIndexedInstanced(geometry[i]->indicesCount, 1, 0, 0, 0);
 	}
-	
+
+	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(mMSAARenderTarget.Get(),
+		D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_RESOLVE_SOURCE));
+
+	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
+		D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RESOLVE_DEST));
+
+	mCommandList->ResolveSubresource(CurrentBackBuffer(), 0, mMSAARenderTarget.Get(), 0, mBackBufferFormat);
+
 	// Indicate a state transition on the resource usage.
 	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
-		D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));
+		D3D12_RESOURCE_STATE_RESOLVE_DEST, D3D12_RESOURCE_STATE_PRESENT));
+	
+	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(mMSAARenderTarget.Get(),
+		D3D12_RESOURCE_STATE_RESOLVE_SOURCE, D3D12_RESOURCE_STATE_RENDER_TARGET));
 
 	// Done recording commands.
 	if (FAILED(mCommandList->Close()))
@@ -100,6 +112,7 @@ void Graphics::Draw(float frameTime, vector<GeometryData*> geometry)
 	// Add the command list to the queue for execution.
 	ID3D12CommandList* cmdLists[] = { mCommandList.Get() };
 	mCommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
+
 
 	// Swap the back and front buffers
 	if (FAILED(mSwapChain->Present(0, 0)))
@@ -151,16 +164,14 @@ bool Graphics::InitD3D()
 	mDsvDescriptorSize = mD3DDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
 	mCbvSrvUavDescriptorSize = mD3DDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
-	// Check MSAA quality support on back buffer
+	// Check MSAA quality support
 	D3D12_FEATURE_DATA_MULTISAMPLE_QUALITY_LEVELS msQualityLevels;
 	msQualityLevels.Format = mBackBufferFormat;
 	msQualityLevels.SampleCount = 4;
 	msQualityLevels.Flags = D3D12_MULTISAMPLE_QUALITY_LEVELS_FLAG_NONE;
 	msQualityLevels.NumQualityLevels = 0;
 	mD3DDevice->CheckFeatureSupport(D3D12_FEATURE_MULTISAMPLE_QUALITY_LEVELS, &msQualityLevels, sizeof(msQualityLevels));
-	//m4xMSAAQuality = msQualityLevels.NumQualityLevels;
-	//assert(m4xMSAAQuality > 0 && "Unexpected MSAA quality level.");
-
+	mMSAAQuality = msQualityLevels.NumQualityLevels;
 
 	return true;
 }
@@ -199,25 +210,25 @@ void Graphics::CreateSwapChain(HWND hWND, int width, int height)
 	mSwapChain.Reset();
 
 	// Create swap chain description
-	DXGI_SWAP_CHAIN_DESC sd;
-	sd.BufferDesc.Width = width;
-	sd.BufferDesc.Height = height;
-	sd.BufferDesc.RefreshRate.Numerator = 60;
-	sd.BufferDesc.RefreshRate.Denominator = 1;
-	sd.BufferDesc.Format = mBackBufferFormat;
-	sd.BufferDesc.ScanlineOrdering = DXGI_MODE_SCANLINE_ORDER_UNSPECIFIED;
-	sd.BufferDesc.Scaling = DXGI_MODE_SCALING_UNSPECIFIED;
-	sd.SampleDesc.Count = 1;
-	sd.SampleDesc.Quality = 0;
-	sd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-	sd.BufferCount = mSwapChainBufferCount;
-	sd.OutputWindow = hWND;
-	sd.Windowed = true;
-	sd.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
-	sd.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
+	DXGI_SWAP_CHAIN_DESC swapDesc;
+	swapDesc.BufferDesc.Width = width;
+	swapDesc.BufferDesc.Height = height;
+	swapDesc.BufferDesc.RefreshRate.Numerator = 60;
+	swapDesc.BufferDesc.RefreshRate.Denominator = 1;
+	swapDesc.BufferDesc.Format = mBackBufferFormat;
+	swapDesc.BufferDesc.ScanlineOrdering = DXGI_MODE_SCANLINE_ORDER_UNSPECIFIED;
+	swapDesc.BufferDesc.Scaling = DXGI_MODE_SCALING_UNSPECIFIED;
+	swapDesc.SampleDesc.Count = 1;
+	swapDesc.SampleDesc.Quality = 0;
+	swapDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+	swapDesc.BufferCount = mSwapChainBufferCount;
+	swapDesc.OutputWindow = hWND;
+	swapDesc.Windowed = true;
+	swapDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
+	swapDesc.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
 
 	// Create swap chain with description
-	if (FAILED(mDXGIFactory->CreateSwapChain(mCommandQueue.Get(), &sd, mSwapChain.GetAddressOf())))
+	if (FAILED(mDXGIFactory->CreateSwapChain(mCommandQueue.Get(), &swapDesc, mSwapChain.GetAddressOf())))
 	{
 		MessageBox(0, L"Swap chain creation failed", L"Error", MB_OK);
 	}
@@ -313,15 +324,28 @@ void Graphics::CreatePSO()
 		reinterpret_cast<BYTE*>(mPSByteCode->GetBufferPointer()),
 		mPSByteCode->GetBufferSize()
 	};
-	psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+
+	psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(
+		D3D12_FILL_MODE_WIREFRAME,
+		D3D12_CULL_MODE_BACK,
+		FALSE,
+		D3D12_DEFAULT_DEPTH_BIAS,
+		D3D12_DEFAULT_DEPTH_BIAS_CLAMP,
+		D3D12_DEFAULT_SLOPE_SCALED_DEPTH_BIAS,
+		TRUE,
+		TRUE, //MSAA
+		FALSE,
+		0,
+		D3D12_CONSERVATIVE_RASTERIZATION_MODE_OFF);
+
 	psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
 	psoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
 	psoDesc.SampleMask = UINT_MAX;
 	psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 	psoDesc.NumRenderTargets = 1;
 	psoDesc.RTVFormats[0] = mBackBufferFormat;
-	psoDesc.SampleDesc.Count = 1;
-	psoDesc.SampleDesc.Quality = 0;
+	psoDesc.SampleDesc.Count = 4;
+	psoDesc.SampleDesc.Quality = mMSAAQuality - 1;
 	psoDesc.DSVFormat = mDepthStencilFormat;
 	if (FAILED(mD3DDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mPSO))))
 	{
@@ -350,7 +374,7 @@ void Graphics::CreateConstantBuffers()
 void Graphics::CreateDescriptorHeaps()
 {
 	D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc;
-	rtvHeapDesc.NumDescriptors = mSwapChainBufferCount;
+	rtvHeapDesc.NumDescriptors = mSwapChainBufferCount + 1;
 	rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
 	rtvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
 	rtvHeapDesc.NodeMask = 0;
@@ -414,6 +438,29 @@ void Graphics::Resize(int width, int height)
 		mD3DDevice->CreateRenderTargetView(mSwapChainBuffer[i].Get(), nullptr, rtvHeapHandle);
 		rtvHeapHandle.Offset(1, mRtvDescriptorSize);
 	}
+	
+	auto heapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
+
+	D3D12_RESOURCE_DESC desc = CD3DX12_RESOURCE_DESC::Tex2D(mBackBufferFormat,
+		static_cast<UINT64>(width),
+		static_cast<UINT>(height),
+		1, 1, 4, mMSAAQuality - 1, D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET);
+
+	D3D12_CLEAR_VALUE clearValue = { mBackBufferFormat, {} };
+	memcpy(clearValue.Color, mBackgroundColour, sizeof(clearValue.Color));
+
+	mD3DDevice->CreateCommittedResource(
+		&heapProperties,
+		D3D12_HEAP_FLAG_ALLOW_ALL_BUFFERS_AND_TEXTURES,
+		&desc,
+		D3D12_RESOURCE_STATE_RENDER_TARGET,
+		&clearValue, IID_PPV_ARGS(mMSAARenderTarget.ReleaseAndGetAddressOf()));
+
+	D3D12_RENDER_TARGET_VIEW_DESC msaaDesc;
+	msaaDesc.Format = mBackBufferFormat;
+	msaaDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2DMS;
+	mD3DDevice->CreateRenderTargetView(mMSAARenderTarget.Get(), &msaaDesc, rtvHeapHandle);
+	rtvHeapHandle.Offset(1, mRtvDescriptorSize);
 
 	// Create the depth / stencil buffer description
 	D3D12_RESOURCE_DESC depthStencilDesc;
@@ -423,9 +470,9 @@ void Graphics::Resize(int width, int height)
 	depthStencilDesc.Height = height;
 	depthStencilDesc.DepthOrArraySize = 1;
 	depthStencilDesc.MipLevels = 1;
-	depthStencilDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
-	depthStencilDesc.SampleDesc.Count = 1;
-	depthStencilDesc.SampleDesc.Quality = 0;
+	depthStencilDesc.Format = mDepthStencilFormat;
+	depthStencilDesc.SampleDesc.Count = 4;
+	depthStencilDesc.SampleDesc.Quality = mMSAAQuality - 1;
 	depthStencilDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
 	depthStencilDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
 
@@ -448,7 +495,7 @@ void Graphics::Resize(int width, int height)
 	// Create Descriptor to mip lvl 0 of entire resource using format from depth stencil
 	D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc;
 	dsvDesc.Flags = D3D12_DSV_FLAG_NONE;
-	dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
+	dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2DMS;
 	dsvDesc.Format = mDepthStencilFormat;
 	dsvDesc.Texture2D.MipSlice = 0;
 	mD3DDevice->CreateDepthStencilView(mDepthStencilBuffer.Get(), &dsvDesc, DepthStencilView());
@@ -526,6 +573,10 @@ D3D12_CPU_DESCRIPTOR_HANDLE Graphics::CurrentBackBufferView()
 	return CD3DX12_CPU_DESCRIPTOR_HANDLE(mRTVHeap->GetCPUDescriptorHandleForHeapStart(), mCurrentBackBuffer, mRtvDescriptorSize);
 }
 
+D3D12_CPU_DESCRIPTOR_HANDLE Graphics::MSAAView()
+{
+	return CD3DX12_CPU_DESCRIPTOR_HANDLE(mRTVHeap->GetCPUDescriptorHandleForHeapStart(), 2, mRtvDescriptorSize);
+}
 // Return depth stencil view
 D3D12_CPU_DESCRIPTOR_HANDLE Graphics::DepthStencilView()
 {
