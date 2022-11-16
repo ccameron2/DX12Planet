@@ -9,6 +9,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE prevInstance, PSTR cmdLine, in
     _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
     #endif
 
-    auto app = std::make_unique<App>(hInstance);
+    auto app = std::make_unique<App>();
     return 0;
 }

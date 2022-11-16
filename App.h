@@ -38,47 +38,36 @@ using namespace DirectX;
 class App
 {
 public:
-	App(HINSTANCE hInstance);
+	App();
 
 	// Flush command queue to prevent GPU crash on exit
 	~App();
 
-	static App* GetApp();
+	void Run();
 
-	int Run();
-
-	bool Initialize();
-
-	LRESULT MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam); // Windows procedure function for the main app window
+	void Initialize();
 
 private:
 	Timer mTimer;
 
 	bool InitWindow();
-	void CalcFrameStats();
+	void FrameStats();
 	void Update(float frameTime);
-	
-	void MouseDown(WPARAM buttonState, int x, int y) { mLastMousePos.x = x; mLastMousePos.y = y; SetCapture(mHWND); }
-	void MouseUp(WPARAM buttonState, int x, int y) { ReleaseCapture(); }
-	void MouseMove(WPARAM buttonState, int x, int y);
 
 	void CreateIcosohedron();
-
+	void MouseMoved(sf::Event event);
+	void PollEvents();
 private:
-	static App* mApp;
 	unique_ptr<Graphics> mGraphics;
 	sf::Window mWindow;
-	HINSTANCE mHInstance = nullptr; // App instance handle
-	HWND mHWND = nullptr; // Window handle
 
 	bool mAppPaused = false;
-	bool mMinimised = false;
-	bool mMaximised = false;
 	bool mResizing = false;
 	bool mFullscreen = false;
+	bool mRightMouse = false;
+	bool mLeftMouse = false;
 
 	POINT mLastMousePos;
-	float PI = 3.14159;
 
 	int mWidth = 800;
 	int mHeight = 600;
@@ -90,7 +79,7 @@ private:
 	float mRadius = 5.0f;
 
 	D3D_DRIVER_TYPE mD3DDriverType = D3D_DRIVER_TYPE_HARDWARE;
-	std::wstring mMainCaption = L"D3D12";
+	std::wstring mMainCaption = L"D3D12 Engine Masters";
 };
 
 

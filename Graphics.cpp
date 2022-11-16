@@ -8,15 +8,18 @@ Graphics::Graphics(HWND hWND, int width, int height)
 	InitD3D();
 	CreateCommandObjects();
 	CreateSwapChain(hWND, width, height);
+
+#if defined(DEBUG) || defined(_DEBUG) 
 	// Break on D3D12 errors
-	//ID3D12InfoQueue* infoQueue = nullptr;
-	//mD3DDevice->QueryInterface(IID_PPV_ARGS(&infoQueue));
+	ID3D12InfoQueue* infoQueue = nullptr;
+	mD3DDevice->QueryInterface(IID_PPV_ARGS(&infoQueue));
 
-	//infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, true);
-	//infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, true);
-	//infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_WARNING, false);
+	infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, true);
+	infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, true);
+	infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_WARNING, false);
 
-	//infoQueue->Release();
+	infoQueue->Release();
+#endif
 
 	CreateDescriptorHeaps();
 

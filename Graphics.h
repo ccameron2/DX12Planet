@@ -71,7 +71,7 @@ public:
 
 	ComPtr<ID3D12RootSignature> mRootSignature;
 
-	// Shader variables
+	// Compiled shader variables
 	ComPtr<ID3DBlob> mVSByteCode = nullptr;
 	ComPtr<ID3DBlob> mPSByteCode = nullptr;
 
