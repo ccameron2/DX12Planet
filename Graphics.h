@@ -88,7 +88,7 @@ public:
 
 	ComPtr<ID3D12PipelineState> mPSO = nullptr;
 
-	bool InitD3D();
+	bool CreateDeviceAndFence();
 	void CreateCommandObjects();
 	void CreateSwapChain(HWND hWND, int width, int height);
 

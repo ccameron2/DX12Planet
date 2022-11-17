@@ -6,7 +6,7 @@
 Graphics::Graphics(HWND hWND, int width, int height)
 {
 	// Break on D3D12 errors
-	InitD3D();
+	CreateDeviceAndFence();
 
 #if defined(DEBUG) || defined(_DEBUG) 
 	ID3D12InfoQueue* infoQueue = nullptr;
@@ -126,7 +126,7 @@ void Graphics::Draw(float frameTime, vector<GeometryData*> geometry)
 }
 
 
-bool Graphics::InitD3D()
+bool Graphics::CreateDeviceAndFence()
 {
 
 #if defined(DEBUG) || defined(_DEBUG) 
