@@ -47,18 +47,18 @@ void App::Run()
 	// Start timer for frametime
 	mTimer.Start();
 
-	// Create test cube
-	unique_ptr<GeometryData> geometry = make_unique<GeometryData>();
-	Cube cube;
-	geometry->mVertices = cube.vertices;
-	geometry->mIndices = cube.indices;
-	mGraphics->mCommandList->Reset(mGraphics->mCommandAllocator.Get(), nullptr);
-	geometry->CalculateBufferData(mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
-	mGraphics->ExecuteCommands();
-	////////////
+	//// Create test cube
+	//unique_ptr<GeometryData> geometry = make_unique<GeometryData>();
+	//Cube cube;
+	//geometry->mVertices = cube.vertices;
+	//geometry->mIndices = cube.indices;
+	//mGraphics->mCommandList->Reset(mGraphics->mCommandAllocator.Get(), nullptr);
+	//geometry->CalculateBufferData(mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
+	//mGraphics->ExecuteCommands();
+	//////////////
 
 	// Collect all geometry into vector
-	vector<GeometryData*> geometryData = { mIcosohedron->mGeometryData.get(),geometry.get()};
+	vector<GeometryData*> geometryData = { mIcosohedron->mGeometryData.get()/*,geometry.get()*/};
 
 	while (mWindow.isOpen())
 	{

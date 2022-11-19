@@ -84,7 +84,7 @@ void Icosahedron::CreateGeometry(int numVertices, int numIndices, ID3D12Device* 
 	//	vertex.Pos.z *= 1 + (ElevationValue / Radius);
 	//}
 
-	//mIndices.clear();
+	mIndices.clear();
 
 	for (int i = 0; i < mTriangles.size(); i++)
 	{
@@ -134,7 +134,9 @@ int Icosahedron::VertexForEdge(int first, int second)
 		auto& edge2 = mVertices[second];
 		auto point = AddVector(edge1.Pos,edge2.Pos);
 		Normalize(&point.Pos);
-		/*point.Color = edge1.Color;*/
+		point.Color.x = std::lerp(edge1.Color.x, edge2.Color.x, 0.5);
+		point.Color.y = std::lerp(edge1.Color.y, edge2.Color.y, 0.5);
+		point.Color.z = std::lerp(edge1.Color.z, edge2.Color.z, 0.5);
 		mVertices.push_back(point);
 	}
 	return in.first->second;
