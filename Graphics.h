@@ -14,9 +14,9 @@
 #include <algorithm>
 #include <memory>
 #include "Utility.h"
-#include "UploadBuffer.h"
 #include <memory>
 #include "GeometryData.h"
+
 using namespace DirectX;
 using Microsoft::WRL::ComPtr;
 
@@ -25,7 +25,7 @@ class Graphics
 public:
 	Graphics(HWND hwnd,int width, int height);
 	~Graphics();
-
+	
 	ComPtr<ID3D12Device> mD3DDevice;
 	ComPtr<ID3D12GraphicsCommandList> mCommandList;
 
@@ -35,8 +35,8 @@ public:
 	ComPtr<ID3D12Fence> mFence;
 	UINT64 mCurrentFence = 0;
 
-	ComPtr<ID3D12CommandQueue> mCommandQueue;
 	ComPtr<ID3D12CommandAllocator> mCommandAllocator;
+	ComPtr<ID3D12CommandQueue> mCommandQueue;
 
 	const static int mSwapChainBufferCount = 2;
 	DXGI_FORMAT mBackBufferFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
@@ -62,19 +62,6 @@ public:
 	ComPtr<ID3D12DescriptorHeap> mRTVHeap;
 	ComPtr<ID3D12DescriptorHeap> mDSVHeap;
 
-	XMFLOAT4X4 mWorldMatrix = MakeIdentity4x4();
-	XMFLOAT4X4 mViewMatrix = MakeIdentity4x4();
-	XMFLOAT4X4 mProjectionMatrix = MakeIdentity4x4();
-
-	struct mPerObjectConstants
-	{
-		XMFLOAT4X4 WorldViewProj;
-	};
-
-	// Per Object constant buffer
-	unique_ptr <UploadBuffer<mPerObjectConstants>> mPerObjectConstantBuffer;
-	ComPtr<ID3D12DescriptorHeap> mCBVHeap;
-
 	ComPtr<ID3D12RootSignature> mRootSignature;
 
 	// Compiled shader variables
@@ -98,12 +85,9 @@ public:
 	ID3D12Resource* CurrentBackBuffer(); // Returns current back buffer in swap chain
 	D3D12_CPU_DESCRIPTOR_HANDLE CurrentBackBufferView(); // Returns Render Target View to current back buffer
 	D3D12_CPU_DESCRIPTOR_HANDLE DepthStencilView(); // Returns Depth / Stencil View  to main depth buffer
-	XMFLOAT4X4 MakeIdentity4x4();
 
-	void Draw(float frameTime, vector<GeometryData*> geometry);
 
 	void ExecuteCommands();
-	void CreateConstantBuffers();
 	void CreateDescriptorHeaps();
 
 	ComPtr<ID3DBlob> CompileShader(const std::wstring& filename, const D3D_SHADER_MACRO* defines, const std::string& entrypoint, const std::string& target);
@@ -111,6 +95,8 @@ public:
 	void CreateRootSignature();
 	void CreateShaders();
 	void CreatePSO();
+
+	void ResolveMSAAToBackBuffer(ID3D12GraphicsCommandList* commandList);
 
 };
 

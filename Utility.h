@@ -73,3 +73,14 @@ UINT static CalculateConstantBufferSize(UINT size)
 	// the lower 2 bytes which store all bits < 256.
 	return (size + 255) & ~255;
 }
+
+
+XMFLOAT4X4 static MakeIdentity4x4()
+{
+	XMFLOAT4X4 I(
+		1.0f, 0.0f, 0.0f, 0.0f,
+		0.0f, 1.0f, 0.0f, 0.0f,
+		0.0f, 0.0f, 1.0f, 0.0f,
+		0.0f, 0.0f, 0.0f, 1.0f);
+	return I;
+}

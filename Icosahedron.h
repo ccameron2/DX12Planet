@@ -24,7 +24,7 @@ public:
 	std::vector<Vertex> mVertices;
 	std::vector<uint16_t> mIndices;
 	std::vector<Triangle> mTriangles;
-	int mRecursions = 6;
+	int mRecursions = 2;
 	std::map<std::pair<int, int>, int> mVertexMap;
 	int mOctaves = 8;
 	int mFrequency = 0.8;

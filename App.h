@@ -26,6 +26,7 @@
 #include "Icosahedron.h"
 #include "Graphics.h"
 #include "UploadBuffer.h"
+#include "FrameResource.h"
 
 // Link necessary d3d12 libraries.
 #pragma comment(lib,"d3dcompiler.lib")
@@ -53,13 +54,35 @@ private:
 	bool InitWindow();
 	void FrameStats();
 	void Update(float frameTime);
-
+	void Draw(float frameTime);
+	
 	void CreateIcosohedron();
 	void MouseMoved(sf::Event event);
 	void PollEvents();
-private:
+	void Resized();
+	void UpdateCamera();
+
 	unique_ptr<Graphics> mGraphics;
 	sf::Window mWindow;
+
+	struct RenderItem
+	{
+		XMFLOAT4X4 WorldMatrix = MakeIdentity4x4();
+		int NumDirtyFrames = mNumFrameResources;
+		UINT ObjConstantBufferIndex = -1;
+		GeometryData* Geometry = nullptr;
+		D3D12_PRIMITIVE_TOPOLOGY Topology = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+		UINT IndexCount = 0;
+		UINT StartIndexLocation = 0;
+		int BaseVertexLocation = 0;
+	};
+	// If diffent PSOs needed then use different lists
+	vector<RenderItem*> mRenderItems;
+
+	XMFLOAT3 mEyePos = { 0.0f, 0.0f, 0.0f };
+	XMFLOAT4X4 mWorldMatrix = MakeIdentity4x4();
+	XMFLOAT4X4 mViewMatrix = MakeIdentity4x4();
+	XMFLOAT4X4 mProjectionMatrix = MakeIdentity4x4();
 
 	bool mAppPaused = false;
 	bool mResizing = false;
@@ -80,8 +103,22 @@ private:
 
 	D3D_DRIVER_TYPE mD3DDriverType = D3D_DRIVER_TYPE_HARDWARE;
 	std::wstring mMainCaption = L"D3D12 Engine Masters";
-};
 
+	const static int mNumFrameResources = 3;
+	std::vector<std::unique_ptr<FrameResource>> mFrameResources;
+	FrameResource* mCurrentFrameResource = nullptr;
+	int mCurrentFrameResourceIndex = 0;
+
+	ComPtr<ID3D12DescriptorHeap> mCBVHeap;
+	UINT mPassCbvOffset = 0;
+	void BuildFrameResources();
+	void UpdatePerObjectConstantBuffers();
+	void UpdatePerFrameConstantBuffers();
+	void CreateConstantBuffers();
+	void CreateRenderItems();
+	void CreateCBVHeap();
+	void DrawRenderItems(ID3D12GraphicsCommandList* commandList);
+};
 
 struct Cube
 {

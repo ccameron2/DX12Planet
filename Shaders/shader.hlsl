@@ -1,7 +1,23 @@
 
-cbuffer cbPerObject : register(b0)
+cbuffer cbPerObjectConstants : register(b0)
 {
-	float4x4 gWorldViewProj;
+	float4x4 World;
+};
+
+cbuffer cbPerPassConstants : register(b1)
+{
+	float4x4 View;
+	float4x4 Proj;
+	float4x4 ViewProj;
+	float3 EyePosW;
+	float padding1;
+	float2 RenderTargetSize;
+	float NearZ;
+	float FarZ;
+	float TotalTime;
+	float DeltaTime;
+	float padding2;
+	float padding3;
 };
 
 struct VIn
@@ -21,7 +37,8 @@ VOut VS(VIn vin)
 	VOut vout;
 	
 	// Transform to homogeneous clip space.
-	vout.Pos = mul(float4(vin.Pos, 1.0f), gWorldViewProj);
+	float4 posW = mul(float4(vin.Pos, 1.0f), World);
+	vout.Pos = mul(posW, ViewProj);
 	
 	// Pass vertex color into the pixel shader.
 	vout.Colour = vin.Colour;

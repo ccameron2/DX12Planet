@@ -18,7 +18,7 @@ Graphics::Graphics(HWND hWND, int width, int height)
 
 	infoQueue->Release();
 #endif
-
+	
 	CreateCommandObjects();
 	CreateSwapChain(hWND, width, height);
 	CreateDescriptorHeaps();
@@ -26,13 +26,13 @@ Graphics::Graphics(HWND hWND, int width, int height)
 
 	if (FAILED(mCommandList->Reset(mCommandAllocator.Get(), nullptr)))
 	{
-		MessageBox(0, L"Command Allocator reset failed", L"Error", MB_OK);
+		MessageBox(0, L"Command List reset failed", L"Error", MB_OK);
 	}
 
-	CreateConstantBuffers();
 	CreateRootSignature();
 	CreateShaders();
 	CreatePSO();
+
 }
 
 Graphics::~Graphics()
@@ -40,89 +40,26 @@ Graphics::~Graphics()
 
 }
 
-void Graphics::Draw(float frameTime, vector<GeometryData*> geometry)
+void Graphics::ResolveMSAAToBackBuffer(ID3D12GraphicsCommandList* commandList)
 {
-	// We can only reset when the associated command lists have finished execution on the GPU.
-	if (FAILED(mCommandAllocator->Reset()))
-	{
-		MessageBox(0, L"Command Allocator reset failed", L"Error", MB_OK);
-	}
-
-	// A command list can be reset after it has been added to the command queue via ExecuteCommandList.
-	if (FAILED(mCommandList->Reset(mCommandAllocator.Get(), mPSO.Get())))
-	{
-		MessageBox(0, L"Command List reset failed", L"Error", MB_OK);
-	}
-
-	// Set the viewport and scissor rect.  This needs to be reset whenever the command list is reset.
-	mCommandList->RSSetViewports(1, &mViewport);
-	mCommandList->RSSetScissorRects(1, &mScissorRect);
-
-	// Clear the back buffer and depth buffer.
-	mCommandList->ClearRenderTargetView(MSAAView(), mBackgroundColour, 0, nullptr);
-	mCommandList->ClearDepthStencilView(DepthStencilView(), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
-
-	// Select MSAA texture as render target
-	mCommandList->OMSetRenderTargets(1, &MSAAView(), true, &DepthStencilView());
-
-	// Specify the buffers we are going to render to.
-	//mCommandList->OMSetRenderTargets(1, &CurrentBackBufferView(), true, &DepthStencilView());
-
-	ID3D12DescriptorHeap* descriptorHeaps[] = { mCBVHeap.Get() };
-	mCommandList->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
-
-	mCommandList->SetGraphicsRootSignature(mRootSignature.Get());
-	mCommandList->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-	mCommandList->SetGraphicsRootDescriptorTable(0, mCBVHeap->GetGPUDescriptorHandleForHeapStart());
-
-	for (int i = 0; i < geometry.size(); i++)
-	{
-		mCommandList->IASetVertexBuffers(0, 1, &geometry[i]->GetVertexBufferView());
-		mCommandList->IASetIndexBuffer(&geometry[i]->GetIndexBufferView());
-
-
-		mCommandList->DrawIndexedInstanced(geometry[i]->indicesCount, 1, 0, 0, 0);
-	}
-
 	// Transition MSAA texture to resolve source
-	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(mMSAARenderTarget.Get(),
+	commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(mMSAARenderTarget.Get(),
 		D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_RESOLVE_SOURCE));
 
 	// Transition Back buffer to resolve destination
-	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
+	commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
 		D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RESOLVE_DEST));
 
 	// Resolve MSAA to back buffer
-	mCommandList->ResolveSubresource(CurrentBackBuffer(), 0, mMSAARenderTarget.Get(), 0, mBackBufferFormat);
+	commandList->ResolveSubresource(CurrentBackBuffer(), 0, mMSAARenderTarget.Get(), 0, mBackBufferFormat);
 
 	// Transition back buffer to present
-	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
+	commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
 		D3D12_RESOURCE_STATE_RESOLVE_DEST, D3D12_RESOURCE_STATE_PRESENT));
 
 	// Transition MSAA texture to render target for use next frame
-	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(mMSAARenderTarget.Get(),
+	commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(mMSAARenderTarget.Get(),
 		D3D12_RESOURCE_STATE_RESOLVE_SOURCE, D3D12_RESOURCE_STATE_RENDER_TARGET));
-
-	// Done recording commands.
-	if (FAILED(mCommandList->Close()))
-	{
-		MessageBox(0, L"Command List close failed", L"Error", MB_OK);
-	}
-
-	// Add the command list to the queue for execution.
-	ID3D12CommandList* cmdLists[] = { mCommandList.Get() };
-	mCommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
-
-
-	// Swap the back and front buffers
-	if (FAILED(mSwapChain->Present(0, 0)))
-	{
-		MessageBox(0, L"Swap chain present failed", L"Error", MB_OK);
-	}
-	mCurrentBackBuffer = (mCurrentBackBuffer + 1) % mSwapChainBufferCount;
-
-	// Wait until frame commands are complete.
-	EmptyCommandQueue();
 }
 
 
@@ -236,23 +173,28 @@ void Graphics::CreateSwapChain(HWND hWND, int width, int height)
 
 void Graphics::CreateRootSignature()
 {
-	// Root parameter can be a table, root descriptor or root constants.
-	CD3DX12_ROOT_PARAMETER slotRootParameter[1];
+	CD3DX12_DESCRIPTOR_RANGE cbvTable0;
+	cbvTable0.Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 0);
 
-	// Create a single descriptor table of CBVs.
-	CD3DX12_DESCRIPTOR_RANGE cbvTable;
-	cbvTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 0);
-	slotRootParameter[0].InitAsDescriptorTable(1, &cbvTable);
+	CD3DX12_DESCRIPTOR_RANGE cbvTable1;
+	cbvTable1.Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 1);
+
+	// Root parameter can be a table, root descriptor or root constants.
+	CD3DX12_ROOT_PARAMETER slotRootParameter[2];
+
+	// Create root CBVs.
+	slotRootParameter[0].InitAsDescriptorTable(1, &cbvTable0);
+	slotRootParameter[1].InitAsDescriptorTable(1, &cbvTable1);
 
 	// A root signature is an array of root parameters.
-	CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(1, slotRootParameter, 0, nullptr,
+	CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(2, slotRootParameter, 0, nullptr,
 		D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 
 	// create a root signature with a single slot which points to a descriptor range consisting of a single constant buffer
-	ComPtr<ID3DBlob> serializedRootSig = nullptr;
+	ComPtr<ID3DBlob> serializedRootSignature = nullptr;
 	ComPtr<ID3DBlob> errorBlob = nullptr;
 	HRESULT hr = D3D12SerializeRootSignature(&rootSigDesc, D3D_ROOT_SIGNATURE_VERSION_1,
-		serializedRootSig.GetAddressOf(), errorBlob.GetAddressOf());
+		serializedRootSignature.GetAddressOf(), errorBlob.GetAddressOf());
 
 	if (errorBlob != nullptr)
 	{
@@ -264,9 +206,9 @@ void Graphics::CreateRootSignature()
 	}
 
 	if (FAILED(mD3DDevice->CreateRootSignature(0,
-		serializedRootSig->GetBufferPointer(),
-		serializedRootSig->GetBufferSize(),
-		IID_PPV_ARGS(&mRootSignature))))
+		serializedRootSignature->GetBufferPointer(),
+		serializedRootSignature->GetBufferSize(),
+		IID_PPV_ARGS(mRootSignature.GetAddressOf()))))
 	{
 		MessageBox(0, L"Root Signature creation failed", L"Error", MB_OK);
 	}
@@ -326,7 +268,7 @@ void Graphics::CreatePSO()
 	};
 
 	psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
-	//psoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_WIREFRAME;
+	psoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_WIREFRAME;
 	psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
 	psoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
 	psoDesc.SampleMask = UINT_MAX;
@@ -340,24 +282,6 @@ void Graphics::CreatePSO()
 	{
 		MessageBox(0, L"Pipeline State Creation failed", L"Error", MB_OK);
 	}
-}
-
-void Graphics::CreateConstantBuffers()
-{
-	mPerObjectConstantBuffer = make_unique<UploadBuffer<mPerObjectConstants>>(mD3DDevice.Get(), 1, true);
-
-	UINT objCBByteSize = CalculateConstantBufferSize(sizeof(mPerObjectConstants));
-
-	D3D12_GPU_VIRTUAL_ADDRESS cbAddress = mPerObjectConstantBuffer->GetBuffer()->GetGPUVirtualAddress();
-	// Offset to the ith object constant buffer in the buffer.
-	int boxCBufIndex = 0;
-	cbAddress += boxCBufIndex * objCBByteSize;
-
-	D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc;
-	cbvDesc.BufferLocation = cbAddress;
-	cbvDesc.SizeInBytes = objCBByteSize;
-
-	mD3DDevice->CreateConstantBufferView(&cbvDesc, mCBVHeap->GetCPUDescriptorHandleForHeapStart());
 }
 
 void Graphics::CreateDescriptorHeaps()
@@ -380,16 +304,6 @@ void Graphics::CreateDescriptorHeaps()
 	if (FAILED(mD3DDevice->CreateDescriptorHeap(&dsvHeapDesc, IID_PPV_ARGS(mDSVHeap.GetAddressOf()))))
 	{
 		MessageBox(0, L"Depth Stencil View creation failed", L"Error", MB_OK);
-	}
-
-	D3D12_DESCRIPTOR_HEAP_DESC cbvHeapDesc;
-	cbvHeapDesc.NumDescriptors = 1;
-	cbvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-	cbvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-	cbvHeapDesc.NodeMask = 0;
-	if (FAILED(mD3DDevice->CreateDescriptorHeap(&cbvHeapDesc, IID_PPV_ARGS(&mCBVHeap))))
-	{
-		MessageBox(0, L"Constant Buffer View creation failed", L"Error", MB_OK);
 	}
 }
 
@@ -503,11 +417,6 @@ void Graphics::Resize(int width, int height)
 	mViewport.MinDepth = 0.0f;
 	mViewport.MaxDepth = 1.0f;
 	mScissorRect = { 0, 0, width, height };
-
-	float PI = 3.14159;
-	// The window resized, so update the aspect ratio and recompute projection matrix.
-	XMMATRIX p = XMMatrixPerspectiveFovLH(0.25f * PI, static_cast<float>(width) / height, 1.0f, 1000.0f);
-	XMStoreFloat4x4(&mProjectionMatrix, p);
 }
 
 void Graphics::ExecuteCommands()
@@ -572,12 +481,3 @@ D3D12_CPU_DESCRIPTOR_HANDLE Graphics::DepthStencilView()
 	return mDSVHeap->GetCPUDescriptorHandleForHeapStart();
 }
 
-XMFLOAT4X4 Graphics::MakeIdentity4x4()
-{
-	XMFLOAT4X4 I(
-		1.0f, 0.0f, 0.0f, 0.0f,
-		0.0f, 1.0f, 0.0f, 0.0f,
-		0.0f, 0.0f, 1.0f, 0.0f,
-		0.0f, 0.0f, 0.0f, 1.0f);
-	return I;
-}
