@@ -223,6 +223,7 @@ void App::Draw(float frameTime)
 	// Tell command queue to set new fence point, will only be set when the GPU gets to new fence value.
 	mGraphics->mCommandQueue->Signal(mGraphics->mFence.Get(), mGraphics->mCurrentFence);
 
+	// Frame buffering broken so wait each frame
 	mGraphics->EmptyCommandQueue();
 }
 
