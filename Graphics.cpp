@@ -104,7 +104,7 @@ bool Graphics::CreateDeviceAndFence()
 	// Check MSAA quality support
 	D3D12_FEATURE_DATA_MULTISAMPLE_QUALITY_LEVELS msQualityLevels;
 	msQualityLevels.Format = mBackBufferFormat;
-	msQualityLevels.SampleCount = 4;
+	msQualityLevels.SampleCount = mMSAASampleCount;
 	msQualityLevels.Flags = D3D12_MULTISAMPLE_QUALITY_LEVELS_FLAG_NONE;
 	msQualityLevels.NumQualityLevels = 0;
 	mD3DDevice->CheckFeatureSupport(D3D12_FEATURE_MULTISAMPLE_QUALITY_LEVELS, &msQualityLevels, sizeof(msQualityLevels));
@@ -269,13 +269,15 @@ void Graphics::CreatePSO()
 
 	psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
 	psoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_WIREFRAME;
+	psoDesc.RasterizerState.MultisampleEnable = true;
+	psoDesc.RasterizerState.FrontCounterClockwise = true;
 	psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
 	psoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
 	psoDesc.SampleMask = UINT_MAX;
 	psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 	psoDesc.NumRenderTargets = 1;
 	psoDesc.RTVFormats[0] = mBackBufferFormat;
-	psoDesc.SampleDesc.Count = 4;
+	psoDesc.SampleDesc.Count = mMSAASampleCount;
 	psoDesc.SampleDesc.Quality = mMSAAQuality - 1;
 	psoDesc.DSVFormat = mDepthStencilFormat;
 	if (FAILED(mD3DDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mPSO))))
@@ -347,7 +349,7 @@ void Graphics::Resize(int width, int height)
 	D3D12_RESOURCE_DESC desc = CD3DX12_RESOURCE_DESC::Tex2D(mBackBufferFormat,
 		static_cast<UINT64>(width),
 		static_cast<UINT>(height),
-		1, 1, 4, mMSAAQuality - 1, D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET);
+		1, 1, mMSAASampleCount, mMSAAQuality - 1, D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET);
 
 	D3D12_CLEAR_VALUE clearValue = { mBackBufferFormat, {} };
 	memcpy(clearValue.Color, mBackgroundColour, sizeof(clearValue.Color));
@@ -374,7 +376,7 @@ void Graphics::Resize(int width, int height)
 	depthStencilDesc.DepthOrArraySize = 1;
 	depthStencilDesc.MipLevels = 1;
 	depthStencilDesc.Format = mDepthStencilFormat;
-	depthStencilDesc.SampleDesc.Count = 4;
+	depthStencilDesc.SampleDesc.Count = mMSAASampleCount;
 	depthStencilDesc.SampleDesc.Quality = mMSAAQuality - 1;
 	depthStencilDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
 	depthStencilDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
@@ -426,7 +428,7 @@ void Graphics::ExecuteCommands()
 	ID3D12CommandList* cmdLists[] = { mCommandList.Get() };
 	mCommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
 
-	// Wait for risize to be complete
+	// Wait for work to be complete
 	EmptyCommandQueue();
 }
 

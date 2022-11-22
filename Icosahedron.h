@@ -13,7 +13,7 @@ class Icosahedron
 {
 	struct Triangle
 	{
-		int Point[3];
+		std::uint32_t Point[3];
 	};
 
 public:
@@ -22,15 +22,17 @@ public:
 	unique_ptr<GeometryData> mGeometryData;
 
 	std::vector<Vertex> mVertices;
-	std::vector<uint16_t> mIndices;
+	std::vector<uint32_t> mIndices;
 	std::vector<Triangle> mTriangles;
-	int mRecursions = 2;
+	std::vector<XMFLOAT3> mNormals;
+	int mRecursions = 10;
 	std::map<std::pair<int, int>, int> mVertexMap;
 	int mOctaves = 8;
-	int mFrequency = 0.8;
+	float mFrequency = 0.8;
 private:
 	void CreateGeometry(int numVertices, int numIndices, ID3D12Device* d3DDevice, ID3D12GraphicsCommandList* commandList);
 	int VertexForEdge(int first, int second);
 	void SubdivideIcosphere();
-	float FractalBrownianMotion(XMFLOAT3 fractalInput, float octaves, float frequency);
+	float FractalBrownianMotion(FastNoiseLite fastNoise, XMFLOAT3 fractalInput, float octaves, float frequency);
+	void CalculateNormals();
 };

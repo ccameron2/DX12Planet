@@ -26,7 +26,7 @@ void GeometryData::CalculateBufferData(ID3D12Device* d3DDevice, ID3D12GraphicsCo
 {
 	indicesCount = mIndices.size();
 	const UINT vBSize = (UINT)mVertices.size() * sizeof(Vertex);
-	const UINT iBSize = (UINT)mIndices.size() * sizeof(std::uint16_t);
+	const UINT iBSize = (UINT)mIndices.size() * sizeof(std::uint32_t);
 
 	D3DCreateBlob(vBSize, &CPUVertexBuffer);
 	CopyMemory(CPUVertexBuffer->GetBufferPointer(), mVertices.data(), vBSize);
@@ -40,6 +40,5 @@ void GeometryData::CalculateBufferData(ID3D12Device* d3DDevice, ID3D12GraphicsCo
 
 	vertexByteStride = sizeof(Vertex);
 	vertexBufferByteSize = vBSize;
-	indexFormat = DXGI_FORMAT_R16_UINT;
 	indexBufferByteSize = iBSize;
 }

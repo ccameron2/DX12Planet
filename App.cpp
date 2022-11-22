@@ -65,6 +65,12 @@ void App::Initialize()
 	
 	CreateIcosohedron();
 	CreateRenderItems();
+
+	//if (FAILED(mGraphics->mCommandList->Reset(mGraphics->mCommandAllocator.Get(), nullptr)))
+	//{
+	//	MessageBox(0, L"Command List reset failed", L"Error", MB_OK);
+	//}
+
 	BuildFrameResources();
 	CreateCBVHeap();
 	CreateConstantBuffers();
@@ -224,7 +230,7 @@ void App::Draw(float frameTime)
 	mGraphics->mCommandQueue->Signal(mGraphics->mFence.Get(), mGraphics->mCurrentFence);
 
 	// Frame buffering broken so wait each frame
-	mGraphics->EmptyCommandQueue();
+	//mGraphics->EmptyCommandQueue();
 }
 
 void App::CreateIcosohedron()
@@ -283,7 +289,7 @@ void App::CreateConstantBuffers()
 void App::CreateRenderItems()
 {
 	RenderItem* icoRenderItem = new RenderItem();
-	XMStoreFloat4x4(&icoRenderItem->WorldMatrix, XMMatrixIdentity())/*XMMatrixScaling(2.0f, 2.0f, 2.0f) * XMMatrixTranslation(0.0f, 0.5f,0.0f))*/;
+	XMStoreFloat4x4(&icoRenderItem->WorldMatrix, XMMatrixIdentity() * XMMatrixTranslation(0.0f, 0.0f, 0.0f));
 	icoRenderItem->ObjConstantBufferIndex = 0;
 	icoRenderItem->Geometry = mIcosohedron->mGeometryData.get();
 	icoRenderItem->Topology = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
@@ -291,6 +297,16 @@ void App::CreateRenderItems()
 	icoRenderItem->StartIndexLocation = 0;
 	icoRenderItem->BaseVertexLocation = 0;
 	mRenderItems.push_back(icoRenderItem);
+
+	//RenderItem* icoRenderItem2 = new RenderItem();
+	//XMStoreFloat4x4(&icoRenderItem2->WorldMatrix, XMMatrixIdentity() * XMMatrixTranslation(2.0f, 0.0f,0.0f));
+	//icoRenderItem2->ObjConstantBufferIndex = 0;
+	//icoRenderItem2->Geometry = mIcosohedron->mGeometryData.get();
+	//icoRenderItem2->Topology = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+	//icoRenderItem2->IndexCount = mIcosohedron->mGeometryData->mIndices.size();
+	//icoRenderItem2->StartIndexLocation = 0;
+	//icoRenderItem2->BaseVertexLocation = 0;
+	//mRenderItems.push_back(icoRenderItem2);
 
 	//// Create test cube
 	//GeometryData* geometry = new GeometryData();
@@ -303,14 +319,14 @@ void App::CreateRenderItems()
 	//////////////
 
 	//auto cubeRenderItem = new RenderItem();
-	//XMStoreFloat4x4(&cubeRenderItem->WorldMatrix, XMMatrixScaling(2.0f, 2.0f, 2.0f) * XMMatrixTranslation(0.0f, 0.5f, 0.0f));
+	//XMStoreFloat4x4(&cubeRenderItem->WorldMatrix, XMMatrixScaling(1.0f, 1.0f, 1.0f) * XMMatrixTranslation(0.0f, 0.0f, 0.0f));
 	//cubeRenderItem->ObjConstantBufferIndex = 0;
 	//cubeRenderItem->Geometry = geometry;
 	//cubeRenderItem->Topology = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 	//cubeRenderItem->IndexCount = mIcosohedron->mGeometryData->mIndices.size();
 	//cubeRenderItem->StartIndexLocation = 0;
 	//cubeRenderItem->BaseVertexLocation = 0;
-	//mRenderItems.push_back(std::move(cubeRenderItem));
+	//mRenderItems.push_back(cubeRenderItem);
 }
 
 void App::CreateCBVHeap()
@@ -349,7 +365,7 @@ void App::DrawRenderItems(ID3D12GraphicsCommandList* commandList)
 		auto cbvHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(mCBVHeap->GetGPUDescriptorHandleForHeapStart());
 		cbvHandle.Offset(cbvIndex, mGraphics->mCbvSrvUavDescriptorSize);
 		commandList->SetGraphicsRootDescriptorTable(0, cbvHandle);
-		commandList->DrawIndexedInstanced(renderItem->IndexCount, 1,renderItem->StartIndexLocation, renderItem->BaseVertexLocation, 0);
+		commandList->DrawIndexedInstanced(renderItem->IndexCount, 1, renderItem->StartIndexLocation, renderItem->BaseVertexLocation, 0);
 	}
 }
 

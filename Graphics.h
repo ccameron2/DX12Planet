@@ -44,6 +44,7 @@ public:
 	DXGI_FORMAT mDepthStencilFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
 
 	UINT mMSAAQuality = 0;
+	int mMSAASampleCount = 4;
 
 	D3D12_VIEWPORT mViewport;
 	D3D12_RECT mScissorRect;

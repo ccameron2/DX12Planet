@@ -31,12 +31,13 @@ public:
 	// Data about buffers.
 	UINT vertexByteStride = 0;
 	UINT vertexBufferByteSize = 0;
-	DXGI_FORMAT indexFormat = DXGI_FORMAT_R16_UINT;
+	DXGI_FORMAT indexFormat = DXGI_FORMAT_R32_UINT;
 	UINT indexBufferByteSize = 0;
 	int  indicesCount = 0;
 
 	std::vector<Vertex> mVertices;
-	std::vector<uint16_t> mIndices;
+	std::vector<uint32_t> mIndices;
+
 	D3D12_VERTEX_BUFFER_VIEW GetVertexBufferView();
 	D3D12_INDEX_BUFFER_VIEW GetIndexBufferView();
 	void EmptyUploaders();
