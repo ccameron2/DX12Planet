@@ -10,16 +10,16 @@ Icosahedron::~Icosahedron()
 {
 }
 
-float distance(const XMFLOAT3& v1, const XMFLOAT3& v2)
+float Distance(const XMFLOAT3& v1, const XMFLOAT3& v2)
 {
 	XMVECTOR vector1 = XMLoadFloat3(&v1);
 	XMVECTOR vector2 = XMLoadFloat3(&v2);
 	XMVECTOR vectorSub = XMVectorSubtract(vector1, vector2);
 	XMVECTOR length = XMVector3Length(vectorSub);
 
-	float distance = 0.0f;
-	XMStoreFloat(&distance, length);
-	return distance;
+	float Distance = 0.0f;
+	XMStoreFloat(&Distance, length);
+	return Distance;
 }
 
 void Icosahedron::CreateGeometry(int numVertices, int numIndices, ID3D12Device* d3DDevice, ID3D12GraphicsCommandList* commandList)
@@ -77,7 +77,7 @@ void Icosahedron::CreateGeometry(int numVertices, int numIndices, ID3D12Device* 
 			XMFLOAT3 position; XMStoreFloat3(&position, pos);
 			auto ElevationValue = 1 + FractalBrownianMotion(noise, position, mOctaves, mFrequency);
 			//auto ElevationValue = 1 + noise.GetNoise(0.5 * vertex.Pos.x * 100, 0.5 * vertex.Pos.y * 100, 0.5 * vertex.Pos.z * 100);
-			auto Radius = distance(vertex.Pos, XMFLOAT3{ 0,0,0 });
+			auto Radius = Distance(vertex.Pos, XMFLOAT3{ 0,0,0 });
 			vertex.Pos.x *= 1 + (ElevationValue / Radius);
 			vertex.Pos.y *= 1 + (ElevationValue / Radius);
 			vertex.Pos.z *= 1 + (ElevationValue / Radius);

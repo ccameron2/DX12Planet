@@ -4,6 +4,8 @@
 #define _CRTDBG_MAP_ALLOC
 #include <crtdbg.h>
 #endif
+#define SDL_MAIN_HANDLED
+#define SDL_ENABLE_SYSWM_WINDOWS
 
 #include <windows.h>
 #include <wrl.h>
@@ -19,7 +21,7 @@
 #include <algorithm>
 #include <memory>
 //#include "DDSTextureLoader.h"
-#include <SFML/Window.hpp>
+#include <SDL.h>
 
 #include "Timer.h"
 #include "Utility.h"
@@ -57,13 +59,14 @@ private:
 	void Draw(float frameTime);
 	
 	void CreateIcosohedron();
-	void MouseMoved(sf::Event event);
-	void PollEvents();
+	void MouseMoved(SDL_Event&);
+	void PollEvents(SDL_Event& e);
 	void Resized();
 	void UpdateCamera();
 
 	unique_ptr<Graphics> mGraphics;
-	sf::Window mWindow;
+	SDL_Window* mWindow;
+	SDL_Surface mScreenSurface;
 
 	struct RenderItem
 	{
@@ -89,7 +92,10 @@ private:
 	bool mFullscreen = false;
 	bool mRightMouse = false;
 	bool mLeftMouse = false;
-
+	bool mMouseFocus = false;
+	bool mKeyboardFocus = false;
+	bool mMinimized = false;
+	bool mQuit = false;
 	POINT mLastMousePos;
 
 	int mWidth = 800;
@@ -102,7 +108,7 @@ private:
 	float mRadius = 5.0f;
 
 	D3D_DRIVER_TYPE mD3DDriverType = D3D_DRIVER_TYPE_HARDWARE;
-	std::wstring mMainCaption = L"D3D12 Engine Masters";
+	std::string mMainCaption = "D3D12 Engine Masters";
 
 	const static int mNumFrameResources = 3;
 	std::vector<std::unique_ptr<FrameResource>> mFrameResources;

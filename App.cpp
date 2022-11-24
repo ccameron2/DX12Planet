@@ -1,4 +1,5 @@
 #include "App.h"
+#include <sdl_syswm.h>
 
 // Construct and set reference to self for WndProc
 App::App()
@@ -22,17 +23,17 @@ void App::FrameStats()
 
 	// Calculate averages
 	if ((mTimer.GetTime() - timeElapsed) >= 1.0f) 
-	{
-		
+	{	
 		float fps = (float)frameCount;
 		float ms = 1000.0f / fps;
 
-		std::wstring fpsStr = std::to_wstring(fps);
-		std::wstring msStr = std::to_wstring(ms);
+		std::string fpsStr = std::to_string(fps);
+		std::string msStr = std::to_string(ms);
 
-		std::wstring windowText = mMainCaption + L"    fps: " + fpsStr + L"   ms: " + msStr;
-
-		mWindow.setTitle(windowText);
+		std::string windowText = mMainCaption + "    fps: " + fpsStr + "   ms: " + msStr;
+		const char* array = windowText.c_str();
+		SDL_SetWindowTitle(mWindow, array);
+		
 		// Reset
 		frameCount = 0;
 		timeElapsed += 1.0f;
@@ -47,21 +48,36 @@ void App::Run()
 	// Start timer for frametime
 	mTimer.Start();
 
-	while (mWindow.isOpen())
+	while (!mQuit)
 	{
-		PollEvents();
-		float frameTime = mTimer.GetLapTime();
-		FrameStats();
-		Update(frameTime);
-		Draw(frameTime);
+		SDL_Event event;
+		//Handle events on queue
+		while (SDL_PollEvent(&event) != 0)
+		{
+			//Handle window events
+			PollEvents(event);
+		}
+		if (!mMinimized)
+		{
+			float frameTime = mTimer.GetLapTime();
+			FrameStats();
+			Update(frameTime);
+			Draw(frameTime);
+		}
 	}	
 }
 
 void App::Initialize()
 {
-	mWindow.create(sf::VideoMode(mWidth, mHeight), "D3D12 Masters Project", sf::Style::Default);
+	SDL_Init(SDL_INIT_VIDEO);
+	mWindow = SDL_CreateWindow("D3D12 Masters Project",SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, mWidth, mHeight, SDL_WINDOW_RESIZABLE | SDL_WINDOW_SHOWN);
+	
+	SDL_SysWMinfo info;
+	SDL_GetVersion(&info.version);
+	SDL_GetWindowWMInfo(mWindow, &info);
+	HWND hwnd = info.info.win.window;
 
-	mGraphics = make_unique<Graphics>(mWindow.getSystemHandle(), mWidth, mHeight);
+	mGraphics = make_unique<Graphics>(hwnd, mWidth, mHeight);
 	
 	CreateIcosohedron();
 	CreateRenderItems();
@@ -370,11 +386,11 @@ void App::DrawRenderItems(ID3D12GraphicsCommandList* commandList)
 }
 
 
-void App::MouseMoved(sf::Event event)
+void App::MouseMoved(SDL_Event& event)
 {
 	int mouseX, mouseY;
-	mouseX = event.mouseMove.x;
-	mouseY = event.mouseMove.y;
+	mouseX = event.motion.x;
+	mouseY = event.motion.y;
 	if (mLeftMouse)
 	{
 		// Make each pixel correspond to a quarter of a degree.
@@ -404,44 +420,79 @@ void App::MouseMoved(sf::Event event)
 	mLastMousePos.y = mouseY;
 }
 
-void App::PollEvents()
+void App::PollEvents(SDL_Event& event)
 {
-	sf::Event event;
-	while (mWindow.pollEvent(event))
+	//Window event occured
+	if (event.type == SDL_WINDOWEVENT)
 	{
-		sf::Vector2u size;
-		switch (event.type)
+		switch (event.window.event)
 		{
-		case sf::Event::Closed:
-			mWindow.close();
-			break;
-		case sf::Event::LostFocus:
-			mAppPaused = true;
-			mTimer.Stop();
-			break;
-		case sf::Event::GainedFocus:
-			mAppPaused = false;
-			mTimer.Start();
-			break;
-		case sf::Event::Resized:
-			size = mWindow.getSize();
-			mWidth = size.x; mHeight = size.y;
+		case SDL_WINDOWEVENT_SIZE_CHANGED:
+			mWidth = event.window.data1;
+			mHeight = event.window.data2;
 			mGraphics->Resize(mWidth, mHeight);
 			Resized();
+			break;
+		case SDL_WINDOWEVENT_EXPOSED:
+			break;
+		case SDL_WINDOWEVENT_ENTER:
+			mMouseFocus = true;
+			break;
+		case SDL_WINDOWEVENT_LEAVE:
+			mMouseFocus = false;
+			break;
+		case SDL_WINDOWEVENT_FOCUS_GAINED:
+			mKeyboardFocus = true;
+			break;
+		case SDL_WINDOWEVENT_FOCUS_LOST:
+			mKeyboardFocus = false;
+			break;
+		case SDL_WINDOWEVENT_MINIMIZED:
+			mMinimized = true;
+			mTimer.Stop();
+			break;
+		case SDL_WINDOWEVENT_MAXIMIZED:
+			mMinimized = false;
+			break;
+		case SDL_WINDOWEVENT_RESTORED:
+			mMinimized = false;
 			mTimer.Start();
 			break;
-		case sf::Event::MouseButtonPressed:
-			if (event.mouseButton.button == sf::Mouse::Right) { mRightMouse = true; }
-			else if (event.mouseButton.button == sf::Mouse::Left) { mLeftMouse = true; }
-			break;
-		case sf::Event::MouseButtonReleased:
-			if (event.mouseButton.button == sf::Mouse::Right) { mRightMouse = false; }
-			else if (event.mouseButton.button == sf::Mouse::Left) { mLeftMouse = false; }
-			break;
-		case sf::Event::MouseMoved:
-			MouseMoved(event);
-			break;
 		}
+	}
+	else if (event.type == SDL_KEYDOWN)
+	{
+		auto key = event.key.keysym.sym;
+		if (key == SDLK_F11)
+		{	
+			if (mFullscreen)
+			{
+				SDL_SetWindowFullscreen(mWindow, SDL_FALSE);
+			}
+			else
+			{
+				SDL_SetWindowFullscreen(mWindow, SDL_TRUE);
+			}
+			mFullscreen = !mFullscreen;
+		}
+	}
+	else if (event.type == SDL_MOUSEMOTION)
+	{
+		MouseMoved(event);
+	}
+	else if (event.type == SDL_QUIT)
+	{
+		mQuit = true;
+	}
+	else if (event.type == SDL_MOUSEBUTTONDOWN)
+	{
+		if (event.button.button == 3) { mRightMouse = true; }
+		else if (event.button.button == 1) { mLeftMouse = true; }
+	}
+	else if (event.type == SDL_MOUSEBUTTONUP)
+	{
+		if (event.button.button == 3) { mRightMouse = false; }
+		else if (event.button.button == 1) { mLeftMouse = false; }
 	}
 }
 
@@ -460,4 +511,6 @@ App::~App()
 		delete renderItem;
 	}
 	if (mGraphics->mD3DDevice != nullptr) { mGraphics->EmptyCommandQueue(); }
+	SDL_DestroyWindow(mWindow);
+	SDL_Quit();
 }

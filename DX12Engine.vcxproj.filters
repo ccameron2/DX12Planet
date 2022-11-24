@@ -16,6 +16,9 @@
     <Filter Include="Shaders">
       <UniqueIdentifier>{9438d87d-c828-4837-9a12-cca4b00d74aa}</UniqueIdentifier>
     </Filter>
+    <Filter Include="External">
+      <UniqueIdentifier>{059d40cf-1b6b-4142-a1d8-89b5fb6e4af2}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">

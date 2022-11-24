@@ -25,10 +25,10 @@ public:
 	std::vector<uint32_t> mIndices;
 	std::vector<Triangle> mTriangles;
 	std::vector<XMFLOAT3> mNormals;
-	int mRecursions = 10;
+	int mRecursions = 8;
 	std::map<std::pair<int, int>, int> mVertexMap;
 	int mOctaves = 8;
-	float mFrequency = 0.8;
+	float mFrequency = 1;
 private:
 	void CreateGeometry(int numVertices, int numIndices, ID3D12Device* d3DDevice, ID3D12GraphicsCommandList* commandList);
 	int VertexForEdge(int first, int second);
