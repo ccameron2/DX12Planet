@@ -79,6 +79,20 @@ void App::Initialize()
 
 	mGraphics = make_unique<Graphics>(hwnd, mWidth, mHeight);
 	
+	// Setup Dear ImGui context
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGuiIO& io = ImGui::GetIO(); (void)io;
+
+	// Setup Dear ImGui style
+	ImGui::StyleColorsDark();
+
+	// Setup Platform/Renderer bindings
+	// window is the SDL_Window*
+	// context is the SDL_GLContext
+	ImGui_ImplSDL2_InitForOpenGL(window, context);
+	ImGui_ImplOpenGL3_Init();
+
 	CreateIcosohedron();
 	CreateRenderItems();
 

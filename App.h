@@ -15,13 +15,21 @@
 #include <D3Dcompiler.h>
 #include <DirectXMath.h>
 #include <DirectXColors.h>
+
 #include <string>
 #include <vector>
 #include <array>
 #include <algorithm>
 #include <memory>
+
 //#include "DDSTextureLoader.h"
+
 #include <SDL.h>
+#include <imgui.h>
+
+#include <imgui-style.h>
+#include <imgui/imgui_impl_sdl.h>
+#include <imgui/imgui_impl_opengl3.h>
 
 #include "Timer.h"
 #include "Utility.h"
