@@ -56,6 +56,7 @@ public:
 	int mCurrentBackBuffer = 0;
 	ComPtr<ID3D12Resource> mSwapChainBuffer[mSwapChainBufferCount];
 	ComPtr<ID3D12Resource> mDepthStencilBuffer;
+	ComPtr<ID3D12Resource> mDepthStencilBufferGUI;
 
 	D3D12_CPU_DESCRIPTOR_HANDLE MSAAView();
 	ComPtr<ID3D12Resource> mMSAARenderTarget;
@@ -86,7 +87,6 @@ public:
 	ID3D12Resource* CurrentBackBuffer(); // Returns current back buffer in swap chain
 	D3D12_CPU_DESCRIPTOR_HANDLE CurrentBackBufferView(); // Returns Render Target View to current back buffer
 	D3D12_CPU_DESCRIPTOR_HANDLE DepthStencilView(); // Returns Depth / Stencil View  to main depth buffer
-
 
 	void ExecuteCommands();
 	void CreateDescriptorHeaps();

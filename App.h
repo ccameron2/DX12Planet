@@ -27,9 +27,8 @@
 #include <SDL.h>
 #include <imgui.h>
 
-#include <imgui-style.h>
-#include <imgui/imgui_impl_sdl.h>
-#include <imgui/imgui_impl_opengl3.h>
+#include "imgui_impl_sdl.h"
+#include "imgui_impl_dx12.h"
 
 #include "Timer.h"
 #include "Utility.h"

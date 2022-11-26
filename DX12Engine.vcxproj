@@ -111,7 +111,7 @@
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>$(ProjectDir)External\SDL2.26\lib\Debug;$(ProjectDir)External\ImGui\lib\Debug</AdditionalLibraryDirectories>
-      <AdditionalDependencies>imgui.lib;SDL2-staticd.lib;winmm.lib;version.lib;Imm32.lib;Setupapi.lib;libcmt.lib;libucrtd.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>imguid.lib;SDL2-staticd.lib;winmm.lib;version.lib;Imm32.lib;Setupapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -131,7 +131,7 @@
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>$(ProjectDir)External\SDL2.26\lib\Release;$(ProjectDir)External\ImGui\lib\Release</AdditionalLibraryDirectories>
-      <AdditionalDependencies>imgui.lib;SDL2-static.lib;winmm.lib;version.lib;Imm32.lib;Setupapi.lib;libcmt.lib;libucrtd.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>imgui.lib;SDL2-static.lib;winmm.lib;version.lib;Imm32.lib;Setupapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -140,6 +140,13 @@
     <ClCompile Include="GeometryData.cpp" />
     <ClCompile Include="Graphics.cpp" />
     <ClCompile Include="Icosahedron.cpp" />
+    <ClCompile Include="ImGui\imgui.cpp" />
+    <ClCompile Include="ImGui\imgui_demo.cpp" />
+    <ClCompile Include="ImGui\imgui_draw.cpp" />
+    <ClCompile Include="ImGui\imgui_impl_dx12.cpp" />
+    <ClCompile Include="ImGui\imgui_impl_sdl.cpp" />
+    <ClCompile Include="ImGui\imgui_tables.cpp" />
+    <ClCompile Include="ImGui\imgui_widgets.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Timer.cpp" />
     <ClCompile Include="UploadBuffer.cpp" />

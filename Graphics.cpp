@@ -299,7 +299,7 @@ void Graphics::CreateDescriptorHeaps()
 	}
 
 	D3D12_DESCRIPTOR_HEAP_DESC dsvHeapDesc;
-	dsvHeapDesc.NumDescriptors = 1;
+	dsvHeapDesc.NumDescriptors = 2;
 	dsvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
 	dsvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
 	dsvHeapDesc.NodeMask = 0;
@@ -407,6 +407,47 @@ void Graphics::Resize(int width, int height)
 
 	// Transition to be used as a depth buffer.
 	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(mDepthStencilBuffer.Get(),
+		D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_DEPTH_WRITE));
+
+	// Create the depth / stencil buffer description
+	D3D12_RESOURCE_DESC depthStencilDescGUI;
+	depthStencilDescGUI.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	depthStencilDescGUI.Alignment = 0;
+	depthStencilDescGUI.Width = width;
+	depthStencilDescGUI.Height = height;
+	depthStencilDescGUI.DepthOrArraySize = 1;
+	depthStencilDescGUI.MipLevels = 1;
+	depthStencilDescGUI.Format = mDepthStencilFormat;
+	depthStencilDescGUI.SampleDesc.Count = 1;
+	depthStencilDescGUI.SampleDesc.Quality = 0;
+	depthStencilDescGUI.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+	depthStencilDescGUI.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
+
+	// Create depth buffer with description
+	if (FAILED(mD3DDevice->CreateCommittedResource(
+		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
+		D3D12_HEAP_FLAG_NONE,
+		&depthStencilDescGUI,
+		D3D12_RESOURCE_STATE_COMMON,
+		&optClear,
+		IID_PPV_ARGS(mDepthStencilBufferGUI.GetAddressOf()))))
+	{
+		MessageBox(0, L"Depth Stencil Buffer creation failed", L"Error", MB_OK);
+	}
+
+	CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHeapView(mDSVHeap->GetCPUDescriptorHandleForHeapStart());
+	dsvHeapView.Offset(1, mDsvDescriptorSize);
+
+	// Create Descriptor to mip lvl 0 of entire resource using format from depth stencil
+	D3D12_DEPTH_STENCIL_VIEW_DESC dsvDescGUI;
+	dsvDescGUI.Flags = D3D12_DSV_FLAG_NONE;
+	dsvDescGUI.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
+	dsvDescGUI.Format = mDepthStencilFormat;
+	dsvDescGUI.Texture2D.MipSlice = 0;
+	mD3DDevice->CreateDepthStencilView(mDepthStencilBufferGUI.Get(), &dsvDesc, dsvHeapView);
+
+	// Transition to be used as a depth buffer.
+	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(mDepthStencilBufferGUI.Get(),
 		D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_DEPTH_WRITE));
 
 	ExecuteCommands();

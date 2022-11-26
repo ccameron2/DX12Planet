@@ -59,9 +59,15 @@ void App::Run()
 		}
 		if (!mMinimized)
 		{
+			// Start the Dear ImGui frame
+			ImGui_ImplDX12_NewFrame();
+			ImGui_ImplSDL2_NewFrame();
+			ImGui::NewFrame();
+
 			float frameTime = mTimer.GetLapTime();
 			FrameStats();
 			Update(frameTime);
+
 			Draw(frameTime);
 		}
 	}	
@@ -78,20 +84,6 @@ void App::Initialize()
 	HWND hwnd = info.info.win.window;
 
 	mGraphics = make_unique<Graphics>(hwnd, mWidth, mHeight);
-	
-	// Setup Dear ImGui context
-	IMGUI_CHECKVERSION();
-	ImGui::CreateContext();
-	ImGuiIO& io = ImGui::GetIO(); (void)io;
-
-	// Setup Dear ImGui style
-	ImGui::StyleColorsDark();
-
-	// Setup Platform/Renderer bindings
-	// window is the SDL_Window*
-	// context is the SDL_GLContext
-	ImGui_ImplSDL2_InitForOpenGL(window, context);
-	ImGui_ImplOpenGL3_Init();
 
 	CreateIcosohedron();
 	CreateRenderItems();
@@ -104,7 +96,20 @@ void App::Initialize()
 	BuildFrameResources();
 	CreateCBVHeap();
 	CreateConstantBuffers();
+
 	mGraphics->ExecuteCommands();
+
+	// Setup Dear ImGui context
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGuiIO& io = ImGui::GetIO(); (void)io;
+
+	// Setup Dear ImGui style
+	ImGui::StyleColorsDark();
+
+	ImGui_ImplSDL2_InitForD3D(mWindow);
+	ImGui_ImplDX12_Init(mGraphics->mD3DDevice.Get(), mNumFrameResources, mGraphics->mBackBufferFormat, mCBVHeap.Get(),
+		mCBVHeap->GetCPUDescriptorHandleForHeapStart(), mCBVHeap->GetGPUDescriptorHandleForHeapStart());
 
 	// Make initial projection matrix
 	Resized();
@@ -173,9 +178,12 @@ void App::Update(float frameTime)
 {	
 	UpdateCamera();
 
-	// Cycle frame resources
-	mCurrentFrameResourceIndex = (mCurrentFrameResourceIndex + 1) % mNumFrameResources;
+	mCurrentFrameResourceIndex = 0;
 	mCurrentFrameResource = mFrameResources[mCurrentFrameResourceIndex].get();
+
+	//// Cycle frame resources
+	//mCurrentFrameResourceIndex = (mCurrentFrameResourceIndex + 1) % mNumFrameResources;
+	//mCurrentFrameResource = mFrameResources[mCurrentFrameResourceIndex].get();
 
 	UINT64 completedFence = mGraphics->mFence->GetCompletedValue();
 
@@ -197,6 +205,9 @@ void App::Update(float frameTime)
 
 void App::Draw(float frameTime)
 {
+	bool showdemo = true;
+	ImGui::ShowDemoWindow(&showdemo);
+
 	auto commandAllocator = mCurrentFrameResource->mCommandAllocator;
 
 	// We can only reset when the associated command lists have finished execution on the GPU.
@@ -236,6 +247,23 @@ void App::Draw(float frameTime)
 
 	mGraphics->ResolveMSAAToBackBuffer(mGraphics->mCommandList.Get());
 
+	ImGui::Render();
+	// Transition back buffer to RT
+	mGraphics->mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(mGraphics->CurrentBackBuffer(),
+		D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET));
+
+	CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHeapView(mGraphics->mDSVHeap->GetCPUDescriptorHandleForHeapStart());
+	dsvHeapView.Offset(1, mGraphics->mDsvDescriptorSize);
+
+	// Select Back buffer as render target
+	mGraphics->mCommandList->ClearDepthStencilView(dsvHeapView, D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
+	mGraphics->mCommandList->OMSetRenderTargets(1, &mGraphics->CurrentBackBufferView(), true, &dsvHeapView);
+	ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), mGraphics->mCommandList.Get());
+	
+	// Transition back buffer to present
+	mGraphics->mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(mGraphics->CurrentBackBuffer(),
+		D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));
+
 	// Done recording commands.
 	if (FAILED(mGraphics->mCommandList->Close()))
 	{
@@ -245,6 +273,7 @@ void App::Draw(float frameTime)
 	// Add the command list to the queue for execution.
 	ID3D12CommandList* cmdLists[] = { mGraphics->mCommandList.Get() };
 	mGraphics->mCommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
+
 
 	// Swap the back and front buffers
 	if (FAILED(mGraphics->mSwapChain->Present(0, 0)))
@@ -260,7 +289,7 @@ void App::Draw(float frameTime)
 	mGraphics->mCommandQueue->Signal(mGraphics->mFence.Get(), mGraphics->mCurrentFence);
 
 	// Frame buffering broken so wait each frame
-	//mGraphics->EmptyCommandQueue();
+	mGraphics->EmptyCommandQueue();
 }
 
 void App::CreateIcosohedron()
@@ -437,8 +466,9 @@ void App::MouseMoved(SDL_Event& event)
 void App::PollEvents(SDL_Event& event)
 {
 	//Window event occured
+	ImGui_ImplSDL2_ProcessEvent(&event);
 	if (event.type == SDL_WINDOWEVENT)
-	{
+	{		
 		switch (event.window.event)
 		{
 		case SDL_WINDOWEVENT_SIZE_CHANGED:
@@ -524,6 +554,11 @@ App::~App()
 	{
 		delete renderItem;
 	}
+
+	ImGui_ImplDX12_Shutdown();
+	ImGui_ImplSDL2_Shutdown();
+	ImGui::DestroyContext();
+
 	if (mGraphics->mD3DDevice != nullptr) { mGraphics->EmptyCommandQueue(); }
 	SDL_DestroyWindow(mWindow);
 	SDL_Quit();

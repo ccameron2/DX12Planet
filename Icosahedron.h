@@ -25,7 +25,7 @@ public:
 	std::vector<uint32_t> mIndices;
 	std::vector<Triangle> mTriangles;
 	std::vector<XMFLOAT3> mNormals;
-	int mRecursions = 8;
+	int mRecursions = 6;
 	std::map<std::pair<int, int>, int> mVertexMap;
 	int mOctaves = 8;
 	float mFrequency = 1;
