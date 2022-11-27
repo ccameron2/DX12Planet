@@ -123,18 +123,19 @@ void App::ShowGUI()
 	static float f = 0.0f;
 	static int counter = 0;
 
-	ImGui::Begin("Planet");                          // Create a window called "Hello, world!" and append into it.
+	ImGui::Begin("Planet");
 
-	ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
+	ImGui::Text("Noise");
 
-	// Edit 1 float using a slider from 0.0f to 1.0f
 	if (ImGui::SliderFloat("Noise Frequency", &mIcosohedron->mFrequency, 0.0f, 1.0f))
 	{
-		//mGraphics->mCommandList->Reset(mCurrentFrameResource->mCommandAllocator.Get(),mGraphics->mPSO.Get());
-		//CreateIcosohedron();
-		//CreateRenderItems();
-		//mGraphics->ExecuteCommands();
+		mGraphics->mCommandList->Reset(mCurrentFrameResource->mCommandAllocator.Get(),mGraphics->mPSO.Get());
+		CreateIcosohedron();
+		CreateRenderItems();
+		mGraphics->ExecuteCommands();
 	};           
+
+	ImGui::Text("World Matrix");
 
 	static float pos[3];
 	if (ImGui::SliderFloat3("Position", pos,-5.0f,5.0f))
@@ -145,7 +146,26 @@ void App::ShowGUI()
 		// Signal to update object constant buffer
 		mRenderItems[0]->NumDirtyFrames++;
 	}
-			
+	
+	static float rot[3];
+	if (ImGui::SliderFloat3("Rotation", rot, -5.0f, 5.0f))
+	{
+		XMFLOAT4X4 newWM = MakeIdentity4x4();
+		XMStoreFloat4x4(&mRenderItems[0]->WorldMatrix, XMMatrixIdentity() * XMMatrixRotationX(rot[0]) * XMMatrixRotationY(rot[1]) * XMMatrixRotationZ(rot[2]));
+		// Signal to update object constant buffer
+		mRenderItems[0]->NumDirtyFrames++;
+	}
+
+	static float scale;
+	if (ImGui::SliderFloat("Scale", &scale, 0.0f, 5.0f))
+	{
+		XMFLOAT4X4 newWM = MakeIdentity4x4();
+		XMStoreFloat4x4(&mRenderItems[0]->WorldMatrix, XMMatrixIdentity() * XMMatrixScaling(scale, scale, scale));
+
+		// Signal to update object constant buffer
+		mRenderItems[0]->NumDirtyFrames++;
+	}
+
 	ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 	ImGui::End();
 }
@@ -305,8 +325,8 @@ void App::Draw(float frameTime)
 	// Tell command queue to set new fence point, will only be set when the GPU gets to new fence value.
 	mGraphics->mCommandQueue->Signal(mGraphics->mFence.Get(), mGraphics->mCurrentFence);
 
-	//// Frame buffering broken so wait each frame
-	mGraphics->EmptyCommandQueue();
+	// Frame buffering broken in debug mode so wait each frame
+	//mGraphics->EmptyCommandQueue();
 }
 
 void App::RenderGUI()
