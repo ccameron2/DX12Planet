@@ -88,11 +88,6 @@ void App::Initialize()
 	CreateIcosohedron();
 	CreateRenderItems();
 
-	//if (FAILED(mGraphics->mCommandList->Reset(mGraphics->mCommandAllocator.Get(), nullptr)))
-	//{
-	//	MessageBox(0, L"Command List reset failed", L"Error", MB_OK);
-	//}
-
 	BuildFrameResources();
 	CreateCBVHeap();
 	CreateConstantBuffers();
@@ -108,8 +103,8 @@ void App::Initialize()
 	ImGui::StyleColorsDark();
 
 	ImGui_ImplSDL2_InitForD3D(mWindow);
-	ImGui_ImplDX12_Init(mGraphics->mD3DDevice.Get(), mNumFrameResources, mGraphics->mBackBufferFormat, mCBVHeap.Get(),
-		mCBVHeap->GetCPUDescriptorHandleForHeapStart(), mCBVHeap->GetGPUDescriptorHandleForHeapStart());
+	ImGui_ImplDX12_Init(mGraphics->mD3DDevice.Get(), mNumFrameResources, mGraphics->mBackBufferFormat, mGUIHeap.Get(),
+		mGUIHeap->GetCPUDescriptorHandleForHeapStart(), mGUIHeap->GetGPUDescriptorHandleForHeapStart());
 
 	// Make initial projection matrix
 	Resized();
@@ -178,12 +173,12 @@ void App::Update(float frameTime)
 {	
 	UpdateCamera();
 
-	mCurrentFrameResourceIndex = 0;
-	mCurrentFrameResource = mFrameResources[mCurrentFrameResourceIndex].get();
-
-	//// Cycle frame resources
-	//mCurrentFrameResourceIndex = (mCurrentFrameResourceIndex + 1) % mNumFrameResources;
+	//mCurrentFrameResourceIndex = 0;
 	//mCurrentFrameResource = mFrameResources[mCurrentFrameResourceIndex].get();
+
+	// Cycle frame resources
+	mCurrentFrameResourceIndex = (mCurrentFrameResourceIndex + 1) % mNumFrameResources;
+	mCurrentFrameResource = mFrameResources[mCurrentFrameResourceIndex].get();
 
 	UINT64 completedFence = mGraphics->mFence->GetCompletedValue();
 
@@ -258,6 +253,9 @@ void App::Draw(float frameTime)
 	// Select Back buffer as render target
 	mGraphics->mCommandList->ClearDepthStencilView(dsvHeapView, D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
 	mGraphics->mCommandList->OMSetRenderTargets(1, &mGraphics->CurrentBackBufferView(), true, &dsvHeapView);
+
+	ID3D12DescriptorHeap* guiDescriptorHeaps[] = { mGUIHeap.Get() };
+	mGraphics->mCommandList->SetDescriptorHeaps(_countof(guiDescriptorHeaps), guiDescriptorHeaps);
 	ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), mGraphics->mCommandList.Get());
 	
 	// Transition back buffer to present
@@ -288,8 +286,8 @@ void App::Draw(float frameTime)
 	// Tell command queue to set new fence point, will only be set when the GPU gets to new fence value.
 	mGraphics->mCommandQueue->Signal(mGraphics->mFence.Get(), mGraphics->mCurrentFence);
 
-	// Frame buffering broken so wait each frame
-	mGraphics->EmptyCommandQueue();
+	//// Frame buffering broken so wait each frame
+	//mGraphics->EmptyCommandQueue();
 }
 
 void App::CreateIcosohedron()
@@ -386,6 +384,11 @@ void App::CreateRenderItems()
 	//cubeRenderItem->StartIndexLocation = 0;
 	//cubeRenderItem->BaseVertexLocation = 0;
 	//mRenderItems.push_back(cubeRenderItem);
+
+	//if (FAILED(mGraphics->mCommandList->Reset(mGraphics->mCommandAllocator.Get(), nullptr)))
+	//{
+	//	MessageBox(0, L"Command List reset failed", L"Error", MB_OK);
+	//}
 }
 
 void App::CreateCBVHeap()
@@ -405,6 +408,17 @@ void App::CreateCBVHeap()
 	{
 		MessageBox(0, L"Create descriptor heap failed", L"Error", MB_OK);
 	}
+
+	D3D12_DESCRIPTOR_HEAP_DESC guiHeapDesc;
+	guiHeapDesc.NumDescriptors = 1;
+	guiHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+	guiHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	guiHeapDesc.NodeMask = 0;
+	if (FAILED(mGraphics->mD3DDevice->CreateDescriptorHeap(&guiHeapDesc, IID_PPV_ARGS(&mGUIHeap))))
+	{
+		MessageBox(0, L"Create descriptor heap failed", L"Error", MB_OK);
+	}
+
 }
 
 void App::DrawRenderItems(ID3D12GraphicsCommandList* commandList)

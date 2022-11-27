@@ -122,6 +122,7 @@ private:
 	FrameResource* mCurrentFrameResource = nullptr;
 	int mCurrentFrameResourceIndex = 0;
 
+	ComPtr<ID3D12DescriptorHeap> mGUIHeap;
 	ComPtr<ID3D12DescriptorHeap> mCBVHeap;
 	UINT mPassCbvOffset = 0;
 	void BuildFrameResources();
