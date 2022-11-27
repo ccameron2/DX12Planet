@@ -70,7 +70,7 @@ private:
 	void PollEvents(SDL_Event& e);
 	void Resized();
 	void UpdateCamera();
-
+	void RenderGUI();
 	unique_ptr<Graphics> mGraphics;
 	SDL_Window* mWindow;
 	SDL_Surface mScreenSurface;
@@ -109,6 +109,7 @@ private:
 	int mHeight = 600;
 
 	std::unique_ptr<Icosahedron> mIcosohedron;
+	std::unique_ptr<Icosahedron> mIcosohedron2;
 
 	float mTheta = 1.5f * XM_PI;
 	float mPhi = XM_PIDIV4;
@@ -147,7 +148,7 @@ struct Cube
 		Vertex({ XMFLOAT3(+1.0f, +1.0f, +1.0f), XMFLOAT4(Colors::Cyan) }),
 		Vertex({ XMFLOAT3(+1.0f, -1.0f, +1.0f), XMFLOAT4(Colors::Magenta) })
 	};
-	vector<uint16_t> indices =
+	vector<uint32_t> indices =
 	{
 		// front face
 		0, 1, 2,

@@ -143,7 +143,7 @@ void Graphics::CreateCommandObjects()
 
 void Graphics::CreateSwapChain(HWND hWND, int width, int height)
 {
-	// Release the previous swapchain we will be recreating.
+	// Release the previous swapchain
 	mSwapChain.Reset();
 
 	// Create swap chain description
@@ -221,7 +221,7 @@ ComPtr<ID3DBlob> Graphics::CompileShader(const std::wstring& filename, const D3D
 
 #if defined(DEBUG) || defined(_DEBUG)  
 	compileFlags = D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
-#endif
+#endif`
 
 	ComPtr<ID3DBlob> byteCode = nullptr;
 	ComPtr<ID3DBlob> errors;
@@ -239,8 +239,6 @@ ComPtr<ID3DBlob> Graphics::CompileShader(const std::wstring& filename, const D3D
 
 void Graphics::CreateShaders()
 {
-	HRESULT hr = S_OK;
-
 	mVSByteCode = CompileShader(L"Shaders\\shader.hlsl", nullptr, "VS", "vs_5_0");
 	mPSByteCode = CompileShader(L"Shaders\\shader.hlsl", nullptr, "PS", "ps_5_0");
 	mInputLayout =
@@ -324,6 +322,7 @@ void Graphics::Resize(int width, int height)
 	// Release previous resources
 	for (int i = 0; i < mSwapChainBufferCount; i++){ mSwapChainBuffer[i].Reset();}
 	mDepthStencilBuffer.Reset();
+	mDepthStencilBufferGUI.Reset();
 
 	// Resize the swap chain
 	if (FAILED(mSwapChain->ResizeBuffers(mSwapChainBufferCount, width, height, mBackBufferFormat, DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH)))
@@ -344,6 +343,7 @@ void Graphics::Resize(int width, int height)
 		rtvHeapHandle.Offset(1, mRtvDescriptorSize);
 	}
 	
+	// Create MSAA Render target
 	auto heapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
 
 	D3D12_RESOURCE_DESC desc = CD3DX12_RESOURCE_DESC::Tex2D(mBackBufferFormat,

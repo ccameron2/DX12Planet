@@ -94,12 +94,10 @@ void App::Initialize()
 
 	mGraphics->ExecuteCommands();
 
-	// Setup Dear ImGui context
+	// Setup ImGui context
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
 	ImGuiIO& io = ImGui::GetIO(); (void)io;
-
-	// Setup Dear ImGui style
 	ImGui::StyleColorsDark();
 
 	ImGui_ImplSDL2_InitForD3D(mWindow);
@@ -242,25 +240,7 @@ void App::Draw(float frameTime)
 
 	mGraphics->ResolveMSAAToBackBuffer(mGraphics->mCommandList.Get());
 
-	ImGui::Render();
-	// Transition back buffer to RT
-	mGraphics->mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(mGraphics->CurrentBackBuffer(),
-		D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET));
-
-	CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHeapView(mGraphics->mDSVHeap->GetCPUDescriptorHandleForHeapStart());
-	dsvHeapView.Offset(1, mGraphics->mDsvDescriptorSize);
-
-	// Select Back buffer as render target
-	mGraphics->mCommandList->ClearDepthStencilView(dsvHeapView, D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
-	mGraphics->mCommandList->OMSetRenderTargets(1, &mGraphics->CurrentBackBufferView(), true, &dsvHeapView);
-
-	ID3D12DescriptorHeap* guiDescriptorHeaps[] = { mGUIHeap.Get() };
-	mGraphics->mCommandList->SetDescriptorHeaps(_countof(guiDescriptorHeaps), guiDescriptorHeaps);
-	ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), mGraphics->mCommandList.Get());
-	
-	// Transition back buffer to present
-	mGraphics->mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(mGraphics->CurrentBackBuffer(),
-		D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));
+	RenderGUI();
 
 	// Done recording commands.
 	if (FAILED(mGraphics->mCommandList->Close()))
@@ -288,6 +268,31 @@ void App::Draw(float frameTime)
 
 	//// Frame buffering broken so wait each frame
 	//mGraphics->EmptyCommandQueue();
+}
+
+void App::RenderGUI()
+{
+	ImGui::Render();
+
+	// Transition back buffer to RT
+	mGraphics->mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(mGraphics->CurrentBackBuffer(),
+		D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET));
+
+	CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHeapView(mGraphics->mDSVHeap->GetCPUDescriptorHandleForHeapStart());
+	dsvHeapView.Offset(1, mGraphics->mDsvDescriptorSize);
+
+	// Select Back buffer as render target
+	mGraphics->mCommandList->ClearDepthStencilView(dsvHeapView, D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
+	mGraphics->mCommandList->OMSetRenderTargets(1, &mGraphics->CurrentBackBufferView(), true, &dsvHeapView);
+
+	// Set descriptor heap to GUI heap
+	ID3D12DescriptorHeap* guiDescriptorHeaps[] = { mGUIHeap.Get() };
+	mGraphics->mCommandList->SetDescriptorHeaps(_countof(guiDescriptorHeaps), guiDescriptorHeaps);
+	ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), mGraphics->mCommandList.Get());
+
+	// Transition back buffer to present
+	mGraphics->mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(mGraphics->CurrentBackBuffer(),
+		D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));
 }
 
 void App::CreateIcosohedron()
@@ -365,15 +370,15 @@ void App::CreateRenderItems()
 	//icoRenderItem2->BaseVertexLocation = 0;
 	//mRenderItems.push_back(icoRenderItem2);
 
-	//// Create test cube
+	// Create test cube
 	//GeometryData* geometry = new GeometryData();
 	//Cube cube;
 	//geometry->mVertices = cube.vertices;
 	//geometry->mIndices = cube.indices;
-	////mGraphics->mCommandList->Reset(mGraphics->mCommandAllocator.Get(), nullptr);
+	//mGraphics->mCommandList->Reset(mGraphics->mCommandAllocator.Get(), nullptr);
 	//geometry->CalculateBufferData(mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
 	//mGraphics->ExecuteCommands();
-	//////////////
+	////////////
 
 	//auto cubeRenderItem = new RenderItem();
 	//XMStoreFloat4x4(&cubeRenderItem->WorldMatrix, XMMatrixScaling(1.0f, 1.0f, 1.0f) * XMMatrixTranslation(0.0f, 0.0f, 0.0f));
