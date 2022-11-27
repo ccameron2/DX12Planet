@@ -67,30 +67,30 @@ void Icosahedron::CreateGeometry(int numVertices, int numIndices, ID3D12Device* 
 		SubdivideIcosphere();
 	}
 
-	//FastNoiseLite noise;
-	//noise.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
-	//for (auto & vertex : mVertices)
-	////std::for_each(std::execution::par, mVertices.begin(), mVertices.end(), [&](auto&& vertex)
-	//	{
-	//		XMVECTOR pos = XMLoadFloat3(&vertex.Pos);
-	//		pos = XMVectorMultiply(pos, { 100,100,100 });
-	//		XMFLOAT3 position; XMStoreFloat3(&position, pos);
-	//		auto ElevationValue = 1 + FractalBrownianMotion(noise, position, mOctaves, mFrequency);
-	//		//auto ElevationValue = 1 + noise.GetNoise(0.5 * vertex.Pos.x * 100, 0.5 * vertex.Pos.y * 100, 0.5 * vertex.Pos.z * 100);
-	//		auto Radius = Distance(vertex.Pos, XMFLOAT3{ 0,0,0 });
-	//		vertex.Pos.x *= 1 + (ElevationValue / Radius);
-	//		vertex.Pos.y *= 1 + (ElevationValue / Radius);
-	//		vertex.Pos.z *= 1 + (ElevationValue / Radius);
-	//	}//);
+	FastNoiseLite noise;
+	noise.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
+	for (auto & vertex : mVertices)
+	//std::for_each(std::execution::par, mVertices.begin(), mVertices.end(), [&](auto&& vertex)
+		{
+			XMVECTOR pos = XMLoadFloat3(&vertex.Pos);
+			pos = XMVectorMultiply(pos, { 100,100,100 });
+			XMFLOAT3 position; XMStoreFloat3(&position, pos);
+			auto ElevationValue = 1 + FractalBrownianMotion(noise, position, mOctaves, mFrequency);
+			//auto ElevationValue = 1 + noise.GetNoise(0.5 * vertex.Pos.x * 100, 0.5 * vertex.Pos.y * 100, 0.5 * vertex.Pos.z * 100);
+			auto Radius = Distance(vertex.Pos, XMFLOAT3{ 0,0,0 });
+			vertex.Pos.x *= 1 + (ElevationValue / Radius);
+			vertex.Pos.y *= 1 + (ElevationValue / Radius);
+			vertex.Pos.z *= 1 + (ElevationValue / Radius);
+		}//);
 
-	//mIndices.clear();
+	mIndices.clear();
 
-	//for (int i = 0; i < mTriangles.size(); i++)
-	//{
-	//	mIndices.push_back(mTriangles[i].Point[0]);
-	//	mIndices.push_back(mTriangles[i].Point[1]);
-	//	mIndices.push_back(mTriangles[i].Point[2]);
-	//}
+	for (int i = 0; i < mTriangles.size(); i++)
+	{
+		mIndices.push_back(mTriangles[i].Point[0]);
+		mIndices.push_back(mTriangles[i].Point[1]);
+		mIndices.push_back(mTriangles[i].Point[2]);
+	}
 
 	//CalculateNormals();
 

@@ -61,6 +61,8 @@ private:
 	Timer mTimer;
 
 	bool InitWindow();
+	void SetupGUI();
+	void ShowGUI();
 	void FrameStats();
 	void Update(float frameTime);
 	void Draw(float frameTime);
@@ -109,7 +111,6 @@ private:
 	int mHeight = 600;
 
 	std::unique_ptr<Icosahedron> mIcosohedron;
-	std::unique_ptr<Icosahedron> mIcosohedron2;
 
 	float mTheta = 1.5f * XM_PI;
 	float mPhi = XM_PIDIV4;

@@ -64,6 +64,8 @@ void App::Run()
 			ImGui_ImplSDL2_NewFrame();
 			ImGui::NewFrame();
 
+			ShowGUI();
+
 			float frameTime = mTimer.GetLapTime();
 			FrameStats();
 			Update(frameTime);
@@ -94,6 +96,14 @@ void App::Initialize()
 
 	mGraphics->ExecuteCommands();
 
+	SetupGUI();
+
+	// Make initial projection matrix
+	Resized();
+}
+
+void App::SetupGUI()
+{
 	// Setup ImGui context
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
@@ -103,9 +113,41 @@ void App::Initialize()
 	ImGui_ImplSDL2_InitForD3D(mWindow);
 	ImGui_ImplDX12_Init(mGraphics->mD3DDevice.Get(), mNumFrameResources, mGraphics->mBackBufferFormat, mGUIHeap.Get(),
 		mGUIHeap->GetCPUDescriptorHandleForHeapStart(), mGUIHeap->GetGPUDescriptorHandleForHeapStart());
+}
 
-	// Make initial projection matrix
-	Resized();
+void App::ShowGUI()
+{
+	static bool showDemoWindow = false;
+	//ImGui::ShowDemoWindow(&showDemoWindow);
+
+	static float f = 0.0f;
+	static int counter = 0;
+
+	ImGui::Begin("Planet");                          // Create a window called "Hello, world!" and append into it.
+
+	ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
+
+	// Edit 1 float using a slider from 0.0f to 1.0f
+	if (ImGui::SliderFloat("Noise Frequency", &mIcosohedron->mFrequency, 0.0f, 1.0f))
+	{
+		//mGraphics->mCommandList->Reset(mCurrentFrameResource->mCommandAllocator.Get(),mGraphics->mPSO.Get());
+		//CreateIcosohedron();
+		//CreateRenderItems();
+		//mGraphics->ExecuteCommands();
+	};           
+
+	static float pos[3];
+	if (ImGui::SliderFloat3("Position", pos,-5.0f,5.0f))
+	{
+		XMFLOAT4X4 newWM = MakeIdentity4x4();
+		XMStoreFloat4x4(&mRenderItems[0]->WorldMatrix, XMMatrixIdentity() * XMMatrixTranslation(pos[0], pos[1], pos[2]));
+		
+		// Signal to update object constant buffer
+		mRenderItems[0]->NumDirtyFrames++;
+	}
+			
+	ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+	ImGui::End();
 }
 
 void App::BuildFrameResources()
@@ -171,12 +213,12 @@ void App::Update(float frameTime)
 {	
 	UpdateCamera();
 
-	//mCurrentFrameResourceIndex = 0;
-	//mCurrentFrameResource = mFrameResources[mCurrentFrameResourceIndex].get();
+	mCurrentFrameResourceIndex = 0;
+	mCurrentFrameResource = mFrameResources[mCurrentFrameResourceIndex].get();
 
 	// Cycle frame resources
-	mCurrentFrameResourceIndex = (mCurrentFrameResourceIndex + 1) % mNumFrameResources;
-	mCurrentFrameResource = mFrameResources[mCurrentFrameResourceIndex].get();
+	//mCurrentFrameResourceIndex = (mCurrentFrameResourceIndex + 1) % mNumFrameResources;
+	//mCurrentFrameResource = mFrameResources[mCurrentFrameResourceIndex].get();
 
 	UINT64 completedFence = mGraphics->mFence->GetCompletedValue();
 
@@ -198,9 +240,6 @@ void App::Update(float frameTime)
 
 void App::Draw(float frameTime)
 {
-	bool showdemo = true;
-	ImGui::ShowDemoWindow(&showdemo);
-
 	auto commandAllocator = mCurrentFrameResource->mCommandAllocator;
 
 	// We can only reset when the associated command lists have finished execution on the GPU.
@@ -267,7 +306,7 @@ void App::Draw(float frameTime)
 	mGraphics->mCommandQueue->Signal(mGraphics->mFence.Get(), mGraphics->mCurrentFence);
 
 	//// Frame buffering broken so wait each frame
-	//mGraphics->EmptyCommandQueue();
+	mGraphics->EmptyCommandQueue();
 }
 
 void App::RenderGUI()
@@ -297,6 +336,7 @@ void App::RenderGUI()
 
 void App::CreateIcosohedron()
 {
+	if (!mIcosohedron) { mIcosohedron.release(); }
 	mIcosohedron = std::make_unique<Icosahedron>(8, 36, mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
 }
 
@@ -350,6 +390,11 @@ void App::CreateConstantBuffers()
 
 void App::CreateRenderItems()
 {
+	if (mRenderItems.size() == 0)
+	{
+		mRenderItems.empty();
+	}
+
 	RenderItem* icoRenderItem = new RenderItem();
 	XMStoreFloat4x4(&icoRenderItem->WorldMatrix, XMMatrixIdentity() * XMMatrixTranslation(0.0f, 0.0f, 0.0f));
 	icoRenderItem->ObjConstantBufferIndex = 0;
@@ -485,7 +530,12 @@ void App::MouseMoved(SDL_Event& event)
 void App::PollEvents(SDL_Event& event)
 {
 	//Window event occured
+	ImGuiIO& io = ImGui::GetIO();
 	ImGui_ImplSDL2_ProcessEvent(&event);
+	if (io.WantCaptureMouse || io.WantCaptureKeyboard)
+	{
+		return;
+	}
 	if (event.type == SDL_WINDOWEVENT)
 	{		
 		switch (event.window.event)
