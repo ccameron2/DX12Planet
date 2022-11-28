@@ -17,10 +17,12 @@ class Icosahedron
 	};
 
 public:
-	Icosahedron(int numVertices, int numIndices, ID3D12Device* d3DDevice, ID3D12GraphicsCommandList* commandList, int recursions, int octaves, float frequency);
+	Icosahedron(int numVertices, int numIndices, ID3D12Device* d3DDevice, ID3D12GraphicsCommandList* commandList, int recursions, int octaves, float frequency, XMFLOAT3 eyePos);
 	~Icosahedron();
-	unique_ptr<GeometryData> mGeometryData;
 
+	XMFLOAT3 mEyePos;
+
+	unique_ptr<GeometryData> mGeometryData;
 	std::vector<Vertex> mVertices;
 	std::vector<uint32_t> mIndices;
 	std::vector<Triangle> mTriangles;
@@ -29,10 +31,11 @@ public:
 	std::map<std::pair<int, int>, int> mVertexMap;
 	int mOctaves = 8;
 	float mFrequency = 1;
+	std::vector<float> cullAnglePerLevel;
 private:
 	void CreateGeometry(int numVertices, int numIndices, ID3D12Device* d3DDevice, ID3D12GraphicsCommandList* commandList);
 	int VertexForEdge(int first, int second);
-	void SubdivideIcosphere();
+	void SubdivideIcosphere(int level);
 	float FractalBrownianMotion(FastNoiseLite fastNoise, XMFLOAT3 fractalInput, float octaves, float frequency);
 	void CalculateNormals();
 };

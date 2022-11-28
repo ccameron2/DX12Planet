@@ -1,12 +1,13 @@
 #include "Icosahedron.h"
 #include "FastNoiseLite.h"
 #include <execution>
-Icosahedron::Icosahedron(int numVertices, int numIndices, ID3D12Device* d3DDevice, ID3D12GraphicsCommandList* commandList, int recursions, int octaves, float frequency)
+#include <cmath>
+Icosahedron::Icosahedron(int numVertices, int numIndices, ID3D12Device* d3DDevice, ID3D12GraphicsCommandList* commandList, int recursions, int octaves, float frequency, XMFLOAT3 eyePos)
 {
 	mRecursions = recursions;
 	mOctaves = octaves;
 	mFrequency = frequency;
-
+	mEyePos = eyePos;
 	CreateGeometry(numVertices, numIndices, d3DDevice, commandList);
 }
 
@@ -66,9 +67,17 @@ void Icosahedron::CreateGeometry(int numVertices, int numIndices, ID3D12Device* 
 		mTriangles.push_back(Triangle{ mIndices[i],mIndices[i + 1],mIndices[i + 2] });
 	}
 
+	cullAnglePerLevel.push_back(0.5);
+	float angle = std::acos(cullAnglePerLevel[0]);
 	for (int i = 0; i < mRecursions; i++)
 	{
-		SubdivideIcosphere();
+		angle = angle / 2;
+		cullAnglePerLevel.push_back(sin(angle));
+	}
+
+	for (int i = 0; i < mRecursions; i++)
+	{
+		SubdivideIcosphere(i);
 	}
 
 	FastNoiseLite noise;
@@ -148,23 +157,35 @@ int Icosahedron::VertexForEdge(int first, int second)
 }
 
 
-void Icosahedron::SubdivideIcosphere()
+void Icosahedron::SubdivideIcosphere(int level)
 {
 	std::vector<Triangle> newTriangles;
 	for (auto& triangle : mTriangles)
 	{
-		// For each edge
-		std::uint32_t mid[3];
-		for (int e = 0; e < 3; e++)
+		// Dot product between camera and triangle face normal
+		XMFLOAT3 a = mVertices[triangle.Point[0]].Pos;
+		XMFLOAT3 b = mVertices[triangle.Point[1]].Pos;
+		XMFLOAT3 c = mVertices[triangle.Point[2]].Pos;
+		XMVECTOR centre = { (a.x + b.x + c.x) / 3, (a.y + b.y + c.y) / 3, (a.z + b.z + c.z) / 3 };
+		XMFLOAT3 dot;
+		XMStoreFloat3(&dot,XMVector3Dot(XMVector3Normalize(centre), XMVector3Normalize(centre - XMLoadFloat3(&mEyePos))));
+		
+		// Cull rear facing triangles
+		if (dot.x < cullAnglePerLevel[level])
 		{
-			mid[e] = VertexForEdge(triangle.Point[e], triangle.Point[(e + 1) % 3]);
-		}
+			// For each edge
+			std::uint32_t mid[3];
+			for (int e = 0; e < 3; e++)
+			{
+				mid[e] = VertexForEdge(triangle.Point[e], triangle.Point[(e + 1) % 3]);
+			}
 
-		// Add triangles to new array
-		newTriangles.push_back({ triangle.Point[0], mid[0], mid[2] });
-		newTriangles.push_back({ triangle.Point[1], mid[1], mid[0] });
-		newTriangles.push_back({ triangle.Point[2], mid[2], mid[1] });
-		newTriangles.push_back({ mid[0], mid[1], mid[2] });
+			// Add triangles to new array
+			newTriangles.push_back({ triangle.Point[0], mid[0], mid[2] });
+			newTriangles.push_back({ triangle.Point[1], mid[1], mid[0] });
+			newTriangles.push_back({ triangle.Point[2], mid[2], mid[1] });
+			newTriangles.push_back({ mid[0], mid[1], mid[2] });
+		}	
 	}
 
 	// Swap old triangles with new ones

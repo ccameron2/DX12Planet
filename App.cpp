@@ -87,6 +87,7 @@ void App::Initialize()
 
 	mGraphics = make_unique<Graphics>(hwnd, mWidth, mHeight);
 
+	UpdateCamera();
 	CreateIcosohedron();
 	CreateRenderItems();
 
@@ -125,14 +126,14 @@ void App::ShowGUI()
 
 	ImGui::Begin("Planet");
 
-	ImGui::Text("Recursions");
+	ImGui::Text("Geometry");
 
 	if (ImGui::SliderInt("Recursions", &recursions, 0, 12))
 	{
-		mGraphics->mCommandList->Reset(mCurrentFrameResource->mCommandAllocator.Get(), mGraphics->mPSO.Get());
-		CreateIcosohedron();
-		mGraphics->ExecuteCommands();
-		CreateRenderItems();
+		//mGraphics->mCommandList->Reset(mCurrentFrameResource->mCommandAllocator.Get(), mGraphics->mPSO.Get());
+		//CreateIcosohedron();
+		//mGraphics->ExecuteCommands();
+		//CreateRenderItems();
 	};
 
 	ImGui::Text("Noise");
@@ -140,20 +141,18 @@ void App::ShowGUI()
 	static float prevFreq = 0;
 	if (ImGui::SliderFloat("Noise Frequency", &frequency, 0.0f, 1.0f, "%.1f"))
 	{
-		mGraphics->mCommandList->Reset(mCurrentFrameResource->mCommandAllocator.Get(), mGraphics->mPSO.Get());
-		CreateIcosohedron();
-		mGraphics->ExecuteCommands();
-		CreateRenderItems();
+		//mGraphics->mCommandList->Reset(mCurrentFrameResource->mCommandAllocator.Get(), mGraphics->mPSO.Get());
+		//CreateIcosohedron();
+		//mGraphics->ExecuteCommands();
+		//CreateRenderItems();
 	};           
-
-	ImGui::Text("Recursions");
 
 	if (ImGui::SliderInt("Octaves", &octaves, 0, 20))
 	{
-		mGraphics->mCommandList->Reset(mCurrentFrameResource->mCommandAllocator.Get(), mGraphics->mPSO.Get());
-		CreateIcosohedron();
-		mGraphics->ExecuteCommands();
-		CreateRenderItems();
+		//mGraphics->mCommandList->Reset(mCurrentFrameResource->mCommandAllocator.Get(), mGraphics->mPSO.Get());
+		//CreateIcosohedron();
+		//mGraphics->ExecuteCommands();
+		//CreateRenderItems();
 	};
 
 	ImGui::Text("World Matrix");
@@ -187,6 +186,7 @@ void App::ShowGUI()
 
 	ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 	ImGui::End();
+
 }
 
 void App::BuildFrameResources()
@@ -272,6 +272,17 @@ void App::Update(float frameTime)
 		WaitForSingleObject(eventHandle, INFINITE);
 		CloseHandle(eventHandle);
 	}
+
+	// Recreate planet every frame
+	mGraphics->mCommandList->Reset(mCurrentFrameResource->mCommandAllocator.Get(), mGraphics->mPSO.Get());
+	CreateIcosohedron();
+
+	// Execute commands
+	mGraphics->mCommandList->Close();
+	ID3D12CommandList* cmdLists[] = { mGraphics->mCommandList.Get() };
+	mGraphics->mCommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
+
+	CreateRenderItems();
 
 	UpdatePerObjectConstantBuffers();
 	UpdatePerFrameConstantBuffers();
@@ -376,7 +387,7 @@ void App::RenderGUI()
 void App::CreateIcosohedron()
 {
 	if (!mIcosohedron) { mIcosohedron.release(); }
-	mIcosohedron = std::make_unique<Icosahedron>(8, 36, mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get(),recursions,octaves,frequency);
+	mIcosohedron = std::make_unique<Icosahedron>(8, 36, mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get(),recursions,octaves,frequency, mEyePos);
 }
 
 void App::CreateConstantBuffers()
