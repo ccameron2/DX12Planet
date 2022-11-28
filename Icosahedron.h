@@ -17,7 +17,7 @@ class Icosahedron
 	};
 
 public:
-	Icosahedron(int numVertices, int numIndices, ID3D12Device* d3DDevice, ID3D12GraphicsCommandList* commandList);
+	Icosahedron(int numVertices, int numIndices, ID3D12Device* d3DDevice, ID3D12GraphicsCommandList* commandList, int recursions, int octaves, float frequency);
 	~Icosahedron();
 	unique_ptr<GeometryData> mGeometryData;
 
@@ -25,7 +25,7 @@ public:
 	std::vector<uint32_t> mIndices;
 	std::vector<Triangle> mTriangles;
 	std::vector<XMFLOAT3> mNormals;
-	int mRecursions = 4;
+	int mRecursions = 6;
 	std::map<std::pair<int, int>, int> mVertexMap;
 	int mOctaves = 8;
 	float mFrequency = 1;

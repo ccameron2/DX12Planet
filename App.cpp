@@ -125,45 +125,64 @@ void App::ShowGUI()
 
 	ImGui::Begin("Planet");
 
+	ImGui::Text("Recursions");
+
+	if (ImGui::SliderInt("Recursions", &recursions, 0, 12))
+	{
+		mGraphics->mCommandList->Reset(mCurrentFrameResource->mCommandAllocator.Get(), mGraphics->mPSO.Get());
+		CreateIcosohedron();
+		mGraphics->ExecuteCommands();
+		CreateRenderItems();
+	};
+
 	ImGui::Text("Noise");
 
-	if (ImGui::SliderFloat("Noise Frequency", &mIcosohedron->mFrequency, 0.0f, 1.0f))
+	static float prevFreq = 0;
+	if (ImGui::SliderFloat("Noise Frequency", &frequency, 0.0f, 1.0f, "%.1f"))
 	{
-		mGraphics->mCommandList->Reset(mCurrentFrameResource->mCommandAllocator.Get(),mGraphics->mPSO.Get());
+		mGraphics->mCommandList->Reset(mCurrentFrameResource->mCommandAllocator.Get(), mGraphics->mPSO.Get());
 		CreateIcosohedron();
-		CreateRenderItems();
 		mGraphics->ExecuteCommands();
+		CreateRenderItems();
 	};           
+
+	ImGui::Text("Recursions");
+
+	if (ImGui::SliderInt("Octaves", &octaves, 0, 20))
+	{
+		mGraphics->mCommandList->Reset(mCurrentFrameResource->mCommandAllocator.Get(), mGraphics->mPSO.Get());
+		CreateIcosohedron();
+		mGraphics->ExecuteCommands();
+		CreateRenderItems();
+	};
 
 	ImGui::Text("World Matrix");
 
 	static float pos[3];
-	if (ImGui::SliderFloat3("Position", pos,-5.0f,5.0f))
+	if (ImGui::SliderFloat3("Position", pos,-5.0f,5.0f, "%.1f"))
 	{
-		XMFLOAT4X4 newWM = MakeIdentity4x4();
-		XMStoreFloat4x4(&mRenderItems[0]->WorldMatrix, XMMatrixIdentity() * XMMatrixTranslation(pos[0], pos[1], pos[2]));
+		XMStoreFloat4x4(&mRenderItems[0]->WorldMatrix, XMMatrixIdentity() * XMMatrixTranslation(pos[0], pos[1], pos[2]));		
 		
 		// Signal to update object constant buffer
-		mRenderItems[0]->NumDirtyFrames++;
+		mRenderItems[0]->NumDirtyFrames += mNumFrameResources;
 	}
 	
 	static float rot[3];
-	if (ImGui::SliderFloat3("Rotation", rot, -5.0f, 5.0f))
+	if (ImGui::SliderFloat3("Rotation", rot, -5.0f, 5.0f, "%.1f"))
 	{
-		XMFLOAT4X4 newWM = MakeIdentity4x4();
 		XMStoreFloat4x4(&mRenderItems[0]->WorldMatrix, XMMatrixIdentity() * XMMatrixRotationX(rot[0]) * XMMatrixRotationY(rot[1]) * XMMatrixRotationZ(rot[2]));
+		
 		// Signal to update object constant buffer
-		mRenderItems[0]->NumDirtyFrames++;
+		mRenderItems[0]->NumDirtyFrames += mNumFrameResources;
 	}
 
-	static float scale;
-	if (ImGui::SliderFloat("Scale", &scale, 0.0f, 5.0f))
+	static float scale = 1;
+	if (ImGui::SliderFloat("Scale", &scale, 0.0f, 5.0f, "%.1f"))
 	{
-		XMFLOAT4X4 newWM = MakeIdentity4x4();
 		XMStoreFloat4x4(&mRenderItems[0]->WorldMatrix, XMMatrixIdentity() * XMMatrixScaling(scale, scale, scale));
 
 		// Signal to update object constant buffer
-		mRenderItems[0]->NumDirtyFrames++;
+		mRenderItems[0]->NumDirtyFrames += mNumFrameResources;
 	}
 
 	ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
@@ -233,12 +252,12 @@ void App::Update(float frameTime)
 {	
 	UpdateCamera();
 
-	mCurrentFrameResourceIndex = 0;
-	mCurrentFrameResource = mFrameResources[mCurrentFrameResourceIndex].get();
+	//mCurrentFrameResourceIndex = 0;
+	//mCurrentFrameResource = mFrameResources[mCurrentFrameResourceIndex].get();
 
 	// Cycle frame resources
-	//mCurrentFrameResourceIndex = (mCurrentFrameResourceIndex + 1) % mNumFrameResources;
-	//mCurrentFrameResource = mFrameResources[mCurrentFrameResourceIndex].get();
+	mCurrentFrameResourceIndex = (mCurrentFrameResourceIndex + 1) % mNumFrameResources;
+	mCurrentFrameResource = mFrameResources[mCurrentFrameResourceIndex].get();
 
 	UINT64 completedFence = mGraphics->mFence->GetCompletedValue();
 
@@ -357,7 +376,7 @@ void App::RenderGUI()
 void App::CreateIcosohedron()
 {
 	if (!mIcosohedron) { mIcosohedron.release(); }
-	mIcosohedron = std::make_unique<Icosahedron>(8, 36, mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
+	mIcosohedron = std::make_unique<Icosahedron>(8, 36, mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get(),recursions,octaves,frequency);
 }
 
 void App::CreateConstantBuffers()
@@ -410,9 +429,13 @@ void App::CreateConstantBuffers()
 
 void App::CreateRenderItems()
 {
-	if (mRenderItems.size() == 0)
+	if (mRenderItems.size() != 0)
 	{
-		mRenderItems.empty();
+		for (auto& item : mRenderItems)
+		{
+			delete item;
+		}
+		mRenderItems.clear();
 	}
 
 	RenderItem* icoRenderItem = new RenderItem();
@@ -427,7 +450,7 @@ void App::CreateRenderItems()
 
 	//RenderItem* icoRenderItem2 = new RenderItem();
 	//XMStoreFloat4x4(&icoRenderItem2->WorldMatrix, XMMatrixIdentity() * XMMatrixTranslation(2.0f, 0.0f,0.0f));
-	//icoRenderItem2->ObjConstantBufferIndex = 0;
+	//icoRenderItem2->ObjConstantBufferIndex = 1;
 	//icoRenderItem2->Geometry = mIcosohedron->mGeometryData.get();
 	//icoRenderItem2->Topology = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 	//icoRenderItem2->IndexCount = mIcosohedron->mGeometryData->mIndices.size();
@@ -465,9 +488,9 @@ void App::CreateCBVHeap()
 {
 	UINT objCount = (UINT)mRenderItems.size();
 	// Need a CBV descriptor for each object for each frame resource,
-	// +1 for the perPass CBV for each frame resource.
-	UINT numDescriptors = (objCount + 1) * mNumFrameResources;
-	// Save an offset to the start of the pass CBVs. These are the last 3 descriptors.
+	UINT numDescriptors = (objCount + 1) * mNumFrameResources; // +1 for the perFrameCB for each frame resource.
+
+	// Save an offset to the start of the per frame CBVs (last 3).
 	mPassCbvOffset = objCount * mNumFrameResources;
 	D3D12_DESCRIPTOR_HEAP_DESC cbvHeapDesc;
 	cbvHeapDesc.NumDescriptors = numDescriptors;

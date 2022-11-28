@@ -1,8 +1,12 @@
 #include "Icosahedron.h"
 #include "FastNoiseLite.h"
 #include <execution>
-Icosahedron::Icosahedron(int numVertices, int numIndices, ID3D12Device* d3DDevice, ID3D12GraphicsCommandList* commandList)
+Icosahedron::Icosahedron(int numVertices, int numIndices, ID3D12Device* d3DDevice, ID3D12GraphicsCommandList* commandList, int recursions, int octaves, float frequency)
 {
+	mRecursions = recursions;
+	mOctaves = octaves;
+	mFrequency = frequency;
+
 	CreateGeometry(numVertices, numIndices, d3DDevice, commandList);
 }
 

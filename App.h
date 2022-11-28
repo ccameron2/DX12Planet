@@ -111,6 +111,10 @@ private:
 	int mHeight = 600;
 
 	std::unique_ptr<Icosahedron> mIcosohedron;
+	float frequency = 0.5f;
+	int recursions = 6;
+	int octaves = 8;
+
 
 	float mTheta = 1.5f * XM_PI;
 	float mPhi = XM_PIDIV4;
