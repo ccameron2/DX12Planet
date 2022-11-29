@@ -3,8 +3,10 @@
 #include <DirectXMath.h>
 
 
-Graphics::Graphics(HWND hWND, int width, int height)
+Graphics::Graphics(HWND hWND, int width, int height, int numRenderItems)
 {
+	mNumRenderItems = numRenderItems;
+
 	// Break on D3D12 errors
 	CreateDeviceAndFence();
 
@@ -28,6 +30,10 @@ Graphics::Graphics(HWND hWND, int width, int height)
 	{
 		MessageBox(0, L"Command List reset failed", L"Error", MB_OK);
 	}
+
+	BuildFrameResources();
+	CreateCBVHeap();
+	CreateConstantBuffers();
 
 	CreateRootSignature();
 	CreateShaders();
@@ -307,6 +313,81 @@ void Graphics::CreateDescriptorHeaps()
 	}
 }
 
+void Graphics::BuildFrameResources()
+{
+	for (int i = 0; i < mNumFrameResources; i++)
+	{
+		mFrameResources.push_back(std::make_unique<FrameResource>(mD3DDevice.Get(), 1, mNumRenderItems));
+	}
+}
+
+void Graphics::CreateCBVHeap()
+{
+	UINT objCount = (UINT)mNumRenderItems;
+	// Need a CBV descriptor for each object for each frame resource,
+	UINT numDescriptors = (objCount + 1) * mNumFrameResources; // +1 for the perFrameCB for each frame resource.
+
+	// Save an offset to the start of the per frame CBVs (last 3).
+	mPassCbvOffset = objCount * mNumFrameResources;
+	D3D12_DESCRIPTOR_HEAP_DESC cbvHeapDesc;
+	cbvHeapDesc.NumDescriptors = numDescriptors;
+	cbvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+	cbvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	cbvHeapDesc.NodeMask = 0;
+	if (FAILED( mD3DDevice->CreateDescriptorHeap(&cbvHeapDesc, IID_PPV_ARGS(&mCBVHeap))))
+	{
+		MessageBox(0, L"Create descriptor heap failed", L"Error", MB_OK);
+	}
+}
+
+void Graphics::CreateConstantBuffers()
+{
+	UINT objCBByteSize = CalculateConstantBufferSize(sizeof(FrameResource::mPerObjectConstants));
+	UINT numObjects = (UINT)mNumRenderItems;
+
+	for (int frameIndex = 0; frameIndex < mNumFrameResources; frameIndex++)
+	{
+		auto objectConstantBuffer = mFrameResources[frameIndex]->mPerObjectConstantBuffer->GetBuffer();
+		for (UINT i = 0; i < numObjects; i++)
+		{
+			D3D12_GPU_VIRTUAL_ADDRESS cbAddress = objectConstantBuffer->GetGPUVirtualAddress();
+
+			// Offset to the ith object constant buffer in the buffer.
+			cbAddress += i * objCBByteSize;
+
+			// Offset to the object cbv in the descriptor heap.
+			int heapIndex = frameIndex * numObjects + i;
+			auto handle = CD3DX12_CPU_DESCRIPTOR_HANDLE(mCBVHeap->GetCPUDescriptorHandleForHeapStart());
+			handle.Offset(heapIndex,  mCbvSrvUavDescriptorSize);
+
+			D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc;
+			cbvDesc.BufferLocation = cbAddress;
+			cbvDesc.SizeInBytes = objCBByteSize;
+
+			mD3DDevice->CreateConstantBufferView(&cbvDesc, handle);
+		}
+	}
+	UINT passCBByteSize = CalculateConstantBufferSize(sizeof(FrameResource::mPerFrameConstants));
+
+	// Last three descriptors are the pass CBVs for each frame resource.
+	for (int frameIndex = 0; frameIndex < mNumFrameResources; frameIndex++)
+	{
+		auto passCB = mFrameResources[frameIndex]->mPerFrameConstantBuffer->GetBuffer();
+		D3D12_GPU_VIRTUAL_ADDRESS cbAddress = passCB->GetGPUVirtualAddress();
+
+		// Offset to the pass cbv in the descriptor heap.
+		int heapIndex = mPassCbvOffset + frameIndex;
+		auto handle = CD3DX12_CPU_DESCRIPTOR_HANDLE(mCBVHeap->GetCPUDescriptorHandleForHeapStart());
+		handle.Offset(heapIndex, mCbvSrvUavDescriptorSize);
+
+		D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc;
+		cbvDesc.BufferLocation = cbAddress;
+		cbvDesc.SizeInBytes = passCBByteSize;
+
+		mD3DDevice->CreateConstantBufferView(&cbvDesc, handle);
+	}
+}
+
 void Graphics::Resize(int width, int height)
 {
 	assert(mD3DDevice);
@@ -500,6 +581,27 @@ void Graphics::EmptyCommandQueue()
 		CloseHandle(eventHandle);
 	}
 
+}
+
+void Graphics::CycleFrameResources()
+{
+	// Cycle frame resources
+	mCurrentFrameResourceIndex = (mCurrentFrameResourceIndex + 1) % mNumFrameResources;
+	mCurrentFrameResource = mFrameResources[mCurrentFrameResourceIndex].get();
+
+	UINT64 completedFence = mFence->GetCompletedValue();
+
+	// Wait for GPU to finish current frame resource commands
+	if (mCurrentFrameResource->Fence != 0 && completedFence < mCurrentFrameResource->Fence)
+	{
+		HANDLE eventHandle = CreateEventEx(nullptr, false, false, EVENT_ALL_ACCESS);
+		if (FAILED(mFence->SetEventOnCompletion(mCurrentFrameResource->Fence, eventHandle)))
+		{
+			MessageBox(0, L"Fence completion event set failed", L"Error", MB_OK);
+		}
+		WaitForSingleObject(eventHandle, INFINITE);
+		CloseHandle(eventHandle);
+	}
 }
 
 // Return current back buffer

@@ -170,9 +170,9 @@ void Icosahedron::SubdivideIcosphere(int level)
 		XMFLOAT3 dot;
 		XMStoreFloat3(&dot,XMVector3Dot(XMVector3Normalize(centre), XMVector3Normalize(centre - XMLoadFloat3(&mEyePos))));
 		
-		// Cull rear facing triangles
-		if (dot.x < cullAnglePerLevel[level])
-		{
+		//// Cull rear facing triangles
+		//if (dot.x < cullAnglePerLevel[level])
+		//{
 			// For each edge
 			std::uint32_t mid[3];
 			for (int e = 0; e < 3; e++)
@@ -185,7 +185,7 @@ void Icosahedron::SubdivideIcosphere(int level)
 			newTriangles.push_back({ triangle.Point[1], mid[1], mid[0] });
 			newTriangles.push_back({ triangle.Point[2], mid[2], mid[1] });
 			newTriangles.push_back({ mid[0], mid[1], mid[2] });
-		}	
+		//}	
 	}
 
 	// Swap old triangles with new ones

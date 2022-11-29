@@ -85,22 +85,32 @@ void App::Initialize()
 	SDL_GetWindowWMInfo(mWindow, &info);
 	HWND hwnd = info.info.win.window;
 
-	mGraphics = make_unique<Graphics>(hwnd, mWidth, mHeight);
-
+	mGraphics = make_unique<Graphics>(hwnd, mWidth, mHeight, mNumStartingItems);
+	
 	UpdateCamera();
 	CreateIcosohedron();
 	CreateRenderItems();
-
-	BuildFrameResources();
-	CreateCBVHeap();
-	CreateConstantBuffers();
-
 	mGraphics->ExecuteCommands();
+
+	CreateGUIHeap();
 
 	SetupGUI();
 
 	// Make initial projection matrix
 	Resized();
+}
+
+void App::CreateGUIHeap()
+{
+	D3D12_DESCRIPTOR_HEAP_DESC guiHeapDesc;
+	guiHeapDesc.NumDescriptors = 1;
+	guiHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+	guiHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	guiHeapDesc.NodeMask = 0;
+	if (FAILED(mGraphics->mD3DDevice->CreateDescriptorHeap(&guiHeapDesc, IID_PPV_ARGS(&mGUIHeap))))
+	{
+		MessageBox(0, L"Create descriptor heap failed", L"Error", MB_OK);
+	}
 }
 
 void App::SetupGUI()
@@ -112,7 +122,7 @@ void App::SetupGUI()
 	ImGui::StyleColorsDark();
 
 	ImGui_ImplSDL2_InitForD3D(mWindow);
-	ImGui_ImplDX12_Init(mGraphics->mD3DDevice.Get(), mNumFrameResources, mGraphics->mBackBufferFormat, mGUIHeap.Get(),
+	ImGui_ImplDX12_Init(mGraphics->mD3DDevice.Get(), mGraphics->mNumFrameResources, mGraphics->mBackBufferFormat, mGUIHeap.Get(),
 		mGUIHeap->GetCPUDescriptorHandleForHeapStart(), mGUIHeap->GetGPUDescriptorHandleForHeapStart());
 }
 
@@ -130,10 +140,10 @@ void App::ShowGUI()
 
 	if (ImGui::SliderInt("Recursions", &recursions, 0, 12))
 	{
-		//mGraphics->mCommandList->Reset(mCurrentFrameResource->mCommandAllocator.Get(), mGraphics->mPSO.Get());
-		//CreateIcosohedron();
-		//mGraphics->ExecuteCommands();
-		//CreateRenderItems();
+		mGraphics->mCommandList->Reset(mGraphics->mCurrentFrameResource->mCommandAllocator.Get(), mGraphics->mPSO.Get());
+		CreateIcosohedron();
+		mGraphics->ExecuteCommands();
+		CreateRenderItems();
 	};
 
 	ImGui::Text("Noise");
@@ -141,38 +151,40 @@ void App::ShowGUI()
 	static float prevFreq = 0;
 	if (ImGui::SliderFloat("Noise Frequency", &frequency, 0.0f, 1.0f, "%.1f"))
 	{
-		//mGraphics->mCommandList->Reset(mCurrentFrameResource->mCommandAllocator.Get(), mGraphics->mPSO.Get());
-		//CreateIcosohedron();
-		//mGraphics->ExecuteCommands();
-		//CreateRenderItems();
-	};           
+		mGraphics->mCommandList->Reset(mGraphics->mCurrentFrameResource->mCommandAllocator.Get(), mGraphics->mPSO.Get());
+		CreateIcosohedron();
+		mGraphics->ExecuteCommands();
+		CreateRenderItems();
+	};
 
 	if (ImGui::SliderInt("Octaves", &octaves, 0, 20))
 	{
-		//mGraphics->mCommandList->Reset(mCurrentFrameResource->mCommandAllocator.Get(), mGraphics->mPSO.Get());
-		//CreateIcosohedron();
-		//mGraphics->ExecuteCommands();
-		//CreateRenderItems();
+		mGraphics->mCommandList->Reset(mGraphics->mCurrentFrameResource->mCommandAllocator.Get(), mGraphics->mPSO.Get());
+		CreateIcosohedron();
+		mGraphics->ExecuteCommands();
+		CreateRenderItems();
 	};
 
 	ImGui::Text("World Matrix");
 
 	static float pos[3];
-	if (ImGui::SliderFloat3("Position", pos,-5.0f,5.0f, "%.1f"))
+	if (ImGui::SliderFloat3("Position", pos, -5.0f, 5.0f, "%.1f"))
 	{
-		XMStoreFloat4x4(&mRenderItems[0]->WorldMatrix, XMMatrixIdentity() * XMMatrixTranslation(pos[0], pos[1], pos[2]));		
-		
+		XMStoreFloat4x4(&mRenderItems[0]->WorldMatrix, XMMatrixIdentity() * XMMatrixTranslation(pos[0], pos[1], pos[2]));
+
 		// Signal to update object constant buffer
-		mRenderItems[0]->NumDirtyFrames += mNumFrameResources;
+		mRenderItems[0]->NumDirtyFrames += mGraphics->mNumFrameResources;
 	}
-	
+
 	static float rot[3];
 	if (ImGui::SliderFloat3("Rotation", rot, -5.0f, 5.0f, "%.1f"))
 	{
-		XMStoreFloat4x4(&mRenderItems[0]->WorldMatrix, XMMatrixIdentity() * XMMatrixRotationX(rot[0]) * XMMatrixRotationY(rot[1]) * XMMatrixRotationZ(rot[2]));
 		
+		mGraphics->mCurrentFrameResource->mPerObjectConstantBuffer;
+		XMStoreFloat4x4(&mRenderItems[0]->WorldMatrix, XMMatrixIdentity() * XMMatrixRotationX(rot[0]) * XMMatrixRotationY(rot[1]) * XMMatrixRotationZ(rot[2]));
+
 		// Signal to update object constant buffer
-		mRenderItems[0]->NumDirtyFrames += mNumFrameResources;
+		mRenderItems[0]->NumDirtyFrames += mGraphics->mNumFrameResources;
 	}
 
 	static float scale = 1;
@@ -181,7 +193,7 @@ void App::ShowGUI()
 		XMStoreFloat4x4(&mRenderItems[0]->WorldMatrix, XMMatrixIdentity() * XMMatrixScaling(scale, scale, scale));
 
 		// Signal to update object constant buffer
-		mRenderItems[0]->NumDirtyFrames += mNumFrameResources;
+		mRenderItems[0]->NumDirtyFrames += mGraphics->mNumFrameResources;
 	}
 
 	ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
@@ -189,253 +201,10 @@ void App::ShowGUI()
 
 }
 
-void App::BuildFrameResources()
-{
-	for (int i = 0; i < mNumFrameResources; i++)
-	{
-		mFrameResources.push_back(std::make_unique<FrameResource>(mGraphics->mD3DDevice.Get(), 1, mRenderItems.size()));
-	}
-}
-
-void App::UpdatePerObjectConstantBuffers()
-{
-	auto currentObjectConstantBuffer = mCurrentFrameResource->mPerObjectConstantBuffer.get();
-	for (auto& rItem : mRenderItems)
-	{
-		if (rItem->NumDirtyFrames > 0)
-		{
-			XMMATRIX worldMatrix = XMLoadFloat4x4(&rItem->WorldMatrix);
-			FrameResource::mPerObjectConstants objectConstants;
-			XMStoreFloat4x4(&objectConstants.WorldMatrix, XMMatrixTranspose(worldMatrix));
-			currentObjectConstantBuffer->Copy(rItem->ObjConstantBufferIndex, objectConstants);
-			rItem->NumDirtyFrames--;
-		}
-	}
-}
-
-void App::UpdatePerFrameConstantBuffers()
-{
-	FrameResource::mPerFrameConstants perFrameConstantBuffer;
-	XMMATRIX view = XMLoadFloat4x4(&mViewMatrix);
-	XMMATRIX proj = XMLoadFloat4x4(&mProjectionMatrix);
-	XMMATRIX viewProj = XMMatrixMultiply(view, proj);
-	XMStoreFloat4x4(&perFrameConstantBuffer.ViewMatrix, XMMatrixTranspose(view));
-	XMStoreFloat4x4(&perFrameConstantBuffer.ProjMatrix, XMMatrixTranspose(proj));
-	XMStoreFloat4x4(&perFrameConstantBuffer.ViewProjMatrix, XMMatrixTranspose(viewProj));
-	perFrameConstantBuffer.EyePosW = mEyePos;
-	perFrameConstantBuffer.RenderTargetSize = XMFLOAT2((float)mWidth, (float)mHeight);
-	perFrameConstantBuffer.NearZ = 1.0f;
-	perFrameConstantBuffer.FarZ = 1000.0f;
-	perFrameConstantBuffer.TotalTime = mTimer.GetTime();
-	perFrameConstantBuffer.DeltaTime = mTimer.GetLapTime();
-	auto currentPassCB = mCurrentFrameResource->mPerFrameConstantBuffer.get();
-	currentPassCB->Copy(0, perFrameConstantBuffer);
-}
-
-void App::UpdateCamera()
-{
-	// Convert Spherical to Cartesian coordinates.
-	mEyePos.x = mRadius * sinf(mPhi) * cosf(mTheta);
-	mEyePos.z = mRadius * sinf(mPhi) * sinf(mTheta);
-	mEyePos.y = mRadius * cosf(mPhi);
-
-	// Build the view matrix.
-	XMVECTOR pos = XMVectorSet(mEyePos.x, mEyePos.y, mEyePos.z, 1.0f);
-	XMVECTOR target = XMVectorZero();
-	XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
-
-	XMMATRIX view = XMMatrixLookAtLH(pos, target, up);
-	XMStoreFloat4x4(&mViewMatrix, view);
-}
-
-void App::Update(float frameTime)
-{	
-	UpdateCamera();
-
-	//mCurrentFrameResourceIndex = 0;
-	//mCurrentFrameResource = mFrameResources[mCurrentFrameResourceIndex].get();
-
-	// Cycle frame resources
-	mCurrentFrameResourceIndex = (mCurrentFrameResourceIndex + 1) % mNumFrameResources;
-	mCurrentFrameResource = mFrameResources[mCurrentFrameResourceIndex].get();
-
-	UINT64 completedFence = mGraphics->mFence->GetCompletedValue();
-
-	// Wait for GPU to finish current frame resource commands
-	if (mCurrentFrameResource->Fence != 0 && completedFence < mCurrentFrameResource->Fence)
-	{
-		HANDLE eventHandle = CreateEventEx(nullptr, false, false, EVENT_ALL_ACCESS);
-		if (FAILED(mGraphics->mFence->SetEventOnCompletion(mCurrentFrameResource->Fence, eventHandle)))
-		{
-			MessageBox(0, L"Fence completion event set failed", L"Error", MB_OK);
-		}
-		WaitForSingleObject(eventHandle, INFINITE);
-		CloseHandle(eventHandle);
-	}
-
-	// Recreate planet every frame
-	mGraphics->mCommandList->Reset(mCurrentFrameResource->mCommandAllocator.Get(), mGraphics->mPSO.Get());
-	CreateIcosohedron();
-
-	// Execute commands
-	mGraphics->mCommandList->Close();
-	ID3D12CommandList* cmdLists[] = { mGraphics->mCommandList.Get() };
-	mGraphics->mCommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
-
-	CreateRenderItems();
-
-	UpdatePerObjectConstantBuffers();
-	UpdatePerFrameConstantBuffers();
-}
-
-void App::Draw(float frameTime)
-{
-	auto commandAllocator = mCurrentFrameResource->mCommandAllocator;
-
-	// We can only reset when the associated command lists have finished execution on the GPU.
-	if (FAILED(commandAllocator->Reset()))
-	{
-		MessageBox(0, L"Command Allocator reset failed", L"Error", MB_OK);
-	}
-
-	// A command list can be reset after it has been added to the command queue via ExecuteCommandList.
-	if (FAILED(mGraphics->mCommandList->Reset(commandAllocator.Get(), mGraphics->mPSO.Get())))
-	{
-		MessageBox(0, L"Command List reset failed", L"Error", MB_OK);
-	}
-
-	// Set the viewport and scissor rect.  This needs to be reset whenever the command list is reset.
-	mGraphics->mCommandList->RSSetViewports(1, &mGraphics->mViewport);
-	mGraphics->mCommandList->RSSetScissorRects(1, &mGraphics->mScissorRect);
-
-	// Clear the back buffer and depth buffer.
-	mGraphics->mCommandList->ClearRenderTargetView(mGraphics->MSAAView(), mGraphics->mBackgroundColour, 0, nullptr);
-	mGraphics->mCommandList->ClearDepthStencilView(mGraphics->DepthStencilView(), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
-
-	// Select MSAA texture as render target
-	mGraphics->mCommandList->OMSetRenderTargets(1, &mGraphics->MSAAView(), true, &mGraphics->DepthStencilView());
-
-	ID3D12DescriptorHeap* descriptorHeaps[] = { mCBVHeap.Get() };
-	mGraphics->mCommandList->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
-
-	mGraphics->mCommandList->SetGraphicsRootSignature(mGraphics->mRootSignature.Get());
-
-	int passCbvIndex = mPassCbvOffset + mCurrentFrameResourceIndex;
-	auto passCbvHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(mCBVHeap->GetGPUDescriptorHandleForHeapStart());
-	passCbvHandle.Offset(passCbvIndex, mGraphics->mCbvSrvUavDescriptorSize);
-	mGraphics->mCommandList->SetGraphicsRootDescriptorTable(1, passCbvHandle);
-
-	DrawRenderItems(mGraphics->mCommandList.Get());
-
-	mGraphics->ResolveMSAAToBackBuffer(mGraphics->mCommandList.Get());
-
-	RenderGUI();
-
-	// Done recording commands.
-	if (FAILED(mGraphics->mCommandList->Close()))
-	{
-		MessageBox(0, L"Command List close failed", L"Error", MB_OK);
-	}
-
-	// Add the command list to the queue for execution.
-	ID3D12CommandList* cmdLists[] = { mGraphics->mCommandList.Get() };
-	mGraphics->mCommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
-
-
-	// Swap the back and front buffers
-	if (FAILED(mGraphics->mSwapChain->Present(0, 0)))
-	{
-		MessageBox(0, L"Swap chain present failed", L"Error", MB_OK);
-	}
-	mGraphics->mCurrentBackBuffer = (mGraphics->mCurrentBackBuffer + 1) % mGraphics->mSwapChainBufferCount;
-
-	// Advance fence value
-	mCurrentFrameResource->Fence = mGraphics->mCurrentFence++;
-
-	// Tell command queue to set new fence point, will only be set when the GPU gets to new fence value.
-	mGraphics->mCommandQueue->Signal(mGraphics->mFence.Get(), mGraphics->mCurrentFence);
-
-	// Frame buffering broken in debug mode so wait each frame
-	//mGraphics->EmptyCommandQueue();
-}
-
-void App::RenderGUI()
-{
-	ImGui::Render();
-
-	// Transition back buffer to RT
-	mGraphics->mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(mGraphics->CurrentBackBuffer(),
-		D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET));
-
-	CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHeapView(mGraphics->mDSVHeap->GetCPUDescriptorHandleForHeapStart());
-	dsvHeapView.Offset(1, mGraphics->mDsvDescriptorSize);
-
-	// Select Back buffer as render target
-	mGraphics->mCommandList->ClearDepthStencilView(dsvHeapView, D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
-	mGraphics->mCommandList->OMSetRenderTargets(1, &mGraphics->CurrentBackBufferView(), true, &dsvHeapView);
-
-	// Set descriptor heap to GUI heap
-	ID3D12DescriptorHeap* guiDescriptorHeaps[] = { mGUIHeap.Get() };
-	mGraphics->mCommandList->SetDescriptorHeaps(_countof(guiDescriptorHeaps), guiDescriptorHeaps);
-	ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), mGraphics->mCommandList.Get());
-
-	// Transition back buffer to present
-	mGraphics->mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(mGraphics->CurrentBackBuffer(),
-		D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));
-}
-
 void App::CreateIcosohedron()
 {
 	if (!mIcosohedron) { mIcosohedron.release(); }
-	mIcosohedron = std::make_unique<Icosahedron>(8, 36, mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get(),recursions,octaves,frequency, mEyePos);
-}
-
-void App::CreateConstantBuffers()
-{
-	UINT objCBByteSize = CalculateConstantBufferSize(sizeof(FrameResource::mPerObjectConstants));
-	UINT numObjects = (UINT)mRenderItems.size();
-
-	for (int frameIndex = 0; frameIndex < mNumFrameResources; frameIndex++)
-	{
-		auto objectConstantBuffer = mFrameResources[frameIndex]->mPerObjectConstantBuffer->GetBuffer();
-		for (UINT i = 0; i < numObjects; i++)
-		{
-			D3D12_GPU_VIRTUAL_ADDRESS cbAddress = objectConstantBuffer->GetGPUVirtualAddress();
-
-			// Offset to the ith object constant buffer in the buffer.
-			cbAddress += i * objCBByteSize;
-
-			// Offset to the object cbv in the descriptor heap.
-			int heapIndex = frameIndex * numObjects + i;
-			auto handle = CD3DX12_CPU_DESCRIPTOR_HANDLE(mCBVHeap->GetCPUDescriptorHandleForHeapStart());
-			handle.Offset(heapIndex, mGraphics->mCbvSrvUavDescriptorSize);
-
-			D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc;
-			cbvDesc.BufferLocation = cbAddress;
-			cbvDesc.SizeInBytes = objCBByteSize;
-
-			mGraphics->mD3DDevice->CreateConstantBufferView(&cbvDesc, handle);
-		}
-	}
-	UINT passCBByteSize = CalculateConstantBufferSize(sizeof(FrameResource::mPerFrameConstants));
-
-	// Last three descriptors are the pass CBVs for each frame resource.
-	for (int frameIndex = 0; frameIndex < mNumFrameResources; frameIndex++)
-	{
-		auto passCB = mFrameResources[frameIndex]->mPerFrameConstantBuffer->GetBuffer();
-		D3D12_GPU_VIRTUAL_ADDRESS cbAddress = passCB->GetGPUVirtualAddress();
-
-		// Offset to the pass cbv in the descriptor heap.
-		int heapIndex = mPassCbvOffset + frameIndex;
-		auto handle = CD3DX12_CPU_DESCRIPTOR_HANDLE(mCBVHeap->GetCPUDescriptorHandleForHeapStart());
-		handle.Offset(heapIndex, mGraphics->mCbvSrvUavDescriptorSize);
-
-		D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc;
-		cbvDesc.BufferLocation = cbAddress;
-		cbvDesc.SizeInBytes = passCBByteSize;
-
-		mGraphics->mD3DDevice->CreateConstantBufferView(&cbvDesc, handle);
-	}
+	mIcosohedron = std::make_unique<Icosahedron>(8, 36, mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get(), recursions, octaves, frequency, mEyePos);
 }
 
 void App::CreateRenderItems()
@@ -469,66 +238,187 @@ void App::CreateRenderItems()
 	//icoRenderItem2->BaseVertexLocation = 0;
 	//mRenderItems.push_back(icoRenderItem2);
 
-	// Create test cube
-	//GeometryData* geometry = new GeometryData();
-	//Cube cube;
-	//geometry->mVertices = cube.vertices;
-	//geometry->mIndices = cube.indices;
-	//mGraphics->mCommandList->Reset(mGraphics->mCommandAllocator.Get(), nullptr);
-	//geometry->CalculateBufferData(mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
-	//mGraphics->ExecuteCommands();
-	////////////
-
-	//auto cubeRenderItem = new RenderItem();
-	//XMStoreFloat4x4(&cubeRenderItem->WorldMatrix, XMMatrixScaling(1.0f, 1.0f, 1.0f) * XMMatrixTranslation(0.0f, 0.0f, 0.0f));
-	//cubeRenderItem->ObjConstantBufferIndex = 0;
-	//cubeRenderItem->Geometry = geometry;
-	//cubeRenderItem->Topology = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-	//cubeRenderItem->IndexCount = mIcosohedron->mGeometryData->mIndices.size();
-	//cubeRenderItem->StartIndexLocation = 0;
-	//cubeRenderItem->BaseVertexLocation = 0;
-	//mRenderItems.push_back(cubeRenderItem);
-
 	//if (FAILED(mGraphics->mCommandList->Reset(mGraphics->mCommandAllocator.Get(), nullptr)))
 	//{
 	//	MessageBox(0, L"Command List reset failed", L"Error", MB_OK);
 	//}
 }
 
-void App::CreateCBVHeap()
+void App::Update(float frameTime)
 {
-	UINT objCount = (UINT)mRenderItems.size();
-	// Need a CBV descriptor for each object for each frame resource,
-	UINT numDescriptors = (objCount + 1) * mNumFrameResources; // +1 for the perFrameCB for each frame resource.
+	UpdateCamera();
 
-	// Save an offset to the start of the per frame CBVs (last 3).
-	mPassCbvOffset = objCount * mNumFrameResources;
-	D3D12_DESCRIPTOR_HEAP_DESC cbvHeapDesc;
-	cbvHeapDesc.NumDescriptors = numDescriptors;
-	cbvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-	cbvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-	cbvHeapDesc.NodeMask = 0;
-	if (FAILED(mGraphics->mD3DDevice->CreateDescriptorHeap(&cbvHeapDesc,IID_PPV_ARGS(&mCBVHeap))))
+	//static bool firstFrame = true;
+	//if (!firstFrame)
+	//{
+	//	// Recreate planet every frame
+	//	mGraphics->mCommandList->Reset(mGraphics->mCurrentFrameResource->mCommandAllocator.Get(), mGraphics->mPSO.Get());
+	//	CreateIcosohedron();
+
+	//	// Execute commands
+	//	mGraphics->mCommandList->Close();
+	//	ID3D12CommandList* cmdLists[] = { mGraphics->mCommandList.Get() };
+	//	mGraphics->mCommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
+	//	CreateRenderItems();
+	//}
+	//else { firstFrame = false; }
+
+	mGraphics->CycleFrameResources();
+
+	UpdatePerObjectConstantBuffers();
+	UpdatePerFrameConstantBuffers();
+}
+
+void App::UpdatePerObjectConstantBuffers()
+{
+	auto currentObjectConstantBuffer = mGraphics->mCurrentFrameResource->mPerObjectConstantBuffer.get();
+	for (auto& rItem : mRenderItems)
 	{
-		MessageBox(0, L"Create descriptor heap failed", L"Error", MB_OK);
+		if (rItem->NumDirtyFrames > 0)
+		{
+			XMMATRIX worldMatrix = XMLoadFloat4x4(&rItem->WorldMatrix);
+			FrameResource::mPerObjectConstants objectConstants;
+			XMStoreFloat4x4(&objectConstants.WorldMatrix, XMMatrixTranspose(worldMatrix));
+			currentObjectConstantBuffer->Copy(rItem->ObjConstantBufferIndex, objectConstants);
+			rItem->NumDirtyFrames--;
+		}
+	}
+}
+
+void App::UpdatePerFrameConstantBuffers()
+{
+	FrameResource::mPerFrameConstants perFrameConstantBuffer;
+	XMMATRIX view = XMLoadFloat4x4(&mViewMatrix);
+	XMMATRIX proj = XMLoadFloat4x4(&mProjectionMatrix);
+	XMMATRIX viewProj = XMMatrixMultiply(view, proj);
+	XMStoreFloat4x4(&perFrameConstantBuffer.ViewMatrix, XMMatrixTranspose(view));
+	XMStoreFloat4x4(&perFrameConstantBuffer.ProjMatrix, XMMatrixTranspose(proj));
+	XMStoreFloat4x4(&perFrameConstantBuffer.ViewProjMatrix, XMMatrixTranspose(viewProj));
+	perFrameConstantBuffer.EyePosW = mEyePos;
+	perFrameConstantBuffer.RenderTargetSize = XMFLOAT2((float)mWidth, (float)mHeight);
+	perFrameConstantBuffer.NearZ = 1.0f;
+	perFrameConstantBuffer.FarZ = 1000.0f;
+	perFrameConstantBuffer.TotalTime = mTimer.GetTime();
+	perFrameConstantBuffer.DeltaTime = mTimer.GetLapTime();
+	auto currentPassCB = mGraphics->mCurrentFrameResource->mPerFrameConstantBuffer.get();
+	currentPassCB->Copy(0, perFrameConstantBuffer);
+}
+
+void App::UpdateCamera()
+{
+	// Convert Spherical to Cartesian coordinates.
+	mEyePos.x = mRadius * sinf(mPhi) * cosf(mTheta);
+	mEyePos.z = mRadius * sinf(mPhi) * sinf(mTheta);
+	mEyePos.y = mRadius * cosf(mPhi);
+
+	// Build the view matrix.
+	XMVECTOR pos = XMVectorSet(mEyePos.x, mEyePos.y, mEyePos.z, 1.0f);
+	XMVECTOR target = XMVectorZero();
+	XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+
+	XMMATRIX view = XMMatrixLookAtLH(pos, target, up);
+	XMStoreFloat4x4(&mViewMatrix, view);
+}
+
+void App::Draw(float frameTime)
+{
+	auto commandAllocator = mGraphics->mCurrentFrameResource->mCommandAllocator;
+
+	// We can only reset when the associated command lists have finished execution on the GPU.
+	if (FAILED(commandAllocator->Reset()))
+	{
+		MessageBox(0, L"Command Allocator reset failed", L"Error", MB_OK);
 	}
 
-	D3D12_DESCRIPTOR_HEAP_DESC guiHeapDesc;
-	guiHeapDesc.NumDescriptors = 1;
-	guiHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-	guiHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-	guiHeapDesc.NodeMask = 0;
-	if (FAILED(mGraphics->mD3DDevice->CreateDescriptorHeap(&guiHeapDesc, IID_PPV_ARGS(&mGUIHeap))))
+	// A command list can be reset after it has been added to the command queue via ExecuteCommandList.
+	if (FAILED(mGraphics->mCommandList->Reset(commandAllocator.Get(), mGraphics->mPSO.Get())))
 	{
-		MessageBox(0, L"Create descriptor heap failed", L"Error", MB_OK);
+		MessageBox(0, L"Command List reset failed", L"Error", MB_OK);
 	}
 
+	// Set the viewport and scissor rect.  This needs to be reset whenever the command list is reset.
+	mGraphics->mCommandList->RSSetViewports(1, &mGraphics->mViewport);
+	mGraphics->mCommandList->RSSetScissorRects(1, &mGraphics->mScissorRect);
+
+	// Clear the back buffer and depth buffer.
+	mGraphics->mCommandList->ClearRenderTargetView(mGraphics->MSAAView(), mGraphics->mBackgroundColour, 0, nullptr);
+	mGraphics->mCommandList->ClearDepthStencilView(mGraphics->DepthStencilView(), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
+
+	// Select MSAA texture as render target
+	mGraphics->mCommandList->OMSetRenderTargets(1, &mGraphics->MSAAView(), true, &mGraphics->DepthStencilView());
+
+	ID3D12DescriptorHeap* descriptorHeaps[] = { mGraphics->mCBVHeap.Get() };
+	mGraphics->mCommandList->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
+
+	mGraphics->mCommandList->SetGraphicsRootSignature(mGraphics->mRootSignature.Get());
+
+	int passCbvIndex = mGraphics->mPassCbvOffset + mGraphics->mCurrentFrameResourceIndex;
+	auto passCbvHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(mGraphics->mCBVHeap->GetGPUDescriptorHandleForHeapStart());
+	passCbvHandle.Offset(passCbvIndex, mGraphics->mCbvSrvUavDescriptorSize);
+	mGraphics->mCommandList->SetGraphicsRootDescriptorTable(1, passCbvHandle);
+
+	DrawRenderItems(mGraphics->mCommandList.Get());
+
+	mGraphics->ResolveMSAAToBackBuffer(mGraphics->mCommandList.Get());
+
+	RenderGUI();
+
+	// Done recording commands.
+	if (FAILED(mGraphics->mCommandList->Close()))
+	{
+		MessageBox(0, L"Command List close failed", L"Error", MB_OK);
+	}
+
+	// Add the command list to the queue for execution.
+	ID3D12CommandList* cmdLists[] = { mGraphics->mCommandList.Get() };
+	mGraphics->mCommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
+
+	// Swap the back and front buffers
+	if (FAILED(mGraphics->mSwapChain->Present(0, 0)))
+	{
+		MessageBox(0, L"Swap chain present failed", L"Error", MB_OK);
+	}
+	mGraphics->mCurrentBackBuffer = (mGraphics->mCurrentBackBuffer + 1) % mGraphics->mSwapChainBufferCount;
+
+	// Advance fence value
+	mGraphics->mCurrentFrameResource->Fence = mGraphics->mCurrentFence++;
+
+	// Tell command queue to set new fence point, will only be set when the GPU gets to new fence value.
+	mGraphics->mCommandQueue->Signal(mGraphics->mFence.Get(), mGraphics->mCurrentFence);
+
+	// Frame buffering broken in debug mode so wait each frame
+	//mGraphics->EmptyCommandQueue();
+}
+
+void App::RenderGUI()
+{
+	ImGui::Render();
+
+	// Transition back buffer to RT
+	mGraphics->mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(mGraphics->CurrentBackBuffer(),
+		D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET));
+
+	CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHeapView(mGraphics->mDSVHeap->GetCPUDescriptorHandleForHeapStart());
+	dsvHeapView.Offset(1, mGraphics->mDsvDescriptorSize);
+
+	// Select Back buffer as render target
+	mGraphics->mCommandList->ClearDepthStencilView(dsvHeapView, D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
+	mGraphics->mCommandList->OMSetRenderTargets(1, &mGraphics->CurrentBackBufferView(), true, &dsvHeapView);
+
+	// Set descriptor heap to GUI heap
+	ID3D12DescriptorHeap* guiDescriptorHeaps[] = { mGUIHeap.Get() };
+	mGraphics->mCommandList->SetDescriptorHeaps(_countof(guiDescriptorHeaps), guiDescriptorHeaps);
+	ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), mGraphics->mCommandList.Get());
+
+	// Transition back buffer to present
+	mGraphics->mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(mGraphics->CurrentBackBuffer(),
+		D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));
 }
 
 void App::DrawRenderItems(ID3D12GraphicsCommandList* commandList)
 {
 	UINT objCBByteSize = CalculateConstantBufferSize(sizeof(FrameResource::mPerObjectConstants));
-	auto objectCB = mCurrentFrameResource->mPerObjectConstantBuffer->GetBuffer();
+	auto objectCB = mGraphics->mCurrentFrameResource->mPerObjectConstantBuffer->GetBuffer();
 
 	for (size_t i = 0; i < mRenderItems.size(); ++i)
 	{
@@ -538,8 +428,8 @@ void App::DrawRenderItems(ID3D12GraphicsCommandList* commandList)
 		commandList->IASetPrimitiveTopology(renderItem->Topology);
 
 		// Offset to the CBV in the descriptor heap for this object and for this frame resource.
-		UINT cbvIndex = mCurrentFrameResourceIndex * (UINT)mRenderItems.size()+ renderItem->ObjConstantBufferIndex;
-		auto cbvHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(mCBVHeap->GetGPUDescriptorHandleForHeapStart());
+		UINT cbvIndex = mGraphics->mCurrentFrameResourceIndex * (UINT)mRenderItems.size()+ renderItem->ObjConstantBufferIndex;
+		auto cbvHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(mGraphics->mCBVHeap->GetGPUDescriptorHandleForHeapStart());
 		cbvHandle.Offset(cbvIndex, mGraphics->mCbvSrvUavDescriptorSize);
 		commandList->SetGraphicsRootDescriptorTable(0, cbvHandle);
 		commandList->DrawIndexedInstanced(renderItem->IndexCount, 1, renderItem->StartIndexLocation, renderItem->BaseVertexLocation, 0);
@@ -672,6 +562,8 @@ void App::Resized()
 
 App::~App()
 {
+	if (mGraphics->mD3DDevice != nullptr) { mGraphics->EmptyCommandQueue(); }
+
 	//delete mRenderItems[1]->Geometry;
 	for (auto& renderItem : mRenderItems)
 	{
@@ -682,7 +574,6 @@ App::~App()
 	ImGui_ImplSDL2_Shutdown();
 	ImGui::DestroyContext();
 
-	if (mGraphics->mD3DDevice != nullptr) { mGraphics->EmptyCommandQueue(); }
 	SDL_DestroyWindow(mWindow);
 	SDL_Quit();
 }

@@ -35,7 +35,6 @@
 #include "Icosahedron.h"
 #include "Graphics.h"
 #include "UploadBuffer.h"
-#include "FrameResource.h"
 
 // Link necessary d3d12 libraries.
 #pragma comment(lib,"d3dcompiler.lib")
@@ -80,7 +79,7 @@ private:
 	struct RenderItem
 	{
 		XMFLOAT4X4 WorldMatrix = MakeIdentity4x4();
-		int NumDirtyFrames = mNumFrameResources;
+		int NumDirtyFrames = 3;
 		UINT ObjConstantBufferIndex = -1;
 		GeometryData* Geometry = nullptr;
 		D3D12_PRIMITIVE_TOPOLOGY Topology = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
@@ -109,6 +108,7 @@ private:
 
 	int mWidth = 800;
 	int mHeight = 600;
+	int mNumStartingItems = 1;
 
 	std::unique_ptr<Icosahedron> mIcosohedron;
 	float frequency = 0.5f;
@@ -123,60 +123,13 @@ private:
 	D3D_DRIVER_TYPE mD3DDriverType = D3D_DRIVER_TYPE_HARDWARE;
 	std::string mMainCaption = "D3D12 Engine Masters";
 
-	const static int mNumFrameResources = 3;
-	std::vector<std::unique_ptr<FrameResource>> mFrameResources;
-	FrameResource* mCurrentFrameResource = nullptr;
-	int mCurrentFrameResourceIndex = 0;
-
 	ComPtr<ID3D12DescriptorHeap> mGUIHeap;
-	ComPtr<ID3D12DescriptorHeap> mCBVHeap;
-	UINT mPassCbvOffset = 0;
-	void BuildFrameResources();
+	void CreateGUIHeap();
+
 	void UpdatePerObjectConstantBuffers();
 	void UpdatePerFrameConstantBuffers();
-	void CreateConstantBuffers();
+
 	void CreateRenderItems();
-	void CreateCBVHeap();
+
 	void DrawRenderItems(ID3D12GraphicsCommandList* commandList);
-};
-
-struct Cube
-{
-	vector<Vertex> vertices =
-	{
-		Vertex({ XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT4(Colors::White) }),
-		Vertex({ XMFLOAT3(-1.0f, +1.0f, -1.0f), XMFLOAT4(Colors::Black) }),
-		Vertex({ XMFLOAT3(+1.0f, +1.0f, -1.0f), XMFLOAT4(Colors::Red) }),
-		Vertex({ XMFLOAT3(+1.0f, -1.0f, -1.0f), XMFLOAT4(Colors::Green) }),
-		Vertex({ XMFLOAT3(-1.0f, -1.0f, +1.0f), XMFLOAT4(Colors::Blue) }),
-		Vertex({ XMFLOAT3(-1.0f, +1.0f, +1.0f), XMFLOAT4(Colors::Yellow) }),
-		Vertex({ XMFLOAT3(+1.0f, +1.0f, +1.0f), XMFLOAT4(Colors::Cyan) }),
-		Vertex({ XMFLOAT3(+1.0f, -1.0f, +1.0f), XMFLOAT4(Colors::Magenta) })
-	};
-	vector<uint32_t> indices =
-	{
-		// front face
-		0, 1, 2,
-		0, 2, 3,
-
-		// back face
-		4, 6, 5,
-		4, 7, 6,
-
-		// left face
-		4, 5, 1,
-		4, 1, 0,
-
-		// right face
-		3, 2, 6,
-		3, 6, 7,
-
-		// top face
-		1, 5, 6,
-		1, 6, 2,
-
-		// bottom face
-		4, 0, 3,
-		4, 3, 7
-	};
 };

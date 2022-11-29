@@ -14,8 +14,8 @@
 #include <algorithm>
 #include <memory>
 #include "Utility.h"
-#include <memory>
 #include "GeometryData.h"
+#include "FrameResource.h"
 
 using namespace DirectX;
 using Microsoft::WRL::ComPtr;
@@ -23,7 +23,7 @@ using Microsoft::WRL::ComPtr;
 class Graphics
 {
 public:
-	Graphics(HWND hwnd,int width, int height);
+	Graphics(HWND hwnd,int width, int height, int numRenderItems);
 	~Graphics();
 	
 	ComPtr<ID3D12Device> mD3DDevice;
@@ -65,6 +65,15 @@ public:
 
 	ComPtr<ID3D12RootSignature> mRootSignature;
 
+	int mNumRenderItems = 0;
+	const static int mNumFrameResources = 3;
+	std::vector<std::unique_ptr<FrameResource>> mFrameResources;
+	FrameResource* mCurrentFrameResource = nullptr;
+	int mCurrentFrameResourceIndex = 0;
+
+	ComPtr<ID3D12DescriptorHeap> mCBVHeap;
+	UINT mPassCbvOffset = 0;
+
 	// Compiled shader variables
 	ComPtr<ID3DBlob> mVSByteCode = nullptr;
 	ComPtr<ID3DBlob> mPSByteCode = nullptr;
@@ -79,6 +88,10 @@ public:
 	bool CreateDeviceAndFence();
 	void CreateCommandObjects();
 	void CreateSwapChain(HWND hWND, int width, int height);
+
+	void BuildFrameResources();
+	void CreateConstantBuffers();
+	void CreateCBVHeap();
 
 	void Resize(int width, int height);
 	void EmptyCommandQueue();
@@ -97,7 +110,7 @@ public:
 	void CreatePSO();
 
 	void ResolveMSAAToBackBuffer(ID3D12GraphicsCommandList* commandList);
-
+	void CycleFrameResources();
 };
 
 
