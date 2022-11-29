@@ -62,11 +62,11 @@ private:
 	bool InitWindow();
 	void SetupGUI();
 	void ShowGUI();
-	void FrameStats();
 	void Update(float frameTime);
 	void Draw(float frameTime);
 	
 	void CreateIcosohedron();
+	void RecreateGeometry();
 	void MouseMoved(SDL_Event&);
 	void PollEvents(SDL_Event& e);
 	void Resized();
@@ -94,7 +94,8 @@ private:
 	XMFLOAT4X4 mWorldMatrix = MakeIdentity4x4();
 	XMFLOAT4X4 mViewMatrix = MakeIdentity4x4();
 	XMFLOAT4X4 mProjectionMatrix = MakeIdentity4x4();
-
+	
+	XMFLOAT4X4 mIcoWorldMatrix = MakeIdentity4x4();
 	bool mAppPaused = false;
 	bool mResizing = false;
 	bool mFullscreen = false;

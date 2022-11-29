@@ -545,7 +545,7 @@ void Graphics::Resize(int width, int height)
 
 void Graphics::ExecuteCommands()
 {
-	// Execute resize commands
+	// Execute commands
 	mCommandList->Close();
 	ID3D12CommandList* cmdLists[] = { mCommandList.Get() };
 	mCommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);

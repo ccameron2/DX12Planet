@@ -5,6 +5,11 @@
 App::App()
 {
 	Initialize();
+
+	std::string windowText = mMainCaption;
+	const char* array = windowText.c_str();
+	SDL_SetWindowTitle(mWindow, array);
+
 	Run();
 }
 
@@ -13,36 +18,10 @@ bool App::InitWindow()
 	return true;
 }
 
-// Calculate stats for rendering frame
-void App::FrameStats()
-{
-	static int frameCount = 0;
-	static float timeElapsed = 0.0f;
-
-	frameCount++;
-
-	// Calculate averages
-	if ((mTimer.GetTime() - timeElapsed) >= 1.0f) 
-	{	
-		float fps = (float)frameCount;
-		float ms = 1000.0f / fps;
-
-		std::string fpsStr = std::to_string(fps);
-		std::string msStr = std::to_string(ms);
-
-		std::string windowText = mMainCaption + "    fps: " + fpsStr + "   ms: " + msStr;
-		const char* array = windowText.c_str();
-		SDL_SetWindowTitle(mWindow, array);
-		
-		// Reset
-		frameCount = 0;
-		timeElapsed += 1.0f;
-	}
-}
-
 // Run the app
 void App::Run()
 {
+
 	MSG msg = {};
 
 	// Start timer for frametime
@@ -67,7 +46,6 @@ void App::Run()
 			ShowGUI();
 
 			float frameTime = mTimer.GetLapTime();
-			FrameStats();
 			Update(frameTime);
 
 			Draw(frameTime);
@@ -140,10 +118,7 @@ void App::ShowGUI()
 
 	if (ImGui::SliderInt("Recursions", &recursions, 0, 12))
 	{
-		mGraphics->mCommandList->Reset(mGraphics->mCurrentFrameResource->mCommandAllocator.Get(), mGraphics->mPSO.Get());
-		CreateIcosohedron();
-		mGraphics->ExecuteCommands();
-		CreateRenderItems();
+		RecreateGeometry();
 	};
 
 	ImGui::Text("Noise");
@@ -151,18 +126,12 @@ void App::ShowGUI()
 	static float prevFreq = 0;
 	if (ImGui::SliderFloat("Noise Frequency", &frequency, 0.0f, 1.0f, "%.1f"))
 	{
-		mGraphics->mCommandList->Reset(mGraphics->mCurrentFrameResource->mCommandAllocator.Get(), mGraphics->mPSO.Get());
-		CreateIcosohedron();
-		mGraphics->ExecuteCommands();
-		CreateRenderItems();
+		RecreateGeometry();
 	};
 
 	if (ImGui::SliderInt("Octaves", &octaves, 0, 20))
 	{
-		mGraphics->mCommandList->Reset(mGraphics->mCurrentFrameResource->mCommandAllocator.Get(), mGraphics->mPSO.Get());
-		CreateIcosohedron();
-		mGraphics->ExecuteCommands();
-		CreateRenderItems();
+		RecreateGeometry();
 	};
 
 	ImGui::Text("World Matrix");
@@ -170,10 +139,12 @@ void App::ShowGUI()
 	static float pos[3];
 	if (ImGui::SliderFloat3("Position", pos, -5.0f, 5.0f, "%.1f"))
 	{
-		XMStoreFloat4x4(&mRenderItems[0]->WorldMatrix, XMMatrixIdentity() * XMMatrixTranslation(pos[0], pos[1], pos[2]));
+		XMStoreFloat4x4(&mIcoWorldMatrix, XMMatrixIdentity() * XMMatrixTranslation(pos[0], pos[1], pos[2]));
 
 		// Signal to update object constant buffer
 		mRenderItems[0]->NumDirtyFrames += mGraphics->mNumFrameResources;
+
+		//RecreateGeometry();
 	}
 
 	static float rot[3];
@@ -181,19 +152,23 @@ void App::ShowGUI()
 	{
 		
 		mGraphics->mCurrentFrameResource->mPerObjectConstantBuffer;
-		XMStoreFloat4x4(&mRenderItems[0]->WorldMatrix, XMMatrixIdentity() * XMMatrixRotationX(rot[0]) * XMMatrixRotationY(rot[1]) * XMMatrixRotationZ(rot[2]));
+		XMStoreFloat4x4(&mIcoWorldMatrix, XMMatrixIdentity() * XMMatrixRotationX(rot[0]) * XMMatrixRotationY(rot[1]) * XMMatrixRotationZ(rot[2]));
 
 		// Signal to update object constant buffer
 		mRenderItems[0]->NumDirtyFrames += mGraphics->mNumFrameResources;
+
+		//RecreateGeometry();
 	}
 
 	static float scale = 1;
 	if (ImGui::SliderFloat("Scale", &scale, 0.0f, 5.0f, "%.1f"))
 	{
-		XMStoreFloat4x4(&mRenderItems[0]->WorldMatrix, XMMatrixIdentity() * XMMatrixScaling(scale, scale, scale));
+		XMStoreFloat4x4(&mIcoWorldMatrix, XMMatrixIdentity() * XMMatrixScaling(scale, scale, scale));
 
 		// Signal to update object constant buffer
 		mRenderItems[0]->NumDirtyFrames += mGraphics->mNumFrameResources;
+
+		//RecreateGeometry();
 	}
 
 	ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
@@ -204,7 +179,17 @@ void App::ShowGUI()
 void App::CreateIcosohedron()
 {
 	if (!mIcosohedron) { mIcosohedron.release(); }
-	mIcosohedron = std::make_unique<Icosahedron>(8, 36, mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get(), recursions, octaves, frequency, mEyePos);
+	mIcosohedron = std::make_unique<Icosahedron>(mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get(), recursions, octaves, frequency, mEyePos);
+}
+
+void App::RecreateGeometry()
+{
+	mGraphics->mCommandList->Reset(mGraphics->mCurrentFrameResource->mCommandAllocator.Get(), mGraphics->mPSO.Get());
+	CreateIcosohedron();
+	mGraphics->mCommandList->Close();
+	ID3D12CommandList* cmdLists[] = { mGraphics->mCommandList.Get() };
+	mGraphics->mCommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
+	CreateRenderItems();
 }
 
 void App::CreateRenderItems()
@@ -219,7 +204,7 @@ void App::CreateRenderItems()
 	}
 
 	RenderItem* icoRenderItem = new RenderItem();
-	XMStoreFloat4x4(&icoRenderItem->WorldMatrix, XMMatrixIdentity() * XMMatrixTranslation(0.0f, 0.0f, 0.0f));
+	icoRenderItem->WorldMatrix = mIcoWorldMatrix;
 	icoRenderItem->ObjConstantBufferIndex = 0;
 	icoRenderItem->Geometry = mIcosohedron->mGeometryData.get();
 	icoRenderItem->Topology = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
@@ -248,20 +233,21 @@ void App::Update(float frameTime)
 {
 	UpdateCamera();
 
-	//static bool firstFrame = true;
-	//if (!firstFrame)
-	//{
-	//	// Recreate planet every frame
-	//	mGraphics->mCommandList->Reset(mGraphics->mCurrentFrameResource->mCommandAllocator.Get(), mGraphics->mPSO.Get());
-	//	CreateIcosohedron();
+	static bool firstFrame = true;
+	if (!firstFrame)
+	{
+		// Recreate planet every frame
+		mGraphics->mCommandList->Reset(mGraphics->mCurrentFrameResource->mCommandAllocator.Get(), mGraphics->mPSO.Get());
+		CreateIcosohedron();
 
-	//	// Execute commands
-	//	mGraphics->mCommandList->Close();
-	//	ID3D12CommandList* cmdLists[] = { mGraphics->mCommandList.Get() };
-	//	mGraphics->mCommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
-	//	CreateRenderItems();
-	//}
-	//else { firstFrame = false; }
+		// Execute commands
+		mGraphics->mCommandList->Close();
+		ID3D12CommandList* cmdLists[] = { mGraphics->mCommandList.Get() };
+		mGraphics->mCommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
+
+		CreateRenderItems();
+	}
+	else { firstFrame = false; }
 
 	mGraphics->CycleFrameResources();
 

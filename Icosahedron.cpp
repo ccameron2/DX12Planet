@@ -2,40 +2,70 @@
 #include "FastNoiseLite.h"
 #include <execution>
 #include <cmath>
-Icosahedron::Icosahedron(int numVertices, int numIndices, ID3D12Device* d3DDevice, ID3D12GraphicsCommandList* commandList, int recursions, int octaves, float frequency, XMFLOAT3 eyePos)
+
+float Distance(XMFLOAT3 p1, XMFLOAT3 p2)
+{
+	auto x = (p1.x - p2.x) * (p1.x - p2.x);
+	auto y = (p1.y - p2.y) * (p1.y - p2.y);
+	auto z = (p1.z - p2.z) * (p1.z - p2.z);
+	return std::sqrt(x + y + z);
+}
+
+Vertex AddFloat3(XMFLOAT3 a, XMFLOAT3 b)
+{
+	Vertex result;
+
+	result.Pos.x = a.x + b.x;
+	result.Pos.y = a.y + b.y;
+	result.Pos.z = a.z + b.z;
+
+	return result;
+}
+
+XMFLOAT3 SubFloat3(XMFLOAT3 a, XMFLOAT3 b)
+{
+	XMFLOAT3 result;
+
+	result.x = a.x - b.x;
+	result.y = a.y - b.y;
+	result.z = a.z - b.z;
+
+	return result;
+}
+
+float DotProduct(XMFLOAT3 v1, XMFLOAT3 v2)
+{
+	auto x = v1.x * v2.x;
+	auto y = v1.y * v2.y;
+	auto z = v1.z * v2.z;
+	auto result = x + y + z;
+	return result;
+}
+
+void Normalize(XMFLOAT3* p)
+{
+	float w = sqrt(p->x * p->x + p->y * p->y + p->z * p->z);
+	p->x /= w;
+	p->y /= w;
+	p->z /= w;
+}
+
+
+Icosahedron::Icosahedron(ID3D12Device* d3DDevice, ID3D12GraphicsCommandList* commandList, int recursions, int octaves, float frequency, XMFLOAT3 eyePos)
 {
 	mRecursions = recursions;
 	mOctaves = octaves;
 	mFrequency = frequency;
 	mEyePos = eyePos;
-	CreateGeometry(numVertices, numIndices, d3DDevice, commandList);
-}
+	mMaxRecursions = recursions;
 
-Icosahedron::~Icosahedron()
-{
-}
-
-float Distance(const XMFLOAT3& v1, const XMFLOAT3& v2)
-{
-	XMVECTOR vector1 = XMLoadFloat3(&v1);
-	XMVECTOR vector2 = XMLoadFloat3(&v2);
-	XMVECTOR vectorSub = XMVectorSubtract(vector1, vector2);
-	XMVECTOR length = XMVector3Length(vectorSub);
-
-	float Distance = 0.0f;
-	XMStoreFloat(&Distance, length);
-	return Distance;
-}
-
-void Icosahedron::CreateGeometry(int numVertices, int numIndices, ID3D12Device* d3DDevice, ID3D12GraphicsCommandList* commandList)
-{
 	mGeometryData = std::make_unique<GeometryData>();
 
 	const float X = 0.525731112119133606f;
 	const float Z = 0.850650808352039932f;
 	const float N = 0.0f;
 
-	mVertices = 
+	mVertices =
 	{
 		Vertex({ XMFLOAT3(-X,N,Z), XMFLOAT4(Colors::Red)}),
 		Vertex({ XMFLOAT3(X,N,Z), XMFLOAT4(Colors::Orange)}),
@@ -57,24 +87,49 @@ void Icosahedron::CreateGeometry(int numVertices, int numIndices, ID3D12Device* 
 		4,5,8,	4,8,1,	8,10,1,
 		8,3,10, 5,3,8,	5,2,3,
 		2,7,3,	7,10,3,	7,6,10,
-		7,11,6,	11,0,6,	0,1,6,	
+		7,11,6,	11,0,6,	0,1,6,
 		6,1,10,	9,0,11,	9,11,2,
 		9,2,5,	7,2,11
 	};
-	
+
 	for (int i = 0; i < mIndices.size(); i += 3)
 	{
 		mTriangles.push_back(Triangle{ mIndices[i],mIndices[i + 1],mIndices[i + 2] });
 	}
 
-	cullAnglePerLevel.push_back(0.5);
-	float angle = std::acos(cullAnglePerLevel[0]);
+	mCullAnglePerLevel.push_back(0.5);
+	float angle = std::acos(mCullAnglePerLevel[0]);
 	for (int i = 0; i < mRecursions; i++)
 	{
 		angle = angle / 2;
-		cullAnglePerLevel.push_back(sin(angle));
+		mCullAnglePerLevel.push_back(sin(angle));
 	}
 
+	mTriSizePerLevel.clear();
+	mTriSizePerLevel.push_back(Distance(mVertices[3].Pos, mVertices[1].Pos));
+
+	for (int i = 1; i < mMaxRecursions; i++)
+	{
+		mTriSizePerLevel.push_back(mTriSizePerLevel[i - 1] / 2);
+	}
+
+	mMaxScreenPercent = mMaxPixelsPerTriangle / 800;
+
+	//for (int i = 1; i < mMaxRecursions; i++) 
+	//{
+	//	mTriAnglePerLevel.push_back(atan(mTriSizePerLevel[i] / (Distance(XMFLOAT3{0,0,0}, mEyePos))));
+	//}
+
+	CreateGeometry(d3DDevice, commandList);
+}
+
+Icosahedron::~Icosahedron()
+{
+}
+
+
+void Icosahedron::CreateGeometry(ID3D12Device* d3DDevice, ID3D12GraphicsCommandList* commandList)
+{
 	for (int i = 0; i < mRecursions; i++)
 	{
 		SubdivideIcosphere(i);
@@ -83,18 +138,17 @@ void Icosahedron::CreateGeometry(int numVertices, int numIndices, ID3D12Device* 
 	FastNoiseLite noise;
 	noise.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
 	for (auto & vertex : mVertices)
-	//std::for_each(std::execution::par, mVertices.begin(), mVertices.end(), [&](auto&& vertex)
-		{
-			XMVECTOR pos = XMLoadFloat3(&vertex.Pos);
-			pos = XMVectorMultiply(pos, { 100,100,100 });
-			XMFLOAT3 position; XMStoreFloat3(&position, pos);
-			auto ElevationValue = 1 + FractalBrownianMotion(noise, position, mOctaves, mFrequency);
-			//auto ElevationValue = 1 + noise.GetNoise(0.5 * vertex.Pos.x * 100, 0.5 * vertex.Pos.y * 100, 0.5 * vertex.Pos.z * 100);
-			auto Radius = Distance(vertex.Pos, XMFLOAT3{ 0,0,0 });
-			vertex.Pos.x *= 1 + (ElevationValue / Radius);
-			vertex.Pos.y *= 1 + (ElevationValue / Radius);
-			vertex.Pos.z *= 1 + (ElevationValue / Radius);
-		}//);
+	{
+		XMVECTOR pos = XMLoadFloat3(&vertex.Pos);
+		pos = XMVectorMultiply(pos, { 100,100,100 });
+		XMFLOAT3 position; XMStoreFloat3(&position, pos);
+		auto ElevationValue = 1 + FractalBrownianMotion(noise, position, mOctaves, mFrequency);
+		//auto ElevationValue = 1 + noise.GetNoise(0.5 * vertex.Pos.x * 100, 0.5 * vertex.Pos.y * 100, 0.5 * vertex.Pos.z * 100);
+		auto Radius = Distance(vertex.Pos, XMFLOAT3{ 0,0,0 });
+		vertex.Pos.x *= 1 + (ElevationValue / Radius);
+		vertex.Pos.y *= 1 + (ElevationValue / Radius);
+		vertex.Pos.z *= 1 + (ElevationValue / Radius);
+	}
 
 	mIndices.clear();
 
@@ -113,40 +167,19 @@ void Icosahedron::CreateGeometry(int numVertices, int numIndices, ID3D12Device* 
 	mGeometryData->CalculateBufferData(d3DDevice,commandList);
 }
 
-
-
-Vertex AddVector(XMFLOAT3 a, XMFLOAT3 b)
-{
-	Vertex result;
-
-	result.Pos.x = a.x + b.x;
-	result.Pos.y = a.y + b.y;
-	result.Pos.z = a.z + b.z;
-
-	return result;
-}
-
-void Normalize(XMFLOAT3* p)
-{
-	float w = sqrt(p->x * p->x + p->y * p->y + p->z * p->z);
-	p->x /= w;
-	p->y /= w;
-	p->z /= w;
-}
-
-int Icosahedron::VertexForEdge(int first, int second)
+int Icosahedron::VertexForEdge(int p1, int p2)
 {
 	// Create pair to use as key in map and normalise edge direction to prevent duplication
-	std::pair<int, int> vertexPair(first, second);
+	std::pair<int, int> vertexPair(p1, p2);
 	if (vertexPair.first > vertexPair.second) { std::swap(vertexPair.first, vertexPair.second); }
 
 	// Either create or reuse vertices
 	auto in = mVertexMap.insert({ vertexPair, mVertices.size() });
 	if (in.second)
 	{
-		auto& edge1 = mVertices[first];
-		auto& edge2 = mVertices[second];
-		auto point = AddVector(edge1.Pos,edge2.Pos);
+		auto& edge1 = mVertices[p1];
+		auto& edge2 = mVertices[p2];
+		auto point = AddFloat3(edge1.Pos,edge2.Pos);
 		Normalize(&point.Pos);
 		point.Color.x = std::lerp(edge1.Color.x, edge2.Color.x, 0.5);
 		point.Color.y = std::lerp(edge1.Color.y, edge2.Color.y, 0.5);
@@ -156,45 +189,67 @@ int Icosahedron::VertexForEdge(int first, int second)
 	return in.first->second;
 }
 
+void Icosahedron::SubdivideTriangle(Triangle triangle)
+{
+	// For each edge
+	std::uint32_t mid[3];
+	for (int e = 0; e < 3; e++)
+	{
+		mid[e] = VertexForEdge(triangle.Point[e], triangle.Point[(e + 1) % 3]);
+	}
+
+	// Add triangles to new array
+	mNewTriangles.push_back({ triangle.Point[0], mid[0], mid[2] });
+	mNewTriangles.push_back({ triangle.Point[1], mid[1], mid[0] });
+	mNewTriangles.push_back({ triangle.Point[2], mid[2], mid[1] });
+	mNewTriangles.push_back({ mid[0], mid[1], mid[2] });
+}
 
 void Icosahedron::SubdivideIcosphere(int level)
 {
-	std::vector<Triangle> newTriangles;
 	for (auto& triangle : mTriangles)
 	{
 		// Dot product between camera and triangle face normal
 		XMFLOAT3 a = mVertices[triangle.Point[0]].Pos;
 		XMFLOAT3 b = mVertices[triangle.Point[1]].Pos;
 		XMFLOAT3 c = mVertices[triangle.Point[2]].Pos;
-		XMVECTOR centre = { (a.x + b.x + c.x) / 3, (a.y + b.y + c.y) / 3, (a.z + b.z + c.z) / 3 };
-		XMFLOAT3 dot;
-		XMStoreFloat3(&dot,XMVector3Dot(XMVector3Normalize(centre), XMVector3Normalize(centre - XMLoadFloat3(&mEyePos))));
+		XMFLOAT3 centre = { (a.x + b.x + c.x) / 3, (a.y + b.y + c.y) / 3, (a.z + b.z + c.z) / 3 };
 		
-		//// Cull rear facing triangles
-		//if (dot.x < cullAnglePerLevel[level])
-		//{
-			// For each edge
-			std::uint32_t mid[3];
-			for (int e = 0; e < 3; e++)
-			{
-				mid[e] = VertexForEdge(triangle.Point[e], triangle.Point[(e + 1) % 3]);
-			}
+		Normalize(&centre);
+		auto directionToCamera = SubFloat3(centre, mEyePos);
+		Normalize(&directionToCamera);
 
-			// Add triangles to new array
-			newTriangles.push_back({ triangle.Point[0], mid[0], mid[2] });
-			newTriangles.push_back({ triangle.Point[1], mid[1], mid[0] });
-			newTriangles.push_back({ triangle.Point[2], mid[2], mid[1] });
-			newTriangles.push_back({ mid[0], mid[1], mid[2] });
-		//}	
+		auto dot = DotProduct(centre,directionToCamera);
+		
+		// Dont subdivide rear facing triangles
+		if (dot < mCullAnglePerLevel[level])
+		{
+			//SubdivideTriangle(triangle);
+			auto angleSize = atan(mTriSizePerLevel[level] / (Distance(centre, mEyePos) * 2));//= mTriAnglePerLevel[level];
+			if (angleSize / (0.25f * XM_PI) > mMaxScreenPercent)
+			{
+				SubdivideTriangle(triangle);
+			}
+			else
+			{
+				mNewTriangles.push_back(triangle);
+			}
+		}
+		else
+		{
+			mNewTriangles.push_back(triangle);
+
+		}
 	}
 
 	// Swap old triangles with new ones
-	mTriangles.swap(newTriangles);
+	mTriangles.swap(mNewTriangles);
+
+	mNewTriangles.clear();
 
 	// Clear the vertex map for re-use
 	mVertexMap.clear();
 }
-
 
 float Icosahedron::FractalBrownianMotion(FastNoiseLite fastNoise, XMFLOAT3 fractalInput, float octaves, float frequency)
 {
