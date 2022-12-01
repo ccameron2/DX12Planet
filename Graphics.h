@@ -73,6 +73,7 @@ public:
 
 	ComPtr<ID3D12DescriptorHeap> mCBVHeap;
 	UINT mPassCbvOffset = 0;
+	UINT mGUISRVOffset = 0;
 
 	// Compiled shader variables
 	ComPtr<ID3DBlob> mVSByteCode = nullptr;

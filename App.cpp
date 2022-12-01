@@ -70,25 +70,10 @@ void App::Initialize()
 	CreateRenderItems();
 	mGraphics->ExecuteCommands();
 
-	CreateGUIHeap();
-
 	SetupGUI();
 
 	// Make initial projection matrix
 	Resized();
-}
-
-void App::CreateGUIHeap()
-{
-	D3D12_DESCRIPTOR_HEAP_DESC guiHeapDesc;
-	guiHeapDesc.NumDescriptors = 1;
-	guiHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-	guiHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-	guiHeapDesc.NodeMask = 0;
-	if (FAILED(mGraphics->mD3DDevice->CreateDescriptorHeap(&guiHeapDesc, IID_PPV_ARGS(&mGUIHeap))))
-	{
-		MessageBox(0, L"Create descriptor heap failed", L"Error", MB_OK);
-	}
 }
 
 void App::SetupGUI()
@@ -99,9 +84,15 @@ void App::SetupGUI()
 	ImGuiIO& io = ImGui::GetIO(); (void)io;
 	ImGui::StyleColorsDark();
 
+	auto cpuhandle = CD3DX12_CPU_DESCRIPTOR_HANDLE(mGraphics->mCBVHeap->GetCPUDescriptorHandleForHeapStart());
+	cpuhandle.Offset(mGraphics->mGUISRVOffset, mGraphics->mCbvSrvUavDescriptorSize);
+
+	auto gpuhandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(mGraphics->mCBVHeap->GetGPUDescriptorHandleForHeapStart());
+	gpuhandle.Offset(mGraphics->mGUISRVOffset, mGraphics->mCbvSrvUavDescriptorSize);
+
 	ImGui_ImplSDL2_InitForD3D(mWindow);
-	ImGui_ImplDX12_Init(mGraphics->mD3DDevice.Get(), mGraphics->mNumFrameResources, mGraphics->mBackBufferFormat, mGUIHeap.Get(),
-		mGUIHeap->GetCPUDescriptorHandleForHeapStart(), mGUIHeap->GetGPUDescriptorHandleForHeapStart());
+	ImGui_ImplDX12_Init(mGraphics->mD3DDevice.Get(), mGraphics->mNumFrameResources, mGraphics->mBackBufferFormat, mGraphics->mCBVHeap.Get(),
+		cpuhandle, gpuhandle);
 }
 
 void App::ShowGUI()
@@ -391,9 +382,6 @@ void App::RenderGUI()
 	mGraphics->mCommandList->ClearDepthStencilView(dsvHeapView, D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
 	mGraphics->mCommandList->OMSetRenderTargets(1, &mGraphics->CurrentBackBufferView(), true, &dsvHeapView);
 
-	// Set descriptor heap to GUI heap
-	ID3D12DescriptorHeap* guiDescriptorHeaps[] = { mGUIHeap.Get() };
-	mGraphics->mCommandList->SetDescriptorHeaps(_countof(guiDescriptorHeaps), guiDescriptorHeaps);
 	ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), mGraphics->mCommandList.Get());
 
 	// Transition back buffer to present

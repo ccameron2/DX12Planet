@@ -124,9 +124,6 @@ private:
 	D3D_DRIVER_TYPE mD3DDriverType = D3D_DRIVER_TYPE_HARDWARE;
 	std::string mMainCaption = "D3D12 Engine Masters";
 
-	ComPtr<ID3D12DescriptorHeap> mGUIHeap;
-	void CreateGUIHeap();
-
 	void UpdatePerObjectConstantBuffers();
 	void UpdatePerFrameConstantBuffers();
 

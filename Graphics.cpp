@@ -199,22 +199,17 @@ void Graphics::CreateRootSignature()
 	// create a root signature with a single slot which points to a descriptor range consisting of a single constant buffer
 	ComPtr<ID3DBlob> serializedRootSignature = nullptr;
 	ComPtr<ID3DBlob> errorBlob = nullptr;
-	HRESULT hr = D3D12SerializeRootSignature(&rootSigDesc, D3D_ROOT_SIGNATURE_VERSION_1,
-		serializedRootSignature.GetAddressOf(), errorBlob.GetAddressOf());
 
 	if (errorBlob != nullptr)
 	{
-		::OutputDebugStringA((char*)errorBlob->GetBufferPointer());
+		OutputDebugStringA((char*)errorBlob->GetBufferPointer());
 	}
-	if (FAILED(hr))
+	if (FAILED(D3D12SerializeRootSignature(&rootSigDesc, D3D_ROOT_SIGNATURE_VERSION_1, serializedRootSignature.GetAddressOf(), errorBlob.GetAddressOf())))
 	{
 		MessageBox(0, L"Serialize Root Signature failed", L"Error", MB_OK);
 	}
 
-	if (FAILED(mD3DDevice->CreateRootSignature(0,
-		serializedRootSignature->GetBufferPointer(),
-		serializedRootSignature->GetBufferSize(),
-		IID_PPV_ARGS(mRootSignature.GetAddressOf()))))
+	if (FAILED(mD3DDevice->CreateRootSignature(0,serializedRootSignature->GetBufferPointer(),serializedRootSignature->GetBufferSize(),IID_PPV_ARGS(mRootSignature.GetAddressOf()))))
 	{
 		MessageBox(0, L"Root Signature creation failed", L"Error", MB_OK);
 	}
@@ -327,10 +322,14 @@ void Graphics::CreateCBVHeap()
 	// Need a CBV descriptor for each object for each frame resource,
 	UINT numDescriptors = (objCount + 1) * mNumFrameResources; // +1 for the perFrameCB for each frame resource.
 
-	// Save an offset to the start of the per frame CBVs (last 3).
+	// Save an offset to the start of the per frame CBVs.
 	mPassCbvOffset = objCount * mNumFrameResources;
+
+	// Save an offset to the start of the GUI SRVs
+	mGUISRVOffset = (objCount * mNumFrameResources) + mNumFrameResources;
+
 	D3D12_DESCRIPTOR_HEAP_DESC cbvHeapDesc;
-	cbvHeapDesc.NumDescriptors = numDescriptors;
+	cbvHeapDesc.NumDescriptors = numDescriptors + 1; // For GUI
 	cbvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 	cbvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 	cbvHeapDesc.NodeMask = 0;
