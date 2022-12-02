@@ -312,7 +312,7 @@ void Graphics::BuildFrameResources()
 {
 	for (int i = 0; i < mNumFrameResources; i++)
 	{
-		mFrameResources.push_back(std::make_unique<FrameResource>(mD3DDevice.Get(), 1, mNumRenderItems));
+		mFrameResources.push_back(std::make_unique<FrameResource>(mD3DDevice.Get(), 1, mNumRenderItems,10000000, 10000000));
 	}
 }
 

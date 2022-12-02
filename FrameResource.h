@@ -7,7 +7,7 @@
 class FrameResource
 {
 public:
-    FrameResource(ID3D12Device* device, UINT passCount, UINT objectCount);
+    FrameResource(ID3D12Device* device, UINT passCount, UINT objectCount, UINT planetMaxVertexCount, UINT planetMaxIndexCount);
 
 	ComPtr<ID3D12CommandAllocator> mCommandAllocator;
 
@@ -33,6 +33,9 @@ public:
         float padding3 = 0.0f;
     };
     std::unique_ptr <UploadBuffer<mPerFrameConstants>> mPerFrameConstantBuffer;
+
+    std::unique_ptr <UploadBuffer<Vertex>> mPlanetVB;
+    std::unique_ptr <UploadBuffer<uint32_t>> mPlanetIB;
 
     UINT64 Fence = 0;
 private:

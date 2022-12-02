@@ -17,7 +17,7 @@ class Icosahedron
 	};
 
 public:
-	Icosahedron(ID3D12Device* d3DDevice, ID3D12GraphicsCommandList* commandList, int recursions, int octaves, float frequency, XMFLOAT3 eyePos);
+	Icosahedron(float frequency, int recursions, int octaves, XMFLOAT3 eyePos);
 	~Icosahedron();
 
 	XMFLOAT3 mEyePos;
@@ -36,12 +36,14 @@ public:
 	std::vector<float> mCullAnglePerLevel;
 	std::vector<float> mTriSizePerLevel;
 	std::vector<float> mTriAnglePerLevel;
+	int mScreenWidth = 800;
 
 	float mMaxScreenPercent;
 	float mMaxPixelsPerTriangle = 5.0f;
 
+	void CreateGeometry();
+	void ResetGeometry(XMFLOAT3 eyePos, float frequency, int recursions, int octaves);
 private:
-	void CreateGeometry(ID3D12Device* d3DDevice, ID3D12GraphicsCommandList* commandList);
 	int VertexForEdge(int first, int second);
 	void SubdivideIcosphere(int level);
 	float FractalBrownianMotion(FastNoiseLite fastNoise, XMFLOAT3 fractalInput, float octaves, float frequency);

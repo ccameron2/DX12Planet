@@ -96,6 +96,7 @@ private:
 	XMFLOAT4X4 mProjectionMatrix = MakeIdentity4x4();
 	
 	XMFLOAT4X4 mIcoWorldMatrix = MakeIdentity4x4();
+
 	bool mAppPaused = false;
 	bool mResizing = false;
 	bool mFullscreen = false;

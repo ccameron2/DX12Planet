@@ -51,52 +51,13 @@ void Normalize(XMFLOAT3* p)
 }
 
 
-Icosahedron::Icosahedron(ID3D12Device* d3DDevice, ID3D12GraphicsCommandList* commandList, int recursions, int octaves, float frequency, XMFLOAT3 eyePos)
+Icosahedron::Icosahedron(float frequency, int recursions, int octaves, XMFLOAT3 eyePos)
 {
-	mRecursions = recursions;
-	mOctaves = octaves;
-	mFrequency = frequency;
-	mEyePos = eyePos;
-	mMaxRecursions = recursions;
-
 	mGeometryData = std::make_unique<GeometryData>();
 
-	const float X = 0.525731112119133606f;
-	const float Z = 0.850650808352039932f;
-	const float N = 0.0f;
+	ResetGeometry(eyePos,frequency,recursions,octaves);
 
-	mVertices =
-	{
-		Vertex({ XMFLOAT3(-X,N,Z), XMFLOAT4(Colors::Red)}),
-		Vertex({ XMFLOAT3(X,N,Z), XMFLOAT4(Colors::Orange)}),
-		Vertex({ XMFLOAT3(-X,N,-Z), XMFLOAT4(Colors::Yellow)}),
-		Vertex({ XMFLOAT3(X,N,-Z), XMFLOAT4(Colors::Green)}),
-		Vertex({ XMFLOAT3(N,Z,X), XMFLOAT4(Colors::Blue)}),
-		Vertex({ XMFLOAT3(N,Z,-X), XMFLOAT4(Colors::Indigo)}),
-		Vertex({ XMFLOAT3(N,-Z,X), XMFLOAT4(Colors::Violet)}),
-		Vertex({ XMFLOAT3(N,-Z,-X), XMFLOAT4(Colors::Magenta)}),
-		Vertex({ XMFLOAT3(Z,X,N), XMFLOAT4(Colors::Black)}),
-		Vertex({ XMFLOAT3(-Z,X,N), XMFLOAT4(Colors::Gold)}),
-		Vertex({ XMFLOAT3(Z,-X,N), XMFLOAT4(Colors::Pink)}),
-		Vertex({ XMFLOAT3(-Z,-X,N), XMFLOAT4(Colors::Silver)})
-	};
-
-	mIndices =
-	{
-		0,4,1,	0,9,4,	9,5,4,
-		4,5,8,	4,8,1,	8,10,1,
-		8,3,10, 5,3,8,	5,2,3,
-		2,7,3,	7,10,3,	7,6,10,
-		7,11,6,	11,0,6,	0,1,6,
-		6,1,10,	9,0,11,	9,11,2,
-		9,2,5,	7,2,11
-	};
-
-	for (int i = 0; i < mIndices.size(); i += 3)
-	{
-		mTriangles.push_back(Triangle{ mIndices[i],mIndices[i + 1],mIndices[i + 2] });
-	}
-
+	// Precalculate angle to stop subdivision
 	mCullAnglePerLevel.push_back(0.5);
 	float angle = std::acos(mCullAnglePerLevel[0]);
 	for (int i = 0; i < mRecursions; i++)
@@ -105,30 +66,32 @@ Icosahedron::Icosahedron(ID3D12Device* d3DDevice, ID3D12GraphicsCommandList* com
 		mCullAnglePerLevel.push_back(sin(angle));
 	}
 
+	// Precalculate size per level
 	mTriSizePerLevel.clear();
 	mTriSizePerLevel.push_back(Distance(mVertices[3].Pos, mVertices[1].Pos));
-
 	for (int i = 1; i < mMaxRecursions; i++)
 	{
 		mTriSizePerLevel.push_back(mTriSizePerLevel[i - 1] / 2);
 	}
 
-	mMaxScreenPercent = mMaxPixelsPerTriangle / 800;
+	// Precalculate max screen percentage
+	mMaxScreenPercent = mMaxPixelsPerTriangle / mScreenWidth;
 
 	//for (int i = 1; i < mMaxRecursions; i++) 
 	//{
 	//	mTriAnglePerLevel.push_back(atan(mTriSizePerLevel[i] / (Distance(XMFLOAT3{0,0,0}, mEyePos))));
 	//}
 
-	CreateGeometry(d3DDevice, commandList);
+	CreateGeometry();
+	mGeometryData->CalculateDynamicBufferData();
 }
 
 Icosahedron::~Icosahedron()
 {
+
 }
 
-
-void Icosahedron::CreateGeometry(ID3D12Device* d3DDevice, ID3D12GraphicsCommandList* commandList)
+void Icosahedron::CreateGeometry()
 {
 	for (int i = 0; i < mRecursions; i++)
 	{
@@ -164,7 +127,55 @@ void Icosahedron::CreateGeometry(ID3D12Device* d3DDevice, ID3D12GraphicsCommandL
 	mGeometryData->mVertices = mVertices;
 	mGeometryData->mIndices = mIndices;
 
-	mGeometryData->CalculateBufferData(d3DDevice,commandList);
+	//mGeometryData->CalculateBufferData(d3DDevice,commandList);
+}
+
+void Icosahedron::ResetGeometry(XMFLOAT3 eyePos, float frequency, int recursions, int octaves)
+{
+	mEyePos = eyePos;
+	mVertices.clear();
+	mIndices.clear();
+	mTriangles.clear();
+	mRecursions = recursions;
+	mFrequency = frequency;
+	mOctaves = octaves;
+
+	const float X = 0.525731112119133606f;
+	const float Z = 0.850650808352039932f;
+	const float N = 0.0f;
+
+	mVertices =
+	{
+		Vertex({ XMFLOAT3(-X,N,Z), XMFLOAT4(Colors::Red)}),
+		Vertex({ XMFLOAT3(X,N,Z), XMFLOAT4(Colors::Orange)}),
+		Vertex({ XMFLOAT3(-X,N,-Z), XMFLOAT4(Colors::Yellow)}),
+		Vertex({ XMFLOAT3(X,N,-Z), XMFLOAT4(Colors::Green)}),
+		Vertex({ XMFLOAT3(N,Z,X), XMFLOAT4(Colors::Blue)}),
+		Vertex({ XMFLOAT3(N,Z,-X), XMFLOAT4(Colors::Indigo)}),
+		Vertex({ XMFLOAT3(N,-Z,X), XMFLOAT4(Colors::Violet)}),
+		Vertex({ XMFLOAT3(N,-Z,-X), XMFLOAT4(Colors::Magenta)}),
+		Vertex({ XMFLOAT3(Z,X,N), XMFLOAT4(Colors::Black)}),
+		Vertex({ XMFLOAT3(-Z,X,N), XMFLOAT4(Colors::Gold)}),
+		Vertex({ XMFLOAT3(Z,-X,N), XMFLOAT4(Colors::Pink)}),
+		Vertex({ XMFLOAT3(-Z,-X,N), XMFLOAT4(Colors::Silver)})
+	};
+
+	mIndices =
+	{
+		0,4,1,	0,9,4,	9,5,4,
+		4,5,8,	4,8,1,	8,10,1,
+		8,3,10, 5,3,8,	5,2,3,
+		2,7,3,	7,10,3,	7,6,10,
+		7,11,6,	11,0,6,	0,1,6,
+		6,1,10,	9,0,11,	9,11,2,
+		9,2,5,	7,2,11
+	};
+
+	// Build triangles
+	for (int i = 0; i < mIndices.size(); i += 3)
+	{
+		mTriangles.push_back(Triangle{ mIndices[i],mIndices[i + 1],mIndices[i + 2] });
+	}
 }
 
 int Icosahedron::VertexForEdge(int p1, int p2)

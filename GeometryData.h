@@ -17,23 +17,23 @@ class GeometryData
 {
 public:
 	// Vertex and index buffers on CPU side
-	ComPtr<ID3DBlob> CPUVertexBuffer = nullptr;
-	ComPtr<ID3DBlob> CPUIndexBuffer = nullptr;
+	ComPtr<ID3DBlob> mCPUVertexBuffer = nullptr;
+	ComPtr<ID3DBlob> mCPUIndexBuffer = nullptr;
 
 	// Vertex and index buffers on GPU side
-	ComPtr<ID3D12Resource> GPUVertexBuffer = nullptr;
-	ComPtr<ID3D12Resource> GPUIndexBuffer = nullptr;
+	ComPtr<ID3D12Resource> mGPUVertexBuffer = nullptr;
+	ComPtr<ID3D12Resource> mGPUIndexBuffer = nullptr;
 
 	// Vertex and index buffer uploaders
-	ComPtr<ID3D12Resource> vertexBufferUploader = nullptr;
-	ComPtr<ID3D12Resource> indexBufferUploader = nullptr;
+	ComPtr<ID3D12Resource> mVertexBufferUploader = nullptr;
+	ComPtr<ID3D12Resource> mIndexBufferUploader = nullptr;
 
 	// Data about buffers.
-	UINT vertexByteStride = 0;
-	UINT vertexBufferByteSize = 0;
-	DXGI_FORMAT indexFormat = DXGI_FORMAT_R32_UINT;
-	UINT indexBufferByteSize = 0;
-	int  indicesCount = 0;
+	UINT mVertexByteStride = 0;
+	UINT mVertexBufferByteSize = 0;
+	DXGI_FORMAT mIndexFormat = DXGI_FORMAT_R32_UINT;
+	UINT mIndexBufferByteSize = 0;
+	int  mIndicesCount = 0;
 
 	std::vector<Vertex> mVertices;
 	std::vector<uint32_t> mIndices;
@@ -42,4 +42,6 @@ public:
 	D3D12_INDEX_BUFFER_VIEW GetIndexBufferView();
 	void EmptyUploaders();
 	void CalculateBufferData(ID3D12Device* d3DDevice, ID3D12GraphicsCommandList* commandList);
+	void CalculateDynamicBufferData();
+
 };

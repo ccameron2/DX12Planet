@@ -170,17 +170,7 @@ void App::ShowGUI()
 void App::CreateIcosohedron()
 {
 	if (!mIcosohedron) { mIcosohedron.release(); }
-	mIcosohedron = std::make_unique<Icosahedron>(mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get(), recursions, octaves, frequency, mEyePos);
-}
-
-void App::RecreateGeometry()
-{
-	mGraphics->mCommandList->Reset(mGraphics->mCurrentFrameResource->mCommandAllocator.Get(), mGraphics->mPSO.Get());
-	CreateIcosohedron();
-	mGraphics->mCommandList->Close();
-	ID3D12CommandList* cmdLists[] = { mGraphics->mCommandList.Get() };
-	mGraphics->mCommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
-	CreateRenderItems();
+	mIcosohedron = std::make_unique<Icosahedron>(frequency, recursions, octaves, mEyePos);
 }
 
 void App::CreateRenderItems()
@@ -220,27 +210,39 @@ void App::CreateRenderItems()
 	//}
 }
 
+void App::RecreateGeometry()
+{
+	static bool firstFrame = true;
+	if (!firstFrame)
+	{
+		mIcosohedron->ResetGeometry(mEyePos, frequency, recursions, octaves);
+		mIcosohedron->CreateGeometry();
+	}
+	else { firstFrame = false; }
+
+	for (int i = 0; i < mIcosohedron->mVertices.size(); i++)
+	{
+		mGraphics->mCurrentFrameResource->mPlanetVB->Copy(i, mIcosohedron->mVertices[i]);
+	}
+	for (int i = 0; i < mIcosohedron->mIndices.size(); i++)
+	{
+		mGraphics->mCurrentFrameResource->mPlanetIB->Copy(i, mIcosohedron->mIndices[i]);
+	}
+
+	mRenderItems[0]->Geometry->mGPUVertexBuffer = mGraphics->mCurrentFrameResource->mPlanetVB->GetBuffer();
+	mRenderItems[0]->Geometry->mGPUIndexBuffer = mGraphics->mCurrentFrameResource->mPlanetIB->GetBuffer();
+	mRenderItems[0]->WorldMatrix = mIcoWorldMatrix;
+	mRenderItems[0]->IndexCount = mIcosohedron->mIndices.size();
+}
+
+
 void App::Update(float frameTime)
 {
 	UpdateCamera();
 
-	static bool firstFrame = true;
-	if (!firstFrame)
-	{
-		// Recreate planet every frame
-		mGraphics->mCommandList->Reset(mGraphics->mCurrentFrameResource->mCommandAllocator.Get(), mGraphics->mPSO.Get());
-		CreateIcosohedron();
-
-		// Execute commands
-		mGraphics->mCommandList->Close();
-		ID3D12CommandList* cmdLists[] = { mGraphics->mCommandList.Get() };
-		mGraphics->mCommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
-
-		CreateRenderItems();
-	}
-	else { firstFrame = false; }
-
 	mGraphics->CycleFrameResources();
+	
+	RecreateGeometry();
 
 	UpdatePerObjectConstantBuffers();
 	UpdatePerFrameConstantBuffers();
@@ -438,8 +440,8 @@ void App::MouseMoved(SDL_Event& event)
 		// Update the camera radius based on input.
 		mRadius += dx - dy;
 
-		// Restrict the radius.
-		mRadius = std::clamp(mRadius, 3.0f, 15.0f);
+		//// Restrict the radius.
+		//mRadius = std::clamp(mRadius, 3.0f, 15.0f);
 	}
 	mLastMousePos.x = mouseX;
 	mLastMousePos.y = mouseY;
