@@ -109,7 +109,12 @@ void App::ShowGUI()
 
 	if (ImGui::SliderInt("Recursions", &recursions, 0, 12))
 	{
-		RecreateGeometry();
+		RecreateGeometry(mTesselation);
+	};
+
+	if (ImGui::Checkbox("Tesselation", &mTesselation))
+	{
+		RecreateGeometry(mTesselation);
 	};
 
 	ImGui::Text("Noise");
@@ -117,12 +122,12 @@ void App::ShowGUI()
 	static float prevFreq = 0;
 	if (ImGui::SliderFloat("Noise Frequency", &frequency, 0.0f, 1.0f, "%.1f"))
 	{
-		RecreateGeometry();
+		RecreateGeometry(mTesselation);
 	};
 
 	if (ImGui::SliderInt("Octaves", &octaves, 0, 20))
 	{
-		RecreateGeometry();
+		RecreateGeometry(mTesselation);
 	};
 
 	ImGui::Text("World Matrix");
@@ -170,7 +175,7 @@ void App::ShowGUI()
 void App::CreateIcosohedron()
 {
 	if (!mIcosohedron) { mIcosohedron.release(); }
-	mIcosohedron = std::make_unique<Icosahedron>(frequency, recursions, octaves, mEyePos);
+	mIcosohedron = std::make_unique<Icosahedron>(frequency, recursions, octaves, mEyePos, mTesselation);
 }
 
 void App::CreateRenderItems()
@@ -210,12 +215,12 @@ void App::CreateRenderItems()
 	//}
 }
 
-void App::RecreateGeometry()
+void App::RecreateGeometry(bool tesselation)
 {
 	static bool firstFrame = true;
 	if (!firstFrame)
 	{
-		mIcosohedron->ResetGeometry(mEyePos, frequency, recursions, octaves);
+		mIcosohedron->ResetGeometry(mEyePos, frequency, recursions, octaves, tesselation);
 		mIcosohedron->CreateGeometry();
 	}
 	else { firstFrame = false; }
@@ -242,7 +247,17 @@ void App::Update(float frameTime)
 
 	mGraphics->CycleFrameResources();
 	
-	RecreateGeometry();
+	static bool firstGenerationFrame = true;
+	if (firstGenerationFrame)
+	{
+		RecreateGeometry(mTesselation);
+		firstGenerationFrame = false;
+	}
+
+	if (mTesselation)
+	{
+		RecreateGeometry(mTesselation);
+	}
 
 	UpdatePerObjectConstantBuffers();
 	UpdatePerFrameConstantBuffers();
@@ -521,6 +536,7 @@ void App::PollEvents(SDL_Event& event)
 	{
 		if (event.button.button == 3) { mRightMouse = true; }
 		else if (event.button.button == 1) { mLeftMouse = true; }
+		else if (event.button.button == 2) { mGraphics->mWireframe = !mGraphics->mWireframe; mGraphics->CreatePSO(); }
 	}
 	else if (event.type == SDL_MOUSEBUTTONUP)
 	{

@@ -17,7 +17,7 @@ class Icosahedron
 	};
 
 public:
-	Icosahedron(float frequency, int recursions, int octaves, XMFLOAT3 eyePos);
+	Icosahedron(float frequency, int recursions, int octaves, XMFLOAT3 eyePos, bool tesselation);
 	~Icosahedron();
 
 	XMFLOAT3 mEyePos;
@@ -28,7 +28,7 @@ public:
 	std::vector<Triangle> mTriangles;
 	std::vector<Triangle> mNewTriangles;
 	std::vector<XMFLOAT3> mNormals;
-	int mRecursions = 6;
+	int mRecursions = 2;
 	int mMaxRecursions = 20;
 	std::map<std::pair<int, int>, int> mVertexMap;
 	int mOctaves = 8;
@@ -37,16 +37,19 @@ public:
 	std::vector<float> mTriSizePerLevel;
 	std::vector<float> mTriAnglePerLevel;
 	int mScreenWidth = 800;
+	std::vector<XMFLOAT2> mUVs;
+	bool mTesselation = false;
 
 	float mMaxScreenPercent;
 	float mMaxPixelsPerTriangle = 5.0f;
 
 	void CreateGeometry();
-	void ResetGeometry(XMFLOAT3 eyePos, float frequency, int recursions, int octaves);
+	void ResetGeometry(XMFLOAT3 eyePos, float frequency, int recursions, int octaves, bool tesselation);
 private:
 	int VertexForEdge(int first, int second);
 	void SubdivideIcosphere(int level);
 	float FractalBrownianMotion(FastNoiseLite fastNoise, XMFLOAT3 fractalInput, float octaves, float frequency);
 	void CalculateNormals();
 	void SubdivideTriangle(Triangle triangle);
+	void CalculateUVs();
 };

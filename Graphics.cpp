@@ -251,6 +251,8 @@ void Graphics::CreateShaders()
 
 void Graphics::CreatePSO()
 {
+	//if(mPSO) mPSO->Release();
+
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc;
 	ZeroMemory(&psoDesc, sizeof(D3D12_GRAPHICS_PIPELINE_STATE_DESC));
 	psoDesc.InputLayout = { mInputLayout.data(), (UINT)mInputLayout.size() };
@@ -267,9 +269,10 @@ void Graphics::CreatePSO()
 	};
 
 	psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
-	psoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_WIREFRAME;
+
+	psoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
+	if (mWireframe) psoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_WIREFRAME;
 	psoDesc.RasterizerState.MultisampleEnable = true;
-	psoDesc.RasterizerState.FrontCounterClockwise = true;
 	psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
 	psoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
 	psoDesc.SampleMask = UINT_MAX;
@@ -312,7 +315,7 @@ void Graphics::BuildFrameResources()
 {
 	for (int i = 0; i < mNumFrameResources; i++)
 	{
-		mFrameResources.push_back(std::make_unique<FrameResource>(mD3DDevice.Get(), 1, mNumRenderItems,10000000, 10000000));
+		mFrameResources.push_back(std::make_unique<FrameResource>(mD3DDevice.Get(), 1, mNumRenderItems,10000000, 20000000));
 	}
 }
 

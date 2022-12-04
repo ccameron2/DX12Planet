@@ -51,11 +51,11 @@ void Normalize(XMFLOAT3* p)
 }
 
 
-Icosahedron::Icosahedron(float frequency, int recursions, int octaves, XMFLOAT3 eyePos)
+Icosahedron::Icosahedron(float frequency, int recursions, int octaves, XMFLOAT3 eyePos, bool tesselation)
 {
 	mGeometryData = std::make_unique<GeometryData>();
 
-	ResetGeometry(eyePos,frequency,recursions,octaves);
+	ResetGeometry(eyePos,frequency,recursions, octaves, tesselation);
 
 	// Precalculate angle to stop subdivision
 	mCullAnglePerLevel.push_back(0.5);
@@ -83,7 +83,6 @@ Icosahedron::Icosahedron(float frequency, int recursions, int octaves, XMFLOAT3 
 	//}
 
 	CreateGeometry();
-	mGeometryData->CalculateDynamicBufferData();
 }
 
 Icosahedron::~Icosahedron()
@@ -124,13 +123,26 @@ void Icosahedron::CreateGeometry()
 
 	//CalculateNormals();
 
+	CalculateUVs();
+
 	mGeometryData->mVertices = mVertices;
 	mGeometryData->mIndices = mIndices;
 
 	//mGeometryData->CalculateBufferData(d3DDevice,commandList);
+	mGeometryData->CalculateDynamicBufferData();
 }
 
-void Icosahedron::ResetGeometry(XMFLOAT3 eyePos, float frequency, int recursions, int octaves)
+void Icosahedron::CalculateUVs()
+{
+	mUVs.resize(mVertices.size());
+	for (int i = 0; i < mVertices.size() / 3; i++)
+	{
+		mUVs[i].x = atan2(mVertices[i].Pos.z,mVertices[i].Pos.x) / (2.0f * XM_PI);
+		mUVs[i].y = asin(mVertices[i].Pos.y / (XM_PI) + 0.5f);
+	}
+}
+
+void Icosahedron::ResetGeometry(XMFLOAT3 eyePos, float frequency, int recursions, int octaves, bool tesselation)
 {
 	mEyePos = eyePos;
 	mVertices.clear();
@@ -139,6 +151,7 @@ void Icosahedron::ResetGeometry(XMFLOAT3 eyePos, float frequency, int recursions
 	mRecursions = recursions;
 	mFrequency = frequency;
 	mOctaves = octaves;
+	mTesselation = tesselation;
 
 	const float X = 0.525731112119133606f;
 	const float Z = 0.850650808352039932f;
@@ -162,13 +175,13 @@ void Icosahedron::ResetGeometry(XMFLOAT3 eyePos, float frequency, int recursions
 
 	mIndices =
 	{
-		0,4,1,	0,9,4,	9,5,4,
-		4,5,8,	4,8,1,	8,10,1,
-		8,3,10, 5,3,8,	5,2,3,
-		2,7,3,	7,10,3,	7,6,10,
-		7,11,6,	11,0,6,	0,1,6,
-		6,1,10,	9,0,11,	9,11,2,
-		9,2,5,	7,2,11
+		1,4,0,	4,9,0,	4,5,9,
+		8,5,4,	1,8,4,	1,10,8,
+		10,3,8, 8,3,5,	3,2,5,
+		3,7,2,	3,10,7,	10,6,7,
+		6,11,7,	6,0,11,	6,1,0,
+		10,1,6,	11,0,9,	2,11,9,
+		5,2,9,	11,2,7
 	};
 
 	// Build triangles
@@ -232,14 +245,21 @@ void Icosahedron::SubdivideIcosphere(int level)
 
 		auto dot = DotProduct(centre,directionToCamera);
 		
-		// Dont subdivide rear facing triangles
-		if (dot < mCullAnglePerLevel[level])
+		if (mTesselation)
 		{
-			//SubdivideTriangle(triangle);
-			auto angleSize = atan(mTriSizePerLevel[level] / (Distance(centre, mEyePos) * 2));//= mTriAnglePerLevel[level];
-			if (angleSize / (0.25f * XM_PI) > mMaxScreenPercent)
+			// Dont subdivide rear facing triangles
+			if (dot < mCullAnglePerLevel[level])
 			{
-				SubdivideTriangle(triangle);
+				//SubdivideTriangle(triangle);
+				auto angleSize = atan(mTriSizePerLevel[level] / (Distance(centre, mEyePos) * 2));//= mTriAnglePerLevel[level];
+				if (angleSize / (0.25f * XM_PI) > mMaxScreenPercent)
+				{
+					SubdivideTriangle(triangle);
+				}
+				else
+				{
+					mNewTriangles.push_back(triangle);
+				}
 			}
 			else
 			{
@@ -248,9 +268,8 @@ void Icosahedron::SubdivideIcosphere(int level)
 		}
 		else
 		{
-			mNewTriangles.push_back(triangle);
-
-		}
+			SubdivideTriangle(triangle);
+		}	
 	}
 
 	// Swap old triangles with new ones

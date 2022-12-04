@@ -70,7 +70,7 @@ public:
 	std::vector<std::unique_ptr<FrameResource>> mFrameResources;
 	FrameResource* mCurrentFrameResource = nullptr;
 	int mCurrentFrameResourceIndex = 0;
-
+	bool mWireframe = true;
 	ComPtr<ID3D12DescriptorHeap> mCBVHeap;
 	UINT mPassCbvOffset = 0;
 	UINT mGUISRVOffset = 0;

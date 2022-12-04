@@ -66,7 +66,7 @@ private:
 	void Draw(float frameTime);
 	
 	void CreateIcosohedron();
-	void RecreateGeometry();
+	void RecreateGeometry(bool tesselation);
 	void MouseMoved(SDL_Event&);
 	void PollEvents(SDL_Event& e);
 	void Resized();
@@ -106,6 +106,7 @@ private:
 	bool mKeyboardFocus = false;
 	bool mMinimized = false;
 	bool mQuit = false;
+	bool mTesselation = false;
 	POINT mLastMousePos;
 
 	int mWidth = 800;
@@ -114,7 +115,7 @@ private:
 
 	std::unique_ptr<Icosahedron> mIcosohedron;
 	float frequency = 0.5f;
-	int recursions = 6;
+	int recursions = 8;
 	int octaves = 8;
 
 
