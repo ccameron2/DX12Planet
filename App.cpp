@@ -246,7 +246,7 @@ void App::Update(float frameTime)
 	UpdateCamera();
 
 	mGraphics->CycleFrameResources();
-	
+
 	static bool firstGenerationFrame = true;
 	if (firstGenerationFrame)
 	{

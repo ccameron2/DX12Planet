@@ -115,7 +115,7 @@ private:
 
 	std::unique_ptr<Icosahedron> mIcosohedron;
 	float frequency = 0.5f;
-	int recursions = 8;
+	int recursions = 6;
 	int octaves = 8;
 
 
