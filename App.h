@@ -59,7 +59,6 @@ public:
 private:
 	Timer mTimer;
 
-	bool InitWindow();
 	void SetupGUI();
 	void ShowGUI();
 	void Update(float frameTime);
@@ -96,6 +95,7 @@ private:
 	XMFLOAT4X4 mProjectionMatrix = MakeIdentity4x4();
 	
 	XMFLOAT4X4 mIcoWorldMatrix = MakeIdentity4x4();
+	XMFLOAT4X4 mIcoTranslationMatrix = MakeIdentity4x4();
 
 	bool mAppPaused = false;
 	bool mResizing = false;
@@ -114,10 +114,13 @@ private:
 	int mNumStartingItems = 1;
 
 	std::unique_ptr<Icosahedron> mIcosohedron;
-	float frequency = 0.5f;
-	int recursions = 6;
-	int octaves = 8;
-
+	float mFrequency = 0.5f;
+	int mRecursions = 6;
+	int mOctaves = 8;
+	float mPos[3];
+	float mRot[3];
+	float mScale = 1;
+	bool mWMatrixChanged = false;
 
 	float mTheta = 1.5f * XM_PI;
 	float mPhi = XM_PIDIV4;

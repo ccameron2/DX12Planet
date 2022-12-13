@@ -28,7 +28,7 @@ public:
 
 		if (FAILED(mUploadBuffer->Map(0, nullptr, reinterpret_cast<void**>(&mData))))
 		{
-			MessageBox(0, L"Object Buffer map failed", L"Error", MB_OK);
+			MessageBox(0, L"Buffer map failed", L"Error", MB_OK);
 		}
 
 	}

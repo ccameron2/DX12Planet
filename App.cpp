@@ -1,21 +1,16 @@
 #include "App.h"
 #include <sdl_syswm.h>
 
-// Construct and set reference to self for WndProc
 App::App()
 {
 	Initialize();
 
+	// Set window text to title
 	std::string windowText = mMainCaption;
 	const char* array = windowText.c_str();
 	SDL_SetWindowTitle(mWindow, array);
 
 	Run();
-}
-
-bool App::InitWindow()
-{
-	return true;
 }
 
 // Run the app
@@ -30,15 +25,13 @@ void App::Run()
 	while (!mQuit)
 	{
 		SDL_Event event;
-		//Handle events on queue
 		while (SDL_PollEvent(&event) != 0)
 		{
-			//Handle window events
 			PollEvents(event);
 		}
 		if (!mMinimized)
 		{
-			// Start the Dear ImGui frame
+			// Start the ImGui frame
 			ImGui_ImplDX12_NewFrame();
 			ImGui_ImplSDL2_NewFrame();
 			ImGui::NewFrame();
@@ -107,7 +100,7 @@ void App::ShowGUI()
 
 	ImGui::Text("Geometry");
 
-	if (ImGui::SliderInt("Recursions", &recursions, 0, 12))
+	if (ImGui::SliderInt("Recursions", &mRecursions, 0, 10))
 	{
 		RecreateGeometry(mTesselation);
 	};
@@ -119,53 +112,44 @@ void App::ShowGUI()
 
 	ImGui::Text("Noise");
 
-	static float prevFreq = 0;
-	if (ImGui::SliderFloat("Noise Frequency", &frequency, 0.0f, 1.0f, "%.1f"))
+	if (ImGui::SliderFloat("Noise Frequency", &mFrequency, 0.0f, 1.0f, "%.1f"))
 	{
 		RecreateGeometry(mTesselation);
 	};
 
-	if (ImGui::SliderInt("Octaves", &octaves, 0, 20))
+	if (ImGui::SliderInt("Octaves", &mOctaves, 0, 20))
 	{
 		RecreateGeometry(mTesselation);
 	};
 
 	ImGui::Text("World Matrix");
 
-	static float pos[3];
-	if (ImGui::SliderFloat3("Position", pos, -5.0f, 5.0f, "%.1f"))
+	if (ImGui::SliderFloat3("Position", mPos, -5.0f, 5.0f, "%.1f"))
 	{
-		XMStoreFloat4x4(&mIcoWorldMatrix, XMMatrixIdentity() * XMMatrixTranslation(pos[0], pos[1], pos[2]));
+		mWMatrixChanged = true;
 
 		// Signal to update object constant buffer
 		mRenderItems[0]->NumDirtyFrames += mGraphics->mNumFrameResources;
-
-		//RecreateGeometry();
 	}
 
-	static float rot[3];
-	if (ImGui::SliderFloat3("Rotation", rot, -5.0f, 5.0f, "%.1f"))
+	if (ImGui::SliderFloat3("Rotation", mRot, -5.0f, 5.0f, "%.1f"))
 	{
 		
-		mGraphics->mCurrentFrameResource->mPerObjectConstantBuffer;
-		XMStoreFloat4x4(&mIcoWorldMatrix, XMMatrixIdentity() * XMMatrixRotationX(rot[0]) * XMMatrixRotationY(rot[1]) * XMMatrixRotationZ(rot[2]));
+		mWMatrixChanged = true;
 
 		// Signal to update object constant buffer
 		mRenderItems[0]->NumDirtyFrames += mGraphics->mNumFrameResources;
-
-		//RecreateGeometry();
 	}
 
-	static float scale = 1;
-	if (ImGui::SliderFloat("Scale", &scale, 0.0f, 5.0f, "%.1f"))
+	if (ImGui::SliderFloat("Scale", &mScale, 0.0f, 5.0f, "%.1f"))
 	{
-		XMStoreFloat4x4(&mIcoWorldMatrix, XMMatrixIdentity() * XMMatrixScaling(scale, scale, scale));
+		mWMatrixChanged = true;
 
 		// Signal to update object constant buffer
 		mRenderItems[0]->NumDirtyFrames += mGraphics->mNumFrameResources;
-
-		//RecreateGeometry();
 	}
+
+	if (ImGui::Checkbox("VSync", &mGraphics->mVSync));
 
 	ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 	ImGui::End();
@@ -175,7 +159,7 @@ void App::ShowGUI()
 void App::CreateIcosohedron()
 {
 	if (!mIcosohedron) { mIcosohedron.release(); }
-	mIcosohedron = std::make_unique<Icosahedron>(frequency, recursions, octaves, mEyePos, mTesselation);
+	mIcosohedron = std::make_unique<Icosahedron>(mFrequency, mRecursions, mOctaves, mEyePos, mTesselation);
 }
 
 void App::CreateRenderItems()
@@ -220,7 +204,7 @@ void App::RecreateGeometry(bool tesselation)
 	static bool firstFrame = true;
 	if (!firstFrame)
 	{
-		mIcosohedron->ResetGeometry(mEyePos, frequency, recursions, octaves, tesselation);
+		mIcosohedron->ResetGeometry(mEyePos, mFrequency, mRecursions, mOctaves, tesselation);
 		mIcosohedron->CreateGeometry();
 	}
 	else { firstFrame = false; }
@@ -236,7 +220,6 @@ void App::RecreateGeometry(bool tesselation)
 
 	mRenderItems[0]->Geometry->mGPUVertexBuffer = mGraphics->mCurrentFrameResource->mPlanetVB->GetBuffer();
 	mRenderItems[0]->Geometry->mGPUIndexBuffer = mGraphics->mCurrentFrameResource->mPlanetIB->GetBuffer();
-	mRenderItems[0]->WorldMatrix = mIcoWorldMatrix;
 	mRenderItems[0]->IndexCount = mIcosohedron->mIndices.size();
 }
 
@@ -247,6 +230,7 @@ void App::Update(float frameTime)
 
 	mGraphics->CycleFrameResources();
 
+	// Create geometry if its the first frame
 	static bool firstGenerationFrame = true;
 	if (firstGenerationFrame)
 	{
@@ -254,26 +238,61 @@ void App::Update(float frameTime)
 		firstGenerationFrame = false;
 	}
 
+	// If tesselation is enabled recreate geometry
 	if (mTesselation)
 	{
 		RecreateGeometry(mTesselation);
 	}
 
+	// If the world matrix has changed
+	if (mWMatrixChanged)
+	{
+		// Create identity matrices
+		XMMATRIX IDMatrix = XMMatrixIdentity();
+		XMMATRIX translationMatrix = XMMatrixIdentity();
+
+		// Apply transformations from GUI
+		translationMatrix *= XMMatrixTranslation(mPos[0], mPos[1], mPos[2]);
+		
+		translationMatrix *= XMMatrixRotationX(mRot[0]) * XMMatrixRotationY(mRot[1]) * XMMatrixRotationZ(mRot[2]);
+		
+		translationMatrix *= XMMatrixScaling(mScale, mScale, mScale);
+
+		// Set result to icosahedron's world matrix
+		XMStoreFloat4x4(&mIcoWorldMatrix, IDMatrix *= translationMatrix);
+
+		mWMatrixChanged = false;
+	}
+
+	// Set first render item to icosahedrons world matrix
+	mRenderItems[0]->WorldMatrix = mIcoWorldMatrix;
 	UpdatePerObjectConstantBuffers();
 	UpdatePerFrameConstantBuffers();
 }
 
 void App::UpdatePerObjectConstantBuffers()
 {
+	// Get reference to the current per object constant buffer
 	auto currentObjectConstantBuffer = mGraphics->mCurrentFrameResource->mPerObjectConstantBuffer.get();
+	
+	// For each render item
 	for (auto& rItem : mRenderItems)
 	{
+		// If their values have been changed
 		if (rItem->NumDirtyFrames > 0)
 		{
+			// Get the world matrix of the item
 			XMMATRIX worldMatrix = XMLoadFloat4x4(&rItem->WorldMatrix);
+
+			// Create a per object constants structure
 			FrameResource::mPerObjectConstants objectConstants;
+
+			// Transpose the world matrix into it
 			XMStoreFloat4x4(&objectConstants.WorldMatrix, XMMatrixTranspose(worldMatrix));
+
+			// Copy the structure into the current buffer at the item's index
 			currentObjectConstantBuffer->Copy(rItem->ObjConstantBufferIndex, objectConstants);
+			
 			rItem->NumDirtyFrames--;
 		}
 	}
@@ -281,21 +300,30 @@ void App::UpdatePerObjectConstantBuffers()
 
 void App::UpdatePerFrameConstantBuffers()
 {
+	// Make a per frame constants structure
 	FrameResource::mPerFrameConstants perFrameConstantBuffer;
+
+	// Create view, proj, and view proj matrices
 	XMMATRIX view = XMLoadFloat4x4(&mViewMatrix);
 	XMMATRIX proj = XMLoadFloat4x4(&mProjectionMatrix);
 	XMMATRIX viewProj = XMMatrixMultiply(view, proj);
+
+	// Transpose them into the structure
 	XMStoreFloat4x4(&perFrameConstantBuffer.ViewMatrix, XMMatrixTranspose(view));
 	XMStoreFloat4x4(&perFrameConstantBuffer.ProjMatrix, XMMatrixTranspose(proj));
 	XMStoreFloat4x4(&perFrameConstantBuffer.ViewProjMatrix, XMMatrixTranspose(viewProj));
+
+	// Set the rest of the structure's values
 	perFrameConstantBuffer.EyePosW = mEyePos;
 	perFrameConstantBuffer.RenderTargetSize = XMFLOAT2((float)mWidth, (float)mHeight);
 	perFrameConstantBuffer.NearZ = 1.0f;
 	perFrameConstantBuffer.FarZ = 1000.0f;
 	perFrameConstantBuffer.TotalTime = mTimer.GetTime();
 	perFrameConstantBuffer.DeltaTime = mTimer.GetLapTime();
-	auto currentPassCB = mGraphics->mCurrentFrameResource->mPerFrameConstantBuffer.get();
-	currentPassCB->Copy(0, perFrameConstantBuffer);
+
+	// Copy the structure into the per frame constant buffer
+	auto currentFrameCB = mGraphics->mCurrentFrameResource->mPerFrameConstantBuffer.get();
+	currentFrameCB->Copy(0, perFrameConstantBuffer);
 }
 
 void App::UpdateCamera()
@@ -357,18 +385,18 @@ void App::Draw(float frameTime)
 
 	RenderGUI();
 
-	// Done recording commands.
+	// Done recording commands so close command list
 	if (FAILED(mGraphics->mCommandList->Close()))
 	{
 		MessageBox(0, L"Command List close failed", L"Error", MB_OK);
 	}
 
-	// Add the command list to the queue for execution.
+	// Add the command list to the queue for execution
 	ID3D12CommandList* cmdLists[] = { mGraphics->mCommandList.Get() };
 	mGraphics->mCommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
 
 	// Swap the back and front buffers
-	if (FAILED(mGraphics->mSwapChain->Present(0, 0)))
+	if (FAILED(mGraphics->mSwapChain->Present(mGraphics->mVSync, 0)))
 	{
 		MessageBox(0, L"Swap chain present failed", L"Error", MB_OK);
 	}
@@ -381,7 +409,7 @@ void App::Draw(float frameTime)
 	mGraphics->mCommandQueue->Signal(mGraphics->mFence.Get(), mGraphics->mCurrentFence);
 
 	// Frame buffering broken in debug mode so wait each frame
-	//mGraphics->EmptyCommandQueue();
+	mGraphics->EmptyCommandQueue();
 }
 
 void App::RenderGUI()
@@ -392,6 +420,7 @@ void App::RenderGUI()
 	mGraphics->mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(mGraphics->CurrentBackBuffer(),
 		D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET));
 
+	// Get handle to the depth stencle and offset
 	CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHeapView(mGraphics->mDSVHeap->GetCPUDescriptorHandleForHeapStart());
 	dsvHeapView.Offset(1, mGraphics->mDsvDescriptorSize);
 
@@ -408,17 +437,22 @@ void App::RenderGUI()
 
 void App::DrawRenderItems(ID3D12GraphicsCommandList* commandList)
 {
+	// Get size of the per object constant buffer 
 	UINT objCBByteSize = CalculateConstantBufferSize(sizeof(FrameResource::mPerObjectConstants));
+
+	// Get reference to current per object constant buffer
 	auto objectCB = mGraphics->mCurrentFrameResource->mPerObjectConstantBuffer->GetBuffer();
 
+	// For each render item
 	for (size_t i = 0; i < mRenderItems.size(); ++i)
 	{
+		// Set topology, vertex and index buffers to render item's
 		auto renderItem = mRenderItems[i];
 		commandList->IASetVertexBuffers(0, 1, &renderItem->Geometry->GetVertexBufferView());
 		commandList->IASetIndexBuffer(&renderItem->Geometry->GetIndexBufferView());
 		commandList->IASetPrimitiveTopology(renderItem->Topology);
 
-		// Offset to the CBV in the descriptor heap for this object and for this frame resource.
+		// Offset to the CBV in the descriptor heap for this object and for this frame resource
 		UINT cbvIndex = mGraphics->mCurrentFrameResourceIndex * (UINT)mRenderItems.size()+ renderItem->ObjConstantBufferIndex;
 		auto cbvHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(mGraphics->mCBVHeap->GetGPUDescriptorHandleForHeapStart());
 		cbvHandle.Offset(cbvIndex, mGraphics->mCbvSrvUavDescriptorSize);
@@ -547,25 +581,30 @@ void App::PollEvents(SDL_Event& event)
 
 void App::Resized()
 {
-	// The window resized, so update the aspect ratio and recompute projection matrix.
-	XMMATRIX p = XMMatrixPerspectiveFovLH(0.25f * XM_PI, static_cast<float>(mWidth) / mHeight, 1.0f, 1000.0f);
-	XMStoreFloat4x4(&mProjectionMatrix, p);
+	// The window resized, so update the aspect ratio and recompute projection matrix
+	XMMATRIX proj = XMMatrixPerspectiveFovLH(0.25f * XM_PI, static_cast<float>(mWidth) / mHeight, 1.0f, 1000.0f);
+	XMStoreFloat4x4(&mProjectionMatrix, proj);
 }
 
 App::~App()
 {
+	// Empty the command queue
 	if (mGraphics->mD3DDevice != nullptr) { mGraphics->EmptyCommandQueue(); }
 
 	//delete mRenderItems[1]->Geometry;
+
+	// Delete render items
 	for (auto& renderItem : mRenderItems)
 	{
 		delete renderItem;
 	}
 
+	// Shutdown ImGui
 	ImGui_ImplDX12_Shutdown();
 	ImGui_ImplSDL2_Shutdown();
 	ImGui::DestroyContext();
 
+	// Shutdown SDL
 	SDL_DestroyWindow(mWindow);
 	SDL_Quit();
 }
