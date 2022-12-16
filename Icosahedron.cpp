@@ -50,6 +50,23 @@ void Normalize(XMFLOAT3* p)
 	p->z /= w;
 }
 
+XMFLOAT3 CrossProduct(XMFLOAT3 v1, XMFLOAT3 v2)
+{
+	XMFLOAT3 product = XMFLOAT3{0,0,0};
+	product.x = v1.y * v2.z - v1.z * v2.y;
+	product.y = -(v1.x * v2.z - v1.z * v2.x);
+	product.z = v1.x * v2.y - v1.y * v2.x;
+	return product;
+}
+
+
+XMVECTOR ComputeNormal(FXMVECTOR p0,FXMVECTOR p1,FXMVECTOR p2)
+{
+	XMVECTOR u = p1 - p0;
+	XMVECTOR v = p2 - p0;
+	return XMVector3Normalize(XMVector3Cross(u, v));
+}
+
 
 Icosahedron::Icosahedron(float frequency, int recursions, int octaves, XMFLOAT3 eyePos, bool tesselation)
 {
@@ -97,20 +114,20 @@ void Icosahedron::CreateGeometry()
 		SubdivideIcosphere(i);
 	}
 
-	FastNoiseLite noise;
-	noise.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
-	for (auto & vertex : mVertices)
-	{
-		XMVECTOR pos = XMLoadFloat3(&vertex.Pos);
-		pos = XMVectorMultiply(pos, { 100,100,100 });
-		XMFLOAT3 position; XMStoreFloat3(&position, pos);
-		auto ElevationValue = 1 + FractalBrownianMotion(noise, position, mOctaves, mFrequency);
-		//auto ElevationValue = 1 + noise.GetNoise(0.5 * vertex.Pos.x * 100, 0.5 * vertex.Pos.y * 100, 0.5 * vertex.Pos.z * 100);
-		auto Radius = Distance(vertex.Pos, XMFLOAT3{ 0,0,0 });
-		vertex.Pos.x *= 1 + (ElevationValue / Radius);
-		vertex.Pos.y *= 1 + (ElevationValue / Radius);
-		vertex.Pos.z *= 1 + (ElevationValue / Radius);
-	}
+	//FastNoiseLite noise;
+	//noise.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
+	//for (auto & vertex : mVertices)
+	//{
+	//	XMVECTOR pos = XMLoadFloat3(&vertex.Pos);
+	//	pos = XMVectorMultiply(pos, { 100,100,100 });
+	//	XMFLOAT3 position; XMStoreFloat3(&position, pos);
+	//	auto ElevationValue = 1 + FractalBrownianMotion(noise, position, mOctaves, mFrequency);
+	//	//auto ElevationValue = 1 + noise.GetNoise(0.5 * vertex.Pos.x * 100, 0.5 * vertex.Pos.y * 100, 0.5 * vertex.Pos.z * 100);
+	//	auto Radius = Distance(vertex.Pos, XMFLOAT3{ 0,0,0 });
+	//	vertex.Pos.x *= 1 + (ElevationValue / Radius);
+	//	vertex.Pos.y *= 1 + (ElevationValue / Radius);
+	//	vertex.Pos.z *= 1 + (ElevationValue / Radius);
+	//}
 
 	mIndices.clear();
 
@@ -121,7 +138,63 @@ void Icosahedron::CreateGeometry()
 		mIndices.push_back(mTriangles[i].Point[2]);
 	}
 
+	for (int i = 0; i < mVertices.size(); i++)
+	{
+		XMVECTOR n = XMVector3Normalize(XMLoadFloat3(&mVertices[i].Pos));
+		XMStoreFloat3(&mVertices[i].Normal,n);
+	}
+
 	//CalculateNormals();
+
+	//for (int i = 0; i < mVertices.size() - 3; i+=3)
+	//{
+	//	for (int j = 0; j < 3; j++) { mNormals.push_back(XMFLOAT3{ 0.0f,0.0f,0.0f }); }
+	//	auto p1 = XMLoadFloat3(&mVertices[mIndices[i]].Pos);
+	//	auto p2 = XMLoadFloat3(&mVertices[mIndices[i + 1]].Pos);
+	//	auto p3 = XMLoadFloat3(&mVertices[mIndices[i + 2]].Pos);
+	//	
+	//	XMStoreFloat3(&mNormals[i],ComputeNormal(p1, p2, p3));
+	//}
+
+	//for (int i = 0; i < mVertices.size(); i++)
+	//{
+	//	mVertices[i].Normal.x = 0;
+	//	mVertices[i].Normal.y = 1;
+	//	mVertices[i].Normal.z = 0;
+	//}
+
+	//// For each triangle in the mesh:
+	//for (UINT i = 0; i < mIndices.size() / 3; ++i)
+	//{
+	//	// indices of the ith triangle
+	//	UINT i0 = mIndices[i * 3 + 0];
+	//	UINT i1 = mIndices[i * 3 + 1];
+	//	UINT i2 = mIndices[i * 3 + 2];
+	//	// vertices of ith triangle
+	//	Vertex v0 = mVertices[i0];
+	//	Vertex v1 = mVertices[i1];
+	//	Vertex v2 = mVertices[i2];
+	//	// compute face normal
+	//	XMFLOAT3 e0 = SubFloat3(v1.Pos ,v0.Pos);
+	//	XMFLOAT3 e1 = SubFloat3(v2.Pos ,v0.Pos);
+	//	XMFLOAT3 faceNormal = CrossProduct(e0, e1);
+	//	// This triangle shares the following three vertices,
+	//	// so add this face normal into the average of these
+	//	// vertex normals.
+	//	AddFloat3(mVertices[i0].Normal,faceNormal);
+	//	AddFloat3(mVertices[i1].Normal,faceNormal);
+	//	AddFloat3(mVertices[i2].Normal,faceNormal);
+	//}
+	// For each vertex v, we have summed the face normals of all
+	// the triangles that share v, so now we just need to normalize.
+	//for (UINT i = 0; i < mVertices.size(); ++i) Normalize(&mVertices[i].Normal);
+
+	//int index = 0;
+	//for (auto& vertex : mVertices)
+	//{
+	//	vertex.Normal = mNormals[index];
+	//	index++;
+	//}
 
 	CalculateUVs();
 
@@ -142,12 +215,14 @@ void Icosahedron::CalculateUVs()
 	}
 }
 
+
 void Icosahedron::ResetGeometry(XMFLOAT3 eyePos, float frequency, int recursions, int octaves, bool tesselation)
 {
 	mEyePos = eyePos;
 	mVertices.clear();
 	mIndices.clear();
 	mTriangles.clear();
+	mNormals.clear();
 	mRecursions = recursions;
 	mFrequency = frequency;
 	mOctaves = octaves;
@@ -167,7 +242,7 @@ void Icosahedron::ResetGeometry(XMFLOAT3 eyePos, float frequency, int recursions
 		Vertex({ XMFLOAT3(N,Z,-X), XMFLOAT4(Colors::Indigo)}),
 		Vertex({ XMFLOAT3(N,-Z,X), XMFLOAT4(Colors::Violet)}),
 		Vertex({ XMFLOAT3(N,-Z,-X), XMFLOAT4(Colors::Magenta)}),
-		Vertex({ XMFLOAT3(Z,X,N), XMFLOAT4(Colors::Black)}),
+		Vertex({ XMFLOAT3(Z,X,N), XMFLOAT4(Colors::Cyan)}),
 		Vertex({ XMFLOAT3(-Z,X,N), XMFLOAT4(Colors::Gold)}),
 		Vertex({ XMFLOAT3(Z,-X,N), XMFLOAT4(Colors::Pink)}),
 		Vertex({ XMFLOAT3(-Z,-X,N), XMFLOAT4(Colors::Silver)})
@@ -205,9 +280,9 @@ int Icosahedron::VertexForEdge(int p1, int p2)
 		auto& edge2 = mVertices[p2];
 		auto point = AddFloat3(edge1.Pos,edge2.Pos);
 		Normalize(&point.Pos);
-		point.Color.x = std::lerp(edge1.Color.x, edge2.Color.x, 0.5);
-		point.Color.y = std::lerp(edge1.Color.y, edge2.Color.y, 0.5);
-		point.Color.z = std::lerp(edge1.Color.z, edge2.Color.z, 0.5);
+		point.Colour.x = std::lerp(edge1.Colour.x, edge2.Colour.x, 0.5);
+		point.Colour.y = std::lerp(edge1.Colour.y, edge2.Colour.y, 0.5);
+		point.Colour.z = std::lerp(edge1.Colour.z, edge2.Colour.z, 0.5);
 		mVertices.push_back(point);
 	}
 	return in.first->second;
@@ -303,11 +378,11 @@ void Icosahedron::CalculateNormals()
 {
 	// Map of vertex to triangles in Triangles array
 	int numVerts = mVertices.size();
-	std::vector<std::array<uint32_t,8>> VertToTriMap;
-
-	for (auto& arr : VertToTriMap)
+	std::vector<std::array<int32_t,8>> VertToTriMap;
+	for (int i = 0; i < numVerts; i++)
 	{
-		arr.fill(-1);
+		std::array<int32_t, 8> array{-1,-1,-1,-1,-1,-1,-1,-1};
+		VertToTriMap.push_back(array);
 	}
 
 	// For each triangle for each vertex add triangle to vertex array entry
@@ -325,6 +400,12 @@ void Icosahedron::CalculateNormals()
 
 	std::vector<XMFLOAT3> NTriangles;
 
+	for (int i = 0; i < mIndices.size() / 3; i++)
+	{
+		XMFLOAT3 normal = {};
+		NTriangles.push_back(normal);
+	}
+
 	int index = 0;
 	for (int i = 0; i < NTriangles.size(); i++)
 	{
@@ -332,6 +413,11 @@ void Icosahedron::CalculateNormals()
 		NTriangles[i].y = mIndices[index + 1];
 		NTriangles[i].z = mIndices[index + 2];
 		index += 3;
+	}
+
+	for (int i = 0; i < mVertices.size(); i++)
+	{
+		mNormals.push_back({ 0,0,0 });
 	}
 
 	// For each vertex collect the triangles that share it and calculate the face normal
@@ -373,6 +459,11 @@ void Icosahedron::CalculateNormals()
 		XMFLOAT3 normalizedNormal;
 		XMStoreFloat3(&normalizedNormal,XMVector3Normalize(XMLoadFloat3(&normal)));
 		normal = normalizedNormal;
+	}
+
+	for (int i = 0; i < mVertices.size(); i++)
+	{
+		mVertices[i].Normal = mNormals[i];
 	}
 
 }

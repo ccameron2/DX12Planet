@@ -1,6 +1,6 @@
 #include "App.h"
 #include <sdl_syswm.h>
-
+#include "GeometryGenerator.h"
 App::App()
 {
 	Initialize();
@@ -16,7 +16,6 @@ App::App()
 // Run the app
 void App::Run()
 {
-
 	MSG msg = {};
 
 	// Start timer for frametime
@@ -56,11 +55,20 @@ void App::Initialize()
 	SDL_GetWindowWMInfo(mWindow, &info);
 	HWND hwnd = info.info.win.window;
 
-	mGraphics = make_unique<Graphics>(hwnd, mWidth, mHeight, mNumStartingItems);
+	mGraphics = make_unique<Graphics>(hwnd, mWidth, mHeight);
 	
 	UpdateCamera();
 	CreateIcosohedron();
+	BuildSkullGeometry();
 	CreateRenderItems();
+
+	BuildFrameResources();
+	CreateCBVHeap();
+	CreateConstantBuffers();
+	CreateRootSignature();
+	CreateShaders();
+	CreatePSO();
+
 	mGraphics->ExecuteCommands();
 
 	SetupGUI();
@@ -77,14 +85,14 @@ void App::SetupGUI()
 	ImGuiIO& io = ImGui::GetIO(); (void)io;
 	ImGui::StyleColorsDark();
 
-	auto cpuhandle = CD3DX12_CPU_DESCRIPTOR_HANDLE(mGraphics->mCBVHeap->GetCPUDescriptorHandleForHeapStart());
-	cpuhandle.Offset(mGraphics->mGUISRVOffset, mGraphics->mCbvSrvUavDescriptorSize);
+	auto cpuhandle = CD3DX12_CPU_DESCRIPTOR_HANDLE(mCBVHeap->GetCPUDescriptorHandleForHeapStart());
+	cpuhandle.Offset(mGUISRVOffset, mGraphics->mCbvSrvUavDescriptorSize);
 
-	auto gpuhandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(mGraphics->mCBVHeap->GetGPUDescriptorHandleForHeapStart());
-	gpuhandle.Offset(mGraphics->mGUISRVOffset, mGraphics->mCbvSrvUavDescriptorSize);
+	auto gpuhandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(mCBVHeap->GetGPUDescriptorHandleForHeapStart());
+	gpuhandle.Offset(mGUISRVOffset, mGraphics->mCbvSrvUavDescriptorSize);
 
 	ImGui_ImplSDL2_InitForD3D(mWindow);
-	ImGui_ImplDX12_Init(mGraphics->mD3DDevice.Get(), mGraphics->mNumFrameResources, mGraphics->mBackBufferFormat, mGraphics->mCBVHeap.Get(),
+	ImGui_ImplDX12_Init(mGraphics->mD3DDevice.Get(), mNumFrameResources, mGraphics->mBackBufferFormat, mCBVHeap.Get(),
 		cpuhandle, gpuhandle);
 }
 
@@ -129,7 +137,7 @@ void App::ShowGUI()
 		mWMatrixChanged = true;
 
 		// Signal to update object constant buffer
-		mRenderItems[0]->NumDirtyFrames += mGraphics->mNumFrameResources;
+		mRenderItems[0]->NumDirtyFrames += mNumFrameResources;
 	}
 
 	if (ImGui::SliderFloat3("Rotation", mRot, -5.0f, 5.0f, "%.1f"))
@@ -138,7 +146,7 @@ void App::ShowGUI()
 		mWMatrixChanged = true;
 
 		// Signal to update object constant buffer
-		mRenderItems[0]->NumDirtyFrames += mGraphics->mNumFrameResources;
+		mRenderItems[0]->NumDirtyFrames += mNumFrameResources;
 	}
 
 	if (ImGui::SliderFloat("Scale", &mScale, 0.0f, 5.0f, "%.1f"))
@@ -146,7 +154,7 @@ void App::ShowGUI()
 		mWMatrixChanged = true;
 
 		// Signal to update object constant buffer
-		mRenderItems[0]->NumDirtyFrames += mGraphics->mNumFrameResources;
+		mRenderItems[0]->NumDirtyFrames += mNumFrameResources;
 	}
 
 	if (ImGui::Checkbox("VSync", &mGraphics->mVSync));
@@ -160,6 +168,66 @@ void App::CreateIcosohedron()
 {
 	if (!mIcosohedron) { mIcosohedron.release(); }
 	mIcosohedron = std::make_unique<Icosahedron>(mFrequency, mRecursions, mOctaves, mEyePos, mTesselation);
+}
+
+void App::BuildSkullGeometry()
+{
+	std::ifstream fin("skull.txt");
+
+	if (!fin)
+	{
+		MessageBox(0, L"skull.txt not found.", 0, 0);
+		return;
+	}
+
+	UINT vcount = 0;
+	UINT tcount = 0;
+	std::string ignore;
+
+	fin >> ignore >> vcount;
+	fin >> ignore >> tcount;
+	fin >> ignore >> ignore >> ignore >> ignore;
+
+	std::vector<Vertex> vertices(vcount);
+	for (UINT i = 0; i < vcount; ++i)
+	{
+		fin >> vertices[i].Pos.x >> vertices[i].Pos.y >> vertices[i].Pos.z;
+		fin >> vertices[i].Normal.x >> vertices[i].Normal.y >> vertices[i].Normal.z;
+		vertices[i].Colour = { 0.9f,0.9f,0.9f,1.0f };
+	}
+
+	fin >> ignore;
+	fin >> ignore;
+	fin >> ignore;
+
+	std::vector<std::int32_t> indices(3 * tcount);
+	for (UINT i = 0; i < tcount; ++i)
+	{
+		fin >> indices[i * 3 + 0] >> indices[i * 3 + 1] >> indices[i * 3 + 2];
+	}
+
+	fin.close();
+
+	const UINT vbByteSize = (UINT)vertices.size() * sizeof(Vertex);
+
+	const UINT ibByteSize = (UINT)indices.size() * sizeof(std::int32_t);
+
+	mSkullGeometry = make_unique<GeometryData>();
+	D3DCreateBlob(vbByteSize, &mSkullGeometry->mCPUVertexBuffer);
+	CopyMemory(mSkullGeometry->mCPUVertexBuffer->GetBufferPointer(), vertices.data(), vbByteSize);
+
+	D3DCreateBlob(ibByteSize, &mSkullGeometry->mCPUIndexBuffer);
+	CopyMemory(mSkullGeometry->mCPUIndexBuffer->GetBufferPointer(), indices.data(), ibByteSize);
+
+	mSkullGeometry->mGPUVertexBuffer = CreateDefaultBuffer(vertices.data(), vbByteSize, mSkullGeometry->mVertexBufferUploader, mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
+
+	mSkullGeometry->mGPUIndexBuffer = CreateDefaultBuffer(indices.data(), ibByteSize, mSkullGeometry->mIndexBufferUploader, mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
+
+	mSkullGeometry->mVertexByteStride = sizeof(Vertex);
+	mSkullGeometry->mVertexBufferByteSize = vbByteSize;
+	mSkullGeometry->mIndexFormat = DXGI_FORMAT_R32_UINT;
+	mSkullGeometry->mIndexBufferByteSize = ibByteSize;
+	mSkullGeometry->mIndicesCount = (UINT)indices.size();
 }
 
 void App::CreateRenderItems()
@@ -183,20 +251,245 @@ void App::CreateRenderItems()
 	icoRenderItem->BaseVertexLocation = 0;
 	mRenderItems.push_back(icoRenderItem);
 
-	//RenderItem* icoRenderItem2 = new RenderItem();
-	//XMStoreFloat4x4(&icoRenderItem2->WorldMatrix, XMMatrixIdentity() * XMMatrixTranslation(2.0f, 0.0f,0.0f));
-	//icoRenderItem2->ObjConstantBufferIndex = 1;
-	//icoRenderItem2->Geometry = mIcosohedron->mGeometryData.get();
-	//icoRenderItem2->Topology = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-	//icoRenderItem2->IndexCount = mIcosohedron->mGeometryData->mIndices.size();
-	//icoRenderItem2->StartIndexLocation = 0;
-	//icoRenderItem2->BaseVertexLocation = 0;
-	//mRenderItems.push_back(icoRenderItem2);
+	GeometryGenerator geoGen;
+	GeometryGenerator::MeshData grid = geoGen.CreateGrid(160.0f, 160.0f, 50, 50);
+	//GeometryGenerator::MeshData grid = geoGen.CreateGeosphere(5,4);
+	// Extract the vertex elements we are interested and apply the height function to
+	// each vertex.  In addition, color the vertices based on their height so we have
+	// sandy looking beaches, grassy low hills, and snow mountain peaks.
+	std::vector<Vertex> vertices(grid.Vertices.size());
+	for (size_t i = 0; i < grid.Vertices.size(); ++i)
+	{
+		auto& p = grid.Vertices[i].Position;
+		vertices[i].Pos = p;
+		vertices[i].Colour = {0.0f,1.0f,0.0f,1.0f};
+	}
+	const UINT vbByteSize = (UINT)vertices.size() * sizeof(Vertex);
+	std::vector<std::uint16_t> indices = grid.GetIndices16();
+	const UINT ibByteSize = (UINT)indices.size() * sizeof(std::uint16_t);
+	gridGeometry = std::make_unique<GeometryData>();
+	D3DCreateBlob(vbByteSize, &gridGeometry->mCPUVertexBuffer);
+	CopyMemory(gridGeometry->mCPUVertexBuffer->GetBufferPointer(), vertices.data(), vbByteSize);
+	D3DCreateBlob(ibByteSize, &gridGeometry->mCPUIndexBuffer);
+	CopyMemory(gridGeometry->mCPUIndexBuffer->GetBufferPointer(), indices.data(), ibByteSize);
+	gridGeometry->mGPUVertexBuffer = CreateDefaultBuffer(vertices.data(), vbByteSize, gridGeometry->mVertexBufferUploader, mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
+	gridGeometry->mGPUIndexBuffer = CreateDefaultBuffer( indices.data(), ibByteSize, gridGeometry->mIndexBufferUploader, mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
+	gridGeometry->mVertexByteStride = sizeof(Vertex);
+	gridGeometry->mVertexBufferByteSize = vbByteSize;
+	gridGeometry->mIndexFormat = DXGI_FORMAT_R16_UINT;
+	gridGeometry->mIndexBufferByteSize = ibByteSize;
+	RenderItem* gridRitem = new RenderItem();
+	gridRitem->WorldMatrix = MakeIdentity4x4();
+	gridRitem->ObjConstantBufferIndex = 1;
+	gridRitem->Geometry = gridGeometry.get();
+	gridRitem->Topology = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+	gridRitem->IndexCount = indices.size();
+	gridRitem->StartIndexLocation = 0;
+	gridRitem->BaseVertexLocation = 0;
+	mRenderItems.push_back(gridRitem);
 
-	//if (FAILED(mGraphics->mCommandList->Reset(mGraphics->mCommandAllocator.Get(), nullptr)))
-	//{
-	//	MessageBox(0, L"Command List reset failed", L"Error", MB_OK);
-	//}
+	RenderItem* skullRitem = new RenderItem();
+	skullRitem->WorldMatrix = MakeIdentity4x4();
+	skullRitem->ObjConstantBufferIndex = 2;
+	skullRitem->Geometry = mSkullGeometry.get();
+	skullRitem->Topology = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+	skullRitem->IndexCount = mSkullGeometry->mIndicesCount;
+	skullRitem->StartIndexLocation = 0;
+	skullRitem->BaseVertexLocation = 0;
+	mRenderItems.push_back(skullRitem);
+	mNumRenderItems = mRenderItems.size();
+}
+
+void App::BuildFrameResources()
+{
+	for (int i = 0; i < mNumFrameResources; i++)
+	{
+		mFrameResources.push_back(std::make_unique<FrameResource>(mGraphics->mD3DDevice.Get(), 1, mNumRenderItems, 20000000, 80000000));
+	}
+}
+
+void App::CreateCBVHeap()
+{
+	UINT objCount = (UINT)mNumRenderItems;
+	// Need a CBV descriptor for each object for each frame resource,
+	UINT numDescriptors = (objCount + 1) * mNumFrameResources; // +1 for the perFrameCB for each frame resource.
+
+	// Save an offset to the start of the per frame CBVs.
+	mPassCbvOffset = objCount * mNumFrameResources;
+
+	// Save an offset to the start of the GUI SRVs
+	mGUISRVOffset = (objCount * mNumFrameResources) + mNumFrameResources;
+
+	D3D12_DESCRIPTOR_HEAP_DESC cbvHeapDesc;
+	cbvHeapDesc.NumDescriptors = numDescriptors + 1; // For GUI
+	cbvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+	cbvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	cbvHeapDesc.NodeMask = 0;
+	if (FAILED(mGraphics->mD3DDevice->CreateDescriptorHeap(&cbvHeapDesc, IID_PPV_ARGS(&mCBVHeap))))
+	{
+		MessageBox(0, L"Create descriptor heap failed", L"Error", MB_OK);
+	}
+}
+
+void App::CreateConstantBuffers()
+{
+	UINT objCBByteSize = CalculateConstantBufferSize(sizeof(FrameResource::mPerObjectConstants));
+	UINT numObjects = (UINT)mNumRenderItems;
+
+	for (int frameIndex = 0; frameIndex < mNumFrameResources; frameIndex++)
+	{
+		auto objectConstantBuffer = mFrameResources[frameIndex]->mPerObjectConstantBuffer->GetBuffer();
+		for (UINT i = 0; i < numObjects; i++)
+		{
+			D3D12_GPU_VIRTUAL_ADDRESS cbAddress = objectConstantBuffer->GetGPUVirtualAddress();
+
+			// Offset to the ith object constant buffer in the buffer.
+			cbAddress += i * objCBByteSize;
+
+			// Offset to the object cbv in the descriptor heap.
+			int heapIndex = frameIndex * numObjects + i;
+			auto handle = CD3DX12_CPU_DESCRIPTOR_HANDLE(mCBVHeap->GetCPUDescriptorHandleForHeapStart());
+			handle.Offset(heapIndex, mGraphics->mCbvSrvUavDescriptorSize);
+
+			D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc;
+			cbvDesc.BufferLocation = cbAddress;
+			cbvDesc.SizeInBytes = objCBByteSize;
+
+			mGraphics->mD3DDevice->CreateConstantBufferView(&cbvDesc, handle);
+		}
+	}
+	UINT passCBByteSize = CalculateConstantBufferSize(sizeof(FrameResource::mPerFrameConstants));
+
+	// Last three descriptors are the pass CBVs for each frame resource.
+	for (int frameIndex = 0; frameIndex < mNumFrameResources; frameIndex++)
+	{
+		auto passCB = mFrameResources[frameIndex]->mPerFrameConstantBuffer->GetBuffer();
+		D3D12_GPU_VIRTUAL_ADDRESS cbAddress = passCB->GetGPUVirtualAddress();
+
+		// Offset to the pass cbv in the descriptor heap.
+		int heapIndex = mPassCbvOffset + frameIndex;
+		auto handle = CD3DX12_CPU_DESCRIPTOR_HANDLE(mCBVHeap->GetCPUDescriptorHandleForHeapStart());
+		handle.Offset(heapIndex, mGraphics->mCbvSrvUavDescriptorSize);
+
+		D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc;
+		cbvDesc.BufferLocation = cbAddress;
+		cbvDesc.SizeInBytes = passCBByteSize;
+
+		mGraphics->mD3DDevice->CreateConstantBufferView(&cbvDesc, handle);
+	}
+}
+
+void App::CreateRootSignature()
+{
+	CD3DX12_DESCRIPTOR_RANGE cbvTable0;
+	cbvTable0.Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 0);
+
+	CD3DX12_DESCRIPTOR_RANGE cbvTable1;
+	cbvTable1.Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 1);
+
+	// Root parameter can be a table, root descriptor or root constants.
+	CD3DX12_ROOT_PARAMETER slotRootParameter[2];
+
+	// Create root CBVs.
+	slotRootParameter[0].InitAsDescriptorTable(1, &cbvTable0);
+	slotRootParameter[1].InitAsDescriptorTable(1, &cbvTable1);
+
+	// A root signature is an array of root parameters.
+	CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(2, slotRootParameter, 0, nullptr,
+		D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+
+	// create a root signature with a single slot which points to a descriptor range consisting of a single constant buffer
+	ComPtr<ID3DBlob> serializedRootSignature = nullptr;
+	ComPtr<ID3DBlob> errorBlob = nullptr;
+
+
+	if (FAILED(D3D12SerializeRootSignature(&rootSigDesc, D3D_ROOT_SIGNATURE_VERSION_1, serializedRootSignature.GetAddressOf(), errorBlob.GetAddressOf())))
+	{
+		MessageBox(0, L"Serialize Root Signature failed", L"Error", MB_OK);
+	}
+
+	if (errorBlob != nullptr)
+	{
+		OutputDebugStringA((char*)errorBlob->GetBufferPointer());
+	}
+
+	if (FAILED(mGraphics->mD3DDevice->CreateRootSignature(0, serializedRootSignature->GetBufferPointer(), serializedRootSignature->GetBufferSize(), IID_PPV_ARGS(mRootSignature.GetAddressOf()))))
+	{
+		MessageBox(0, L"Root Signature creation failed", L"Error", MB_OK);
+	}
+}
+
+ComPtr<ID3DBlob> App::CompileShader(const std::wstring& filename, const D3D_SHADER_MACRO* defines, const std::string& entrypoint, const std::string& target)
+{
+	UINT compileFlags = 0;
+
+#if defined(DEBUG) || defined(_DEBUG)  
+	compileFlags = D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
+#endif`
+
+	ComPtr<ID3DBlob> byteCode = nullptr;
+	ComPtr<ID3DBlob> errors;
+
+	if (FAILED(D3DCompileFromFile(filename.c_str(), defines, D3D_COMPILE_STANDARD_FILE_INCLUDE,
+		entrypoint.c_str(), target.c_str(), compileFlags, 0, &byteCode, &errors)))
+	{
+		MessageBox(0, L"Shader compile failed", L"Error", MB_OK);
+	}
+
+	if (errors != nullptr) OutputDebugStringA((char*)errors->GetBufferPointer());
+
+	return byteCode;
+}
+
+void App::CreateShaders()
+{
+	mVSByteCode = CompileShader(L"Shaders\\shader.hlsl", nullptr, "VS", "vs_5_0");
+	mPSByteCode = CompileShader(L"Shaders\\shader.hlsl", nullptr, "PS", "ps_5_0");
+	mInputLayout =
+	{
+		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		{ "COLOUR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
+	};
+}
+
+void App::CreatePSO()
+{
+	//if(mPSO) mPSO->Release();
+
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc;
+	ZeroMemory(&psoDesc, sizeof(D3D12_GRAPHICS_PIPELINE_STATE_DESC));
+	psoDesc.InputLayout = { mInputLayout.data(), (UINT)mInputLayout.size() };
+	psoDesc.pRootSignature = mRootSignature.Get();
+	psoDesc.VS =
+	{
+		reinterpret_cast<BYTE*>(mVSByteCode->GetBufferPointer()),
+		mVSByteCode->GetBufferSize()
+	};
+	psoDesc.PS =
+	{
+		reinterpret_cast<BYTE*>(mPSByteCode->GetBufferPointer()),
+		mPSByteCode->GetBufferSize()
+	};
+
+	psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+
+	psoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
+	if (mWireframe) psoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_WIREFRAME;
+	psoDesc.RasterizerState.MultisampleEnable = true;
+	psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+	psoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
+	psoDesc.SampleMask = UINT_MAX;
+	psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+	psoDesc.NumRenderTargets = 1;
+	psoDesc.RTVFormats[0] = mGraphics->mBackBufferFormat;
+	psoDesc.SampleDesc.Count = mGraphics->mMSAASampleCount;
+	psoDesc.SampleDesc.Quality = mGraphics->mMSAAQuality - 1;
+	psoDesc.DSVFormat = mGraphics->mDepthStencilFormat;
+	if (FAILED(mGraphics->mD3DDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mPSO))))
+	{
+		MessageBox(0, L"Pipeline State Creation failed", L"Error", MB_OK);
+	}
 }
 
 void App::RecreateGeometry(bool tesselation)
@@ -211,15 +504,15 @@ void App::RecreateGeometry(bool tesselation)
 
 	for (int i = 0; i < mIcosohedron->mVertices.size(); i++)
 	{
-		mGraphics->mCurrentFrameResource->mPlanetVB->Copy(i, mIcosohedron->mVertices[i]);
+		mCurrentFrameResource->mPlanetVB->Copy(i, mIcosohedron->mVertices[i]);
 	}
 	for (int i = 0; i < mIcosohedron->mIndices.size(); i++)
 	{
-		mGraphics->mCurrentFrameResource->mPlanetIB->Copy(i, mIcosohedron->mIndices[i]);
+		mCurrentFrameResource->mPlanetIB->Copy(i, mIcosohedron->mIndices[i]);
 	}
 
-	mRenderItems[0]->Geometry->mGPUVertexBuffer = mGraphics->mCurrentFrameResource->mPlanetVB->GetBuffer();
-	mRenderItems[0]->Geometry->mGPUIndexBuffer = mGraphics->mCurrentFrameResource->mPlanetIB->GetBuffer();
+	mRenderItems[0]->Geometry->mGPUVertexBuffer = mCurrentFrameResource->mPlanetVB->GetBuffer();
+	mRenderItems[0]->Geometry->mGPUIndexBuffer = mCurrentFrameResource->mPlanetIB->GetBuffer();
 	mRenderItems[0]->IndexCount = mIcosohedron->mIndices.size();
 }
 
@@ -228,7 +521,7 @@ void App::Update(float frameTime)
 {
 	UpdateCamera();
 
-	mGraphics->CycleFrameResources();
+	CycleFrameResources();
 
 	// Create geometry if its the first frame
 	static bool firstGenerationFrame = true;
@@ -267,13 +560,34 @@ void App::Update(float frameTime)
 	// Set first render item to icosahedrons world matrix
 	mRenderItems[0]->WorldMatrix = mIcoWorldMatrix;
 	UpdatePerObjectConstantBuffers();
-	UpdatePerFrameConstantBuffers();
+	UpdatePerFrameConstantBuffer();
+}
+
+void App::CycleFrameResources()
+{
+	// Cycle frame resources
+	mCurrentFrameResourceIndex = (mCurrentFrameResourceIndex + 1) % mNumFrameResources;
+	mCurrentFrameResource = mFrameResources[mCurrentFrameResourceIndex].get();
+
+	UINT64 completedFence = mGraphics->mFence->GetCompletedValue();
+
+	// Wait for GPU to finish current frame resource commands
+	if (mCurrentFrameResource->Fence != 0 && completedFence < mCurrentFrameResource->Fence)
+	{
+		HANDLE eventHandle = CreateEventEx(nullptr, false, false, EVENT_ALL_ACCESS);
+		if (FAILED(mGraphics->mFence->SetEventOnCompletion(mCurrentFrameResource->Fence, eventHandle)))
+		{
+			MessageBox(0, L"Fence completion event set failed", L"Error", MB_OK);
+		}
+		WaitForSingleObject(eventHandle, INFINITE);
+		CloseHandle(eventHandle);
+	}
 }
 
 void App::UpdatePerObjectConstantBuffers()
 {
 	// Get reference to the current per object constant buffer
-	auto currentObjectConstantBuffer = mGraphics->mCurrentFrameResource->mPerObjectConstantBuffer.get();
+	auto currentObjectConstantBuffer = mCurrentFrameResource->mPerObjectConstantBuffer.get();
 	
 	// For each render item
 	for (auto& rItem : mRenderItems)
@@ -298,7 +612,7 @@ void App::UpdatePerObjectConstantBuffers()
 	}
 }
 
-void App::UpdatePerFrameConstantBuffers()
+void App::UpdatePerFrameConstantBuffer()
 {
 	// Make a per frame constants structure
 	FrameResource::mPerFrameConstants perFrameConstantBuffer;
@@ -320,9 +634,14 @@ void App::UpdatePerFrameConstantBuffers()
 	perFrameConstantBuffer.FarZ = 1000.0f;
 	perFrameConstantBuffer.TotalTime = mTimer.GetTime();
 	perFrameConstantBuffer.DeltaTime = mTimer.GetLapTime();
+	perFrameConstantBuffer.AmbientLight = { 0.25f, 0.25f, 0.35f, 1.0f };
 
+	XMVECTOR lightDir = -SphericalToCartesian(1.0f, mSunTheta, mSunPhi);
+	XMStoreFloat3(&perFrameConstantBuffer.Lights[0].Direction, lightDir);
+	perFrameConstantBuffer.Lights[0].Strength = { 2.0f, 2.0f, 2.0f };
+	perFrameConstantBuffer.Lights[0].Position = { 0.0f, 10.0f, -5.0f };
 	// Copy the structure into the per frame constant buffer
-	auto currentFrameCB = mGraphics->mCurrentFrameResource->mPerFrameConstantBuffer.get();
+	auto currentFrameCB = mCurrentFrameResource->mPerFrameConstantBuffer.get();
 	currentFrameCB->Copy(0, perFrameConstantBuffer);
 }
 
@@ -344,7 +663,8 @@ void App::UpdateCamera()
 
 void App::Draw(float frameTime)
 {
-	auto commandAllocator = mGraphics->mCurrentFrameResource->mCommandAllocator;
+	auto commandAllocator = mCurrentFrameResource->mCommandAllocator;
+	auto commandList = mGraphics->mCommandList;
 
 	// We can only reset when the associated command lists have finished execution on the GPU.
 	if (FAILED(commandAllocator->Reset()))
@@ -353,35 +673,35 @@ void App::Draw(float frameTime)
 	}
 
 	// A command list can be reset after it has been added to the command queue via ExecuteCommandList.
-	if (FAILED(mGraphics->mCommandList->Reset(commandAllocator.Get(), mGraphics->mPSO.Get())))
+	if (FAILED(commandList->Reset(commandAllocator.Get(), mPSO.Get())))
 	{
 		MessageBox(0, L"Command List reset failed", L"Error", MB_OK);
 	}
 
 	// Set the viewport and scissor rect.  This needs to be reset whenever the command list is reset.
-	mGraphics->mCommandList->RSSetViewports(1, &mGraphics->mViewport);
-	mGraphics->mCommandList->RSSetScissorRects(1, &mGraphics->mScissorRect);
+	commandList->RSSetViewports(1, &mGraphics->mViewport);
+	commandList->RSSetScissorRects(1, &mGraphics->mScissorRect);
 
 	// Clear the back buffer and depth buffer.
-	mGraphics->mCommandList->ClearRenderTargetView(mGraphics->MSAAView(), mGraphics->mBackgroundColour, 0, nullptr);
-	mGraphics->mCommandList->ClearDepthStencilView(mGraphics->DepthStencilView(), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
+	commandList->ClearRenderTargetView(mGraphics->MSAAView(), mGraphics->mBackgroundColour, 0, nullptr);
+	commandList->ClearDepthStencilView(mGraphics->DepthStencilView(), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
 
 	// Select MSAA texture as render target
-	mGraphics->mCommandList->OMSetRenderTargets(1, &mGraphics->MSAAView(), true, &mGraphics->DepthStencilView());
+	commandList->OMSetRenderTargets(1, &mGraphics->MSAAView(), true, &mGraphics->DepthStencilView());
 
-	ID3D12DescriptorHeap* descriptorHeaps[] = { mGraphics->mCBVHeap.Get() };
-	mGraphics->mCommandList->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
+	ID3D12DescriptorHeap* descriptorHeaps[] = { mCBVHeap.Get() };
+	commandList->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
 
-	mGraphics->mCommandList->SetGraphicsRootSignature(mGraphics->mRootSignature.Get());
+	commandList->SetGraphicsRootSignature(mRootSignature.Get());
 
-	int passCbvIndex = mGraphics->mPassCbvOffset + mGraphics->mCurrentFrameResourceIndex;
-	auto passCbvHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(mGraphics->mCBVHeap->GetGPUDescriptorHandleForHeapStart());
+	int passCbvIndex = mPassCbvOffset + mCurrentFrameResourceIndex;
+	auto passCbvHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(mCBVHeap->GetGPUDescriptorHandleForHeapStart());
 	passCbvHandle.Offset(passCbvIndex, mGraphics->mCbvSrvUavDescriptorSize);
-	mGraphics->mCommandList->SetGraphicsRootDescriptorTable(1, passCbvHandle);
+	commandList->SetGraphicsRootDescriptorTable(1, passCbvHandle);
 
-	DrawRenderItems(mGraphics->mCommandList.Get());
+	DrawRenderItems(commandList.Get());
 
-	mGraphics->ResolveMSAAToBackBuffer(mGraphics->mCommandList.Get());
+	mGraphics->ResolveMSAAToBackBuffer(commandList.Get());
 
 	RenderGUI();
 
@@ -392,7 +712,7 @@ void App::Draw(float frameTime)
 	}
 
 	// Add the command list to the queue for execution
-	ID3D12CommandList* cmdLists[] = { mGraphics->mCommandList.Get() };
+	ID3D12CommandList* cmdLists[] = { commandList.Get() };
 	mGraphics->mCommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
 
 	// Swap the back and front buffers
@@ -403,7 +723,7 @@ void App::Draw(float frameTime)
 	mGraphics->mCurrentBackBuffer = (mGraphics->mCurrentBackBuffer + 1) % mGraphics->mSwapChainBufferCount;
 
 	// Advance fence value
-	mGraphics->mCurrentFrameResource->Fence = mGraphics->mCurrentFence++;
+	mCurrentFrameResource->Fence = mGraphics->mCurrentFence++;
 
 	// Tell command queue to set new fence point, will only be set when the GPU gets to new fence value.
 	mGraphics->mCommandQueue->Signal(mGraphics->mFence.Get(), mGraphics->mCurrentFence);
@@ -416,8 +736,10 @@ void App::RenderGUI()
 {
 	ImGui::Render();
 
+	auto commandList = mGraphics->mCommandList;
+
 	// Transition back buffer to RT
-	mGraphics->mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(mGraphics->CurrentBackBuffer(),
+	commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(mGraphics->CurrentBackBuffer(),
 		D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET));
 
 	// Get handle to the depth stencle and offset
@@ -425,13 +747,13 @@ void App::RenderGUI()
 	dsvHeapView.Offset(1, mGraphics->mDsvDescriptorSize);
 
 	// Select Back buffer as render target
-	mGraphics->mCommandList->ClearDepthStencilView(dsvHeapView, D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
-	mGraphics->mCommandList->OMSetRenderTargets(1, &mGraphics->CurrentBackBufferView(), true, &dsvHeapView);
+	commandList->ClearDepthStencilView(dsvHeapView, D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
+	commandList->OMSetRenderTargets(1, &mGraphics->CurrentBackBufferView(), true, &dsvHeapView);
 
-	ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), mGraphics->mCommandList.Get());
+	ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), commandList.Get());
 
 	// Transition back buffer to present
-	mGraphics->mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(mGraphics->CurrentBackBuffer(),
+	commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(mGraphics->CurrentBackBuffer(),
 		D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));
 }
 
@@ -441,7 +763,7 @@ void App::DrawRenderItems(ID3D12GraphicsCommandList* commandList)
 	UINT objCBByteSize = CalculateConstantBufferSize(sizeof(FrameResource::mPerObjectConstants));
 
 	// Get reference to current per object constant buffer
-	auto objectCB = mGraphics->mCurrentFrameResource->mPerObjectConstantBuffer->GetBuffer();
+	auto objectCB = mCurrentFrameResource->mPerObjectConstantBuffer->GetBuffer();
 
 	// For each render item
 	for (size_t i = 0; i < mRenderItems.size(); ++i)
@@ -453,14 +775,13 @@ void App::DrawRenderItems(ID3D12GraphicsCommandList* commandList)
 		commandList->IASetPrimitiveTopology(renderItem->Topology);
 
 		// Offset to the CBV in the descriptor heap for this object and for this frame resource
-		UINT cbvIndex = mGraphics->mCurrentFrameResourceIndex * (UINT)mRenderItems.size()+ renderItem->ObjConstantBufferIndex;
-		auto cbvHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(mGraphics->mCBVHeap->GetGPUDescriptorHandleForHeapStart());
+		UINT cbvIndex = mCurrentFrameResourceIndex * (UINT)mRenderItems.size()+ renderItem->ObjConstantBufferIndex;
+		auto cbvHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(mCBVHeap->GetGPUDescriptorHandleForHeapStart());
 		cbvHandle.Offset(cbvIndex, mGraphics->mCbvSrvUavDescriptorSize);
 		commandList->SetGraphicsRootDescriptorTable(0, cbvHandle);
 		commandList->DrawIndexedInstanced(renderItem->IndexCount, 1, renderItem->StartIndexLocation, renderItem->BaseVertexLocation, 0);
 	}
 }
-
 
 void App::MouseMoved(SDL_Event& event)
 {
@@ -570,7 +891,7 @@ void App::PollEvents(SDL_Event& event)
 	{
 		if (event.button.button == 3) { mRightMouse = true; }
 		else if (event.button.button == 1) { mLeftMouse = true; }
-		else if (event.button.button == 2) { mGraphics->mWireframe = !mGraphics->mWireframe; mGraphics->CreatePSO(); }
+		else if (event.button.button == 2) { mWireframe = !mWireframe; CreatePSO(); }
 	}
 	else if (event.type == SDL_MOUSEBUTTONUP)
 	{

@@ -135,6 +135,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\..\Documents\D3D12 Resources\intro-to-dx12-master\src\Common\GeometryGenerator.cpp" />
     <ClCompile Include="FrameResource.cpp" />
     <ClCompile Include="App.cpp" />
     <ClCompile Include="GeometryData.cpp" />
@@ -152,6 +153,7 @@
     <ClCompile Include="UploadBuffer.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\..\Documents\D3D12 Resources\intro-to-dx12-master\src\Common\GeometryGenerator.h" />
     <ClInclude Include="FastNoiseLite.h" />
     <ClInclude Include="FrameResource.h" />
     <ClInclude Include="App.h" />

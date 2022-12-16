@@ -15,7 +15,6 @@
 #include <memory>
 #include "Utility.h"
 #include "GeometryData.h"
-#include "FrameResource.h"
 
 using namespace DirectX;
 using Microsoft::WRL::ComPtr;
@@ -23,7 +22,7 @@ using Microsoft::WRL::ComPtr;
 class Graphics
 {
 public:
-	Graphics(HWND hwnd,int width, int height, int numRenderItems);
+	Graphics(HWND hwnd,int width, int height);
 	~Graphics();
 	
 	ComPtr<ID3D12Device> mD3DDevice;
@@ -32,7 +31,7 @@ public:
 	ComPtr<IDXGIFactory4> mDXGIFactory;
 	ComPtr<IDXGISwapChain> mSwapChain;
 
-	ComPtr<ID3D12Fence> mFence;
+	ComPtr<ID3D12Fence1> mFence;
 	UINT64 mCurrentFence = 0;
 
 	ComPtr<ID3D12CommandAllocator> mCommandAllocator;
@@ -63,37 +62,12 @@ public:
 	ComPtr<ID3D12DescriptorHeap> mRTVHeap;
 	ComPtr<ID3D12DescriptorHeap> mDSVHeap;
 
-	ComPtr<ID3D12RootSignature> mRootSignature;
-
-	int mNumRenderItems = 0;
-	const static int mNumFrameResources = 3;
-	std::vector<std::unique_ptr<FrameResource>> mFrameResources;
-	FrameResource* mCurrentFrameResource = nullptr;
-	int mCurrentFrameResourceIndex = 0;
-	bool mWireframe = true;
-	ComPtr<ID3D12DescriptorHeap> mCBVHeap;
-	UINT mPassCbvOffset = 0;
-	UINT mGUISRVOffset = 0;
 	bool mVSync = false;
-
-	// Compiled shader variables
-	ComPtr<ID3DBlob> mVSByteCode = nullptr;
-	ComPtr<ID3DBlob> mPSByteCode = nullptr;
-
 	XMVECTORF32 mBackgroundColour = DirectX::Colors::Purple;
-
-	// Input layout
-	std::vector<D3D12_INPUT_ELEMENT_DESC> mInputLayout;
-
-	ComPtr<ID3D12PipelineState> mPSO = nullptr;
 
 	bool CreateDeviceAndFence();
 	void CreateCommandObjects();
 	void CreateSwapChain(HWND hWND, int width, int height);
-
-	void BuildFrameResources();
-	void CreateConstantBuffers();
-	void CreateCBVHeap();
 
 	void Resize(int width, int height);
 	void EmptyCommandQueue();
@@ -105,14 +79,7 @@ public:
 	void ExecuteCommands();
 	void CreateDescriptorHeaps();
 
-	ComPtr<ID3DBlob> CompileShader(const std::wstring& filename, const D3D_SHADER_MACRO* defines, const std::string& entrypoint, const std::string& target);
-
-	void CreateRootSignature();
-	void CreateShaders();
-	void CreatePSO();
-
 	void ResolveMSAAToBackBuffer(ID3D12GraphicsCommandList* commandList);
-	void CycleFrameResources();
 };
 
 

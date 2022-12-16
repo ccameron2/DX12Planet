@@ -52,4 +52,5 @@ private:
 	void CalculateNormals();
 	void SubdivideTriangle(Triangle triangle);
 	void CalculateUVs();
+	void CalculateNormals2();
 };

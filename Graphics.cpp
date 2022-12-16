@@ -3,10 +3,8 @@
 #include <DirectXMath.h>
 
 
-Graphics::Graphics(HWND hWND, int width, int height, int numRenderItems)
+Graphics::Graphics(HWND hWND, int width, int height)
 {
-	mNumRenderItems = numRenderItems;
-
 	// Break on D3D12 errors
 	CreateDeviceAndFence();
 
@@ -30,15 +28,6 @@ Graphics::Graphics(HWND hWND, int width, int height, int numRenderItems)
 	{
 		MessageBox(0, L"Command List reset failed", L"Error", MB_OK);
 	}
-
-	BuildFrameResources();
-	CreateCBVHeap();
-	CreateConstantBuffers();
-
-	CreateRootSignature();
-	CreateShaders();
-	CreatePSO();
-
 }
 
 Graphics::~Graphics()
@@ -77,6 +66,8 @@ bool Graphics::CreateDeviceAndFence()
 	{
 		ComPtr<ID3D12Debug> debugController;
 		D3D12GetDebugInterface(IID_PPV_ARGS(&debugController));
+		//debugController->SetEnableAutoName(true);
+		//debugController->SetEnableGPUBasedValidation(true);
 		debugController->EnableDebugLayer();
 	}
 #endif
@@ -177,117 +168,6 @@ void Graphics::CreateSwapChain(HWND hWND, int width, int height)
 	}
 }
 
-void Graphics::CreateRootSignature()
-{
-	CD3DX12_DESCRIPTOR_RANGE cbvTable0;
-	cbvTable0.Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 0);
-
-	CD3DX12_DESCRIPTOR_RANGE cbvTable1;
-	cbvTable1.Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 1);
-
-	// Root parameter can be a table, root descriptor or root constants.
-	CD3DX12_ROOT_PARAMETER slotRootParameter[2];
-
-	// Create root CBVs.
-	slotRootParameter[0].InitAsDescriptorTable(1, &cbvTable0);
-	slotRootParameter[1].InitAsDescriptorTable(1, &cbvTable1);
-
-	// A root signature is an array of root parameters.
-	CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(2, slotRootParameter, 0, nullptr,
-		D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
-
-	// create a root signature with a single slot which points to a descriptor range consisting of a single constant buffer
-	ComPtr<ID3DBlob> serializedRootSignature = nullptr;
-	ComPtr<ID3DBlob> errorBlob = nullptr;
-
-	if (errorBlob != nullptr)
-	{
-		OutputDebugStringA((char*)errorBlob->GetBufferPointer());
-	}
-	if (FAILED(D3D12SerializeRootSignature(&rootSigDesc, D3D_ROOT_SIGNATURE_VERSION_1, serializedRootSignature.GetAddressOf(), errorBlob.GetAddressOf())))
-	{
-		MessageBox(0, L"Serialize Root Signature failed", L"Error", MB_OK);
-	}
-
-	if (FAILED(mD3DDevice->CreateRootSignature(0,serializedRootSignature->GetBufferPointer(),serializedRootSignature->GetBufferSize(),IID_PPV_ARGS(mRootSignature.GetAddressOf()))))
-	{
-		MessageBox(0, L"Root Signature creation failed", L"Error", MB_OK);
-	}
-}
-
-ComPtr<ID3DBlob> Graphics::CompileShader(const std::wstring& filename, const D3D_SHADER_MACRO* defines,
-	const std::string& entrypoint, const std::string& target)
-{
-	UINT compileFlags = 0;
-
-#if defined(DEBUG) || defined(_DEBUG)  
-	compileFlags = D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
-#endif`
-
-	ComPtr<ID3DBlob> byteCode = nullptr;
-	ComPtr<ID3DBlob> errors;
-
-	if (errors != nullptr) OutputDebugStringA((char*)errors->GetBufferPointer());
-
-	if (FAILED(D3DCompileFromFile(filename.c_str(), defines, D3D_COMPILE_STANDARD_FILE_INCLUDE,
-		entrypoint.c_str(), target.c_str(), compileFlags, 0, &byteCode, &errors)))
-	{
-		MessageBox(0, L"Shader compile failed", L"Error", MB_OK);
-	}
-
-	return byteCode;
-}
-
-void Graphics::CreateShaders()
-{
-	mVSByteCode = CompileShader(L"Shaders\\shader.hlsl", nullptr, "VS", "vs_5_0");
-	mPSByteCode = CompileShader(L"Shaders\\shader.hlsl", nullptr, "PS", "ps_5_0");
-	mInputLayout =
-	{
-		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-		{ "COLOUR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
-	};
-}
-
-void Graphics::CreatePSO()
-{
-	//if(mPSO) mPSO->Release();
-
-	D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc;
-	ZeroMemory(&psoDesc, sizeof(D3D12_GRAPHICS_PIPELINE_STATE_DESC));
-	psoDesc.InputLayout = { mInputLayout.data(), (UINT)mInputLayout.size() };
-	psoDesc.pRootSignature = mRootSignature.Get();
-	psoDesc.VS =
-	{
-		reinterpret_cast<BYTE*>(mVSByteCode->GetBufferPointer()),
-		mVSByteCode->GetBufferSize()
-	};
-	psoDesc.PS =
-	{
-		reinterpret_cast<BYTE*>(mPSByteCode->GetBufferPointer()),
-		mPSByteCode->GetBufferSize()
-	};
-
-	psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
-
-	psoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
-	if (mWireframe) psoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_WIREFRAME;
-	psoDesc.RasterizerState.MultisampleEnable = true;
-	psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
-	psoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
-	psoDesc.SampleMask = UINT_MAX;
-	psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-	psoDesc.NumRenderTargets = 1;
-	psoDesc.RTVFormats[0] = mBackBufferFormat;
-	psoDesc.SampleDesc.Count = mMSAASampleCount;
-	psoDesc.SampleDesc.Quality = mMSAAQuality - 1;
-	psoDesc.DSVFormat = mDepthStencilFormat;
-	if (FAILED(mD3DDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mPSO))))
-	{
-		MessageBox(0, L"Pipeline State Creation failed", L"Error", MB_OK);
-	}
-}
-
 void Graphics::CreateDescriptorHeaps()
 {
 	D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc;
@@ -311,91 +191,12 @@ void Graphics::CreateDescriptorHeaps()
 	}
 }
 
-void Graphics::BuildFrameResources()
-{
-	for (int i = 0; i < mNumFrameResources; i++)
-	{
-		mFrameResources.push_back(std::make_unique<FrameResource>(mD3DDevice.Get(), 1, mNumRenderItems,20000000, 80000000));
-	}
-}
-
-void Graphics::CreateCBVHeap()
-{
-	UINT objCount = (UINT)mNumRenderItems;
-	// Need a CBV descriptor for each object for each frame resource,
-	UINT numDescriptors = (objCount + 1) * mNumFrameResources; // +1 for the perFrameCB for each frame resource.
-
-	// Save an offset to the start of the per frame CBVs.
-	mPassCbvOffset = objCount * mNumFrameResources;
-
-	// Save an offset to the start of the GUI SRVs
-	mGUISRVOffset = (objCount * mNumFrameResources) + mNumFrameResources;
-
-	D3D12_DESCRIPTOR_HEAP_DESC cbvHeapDesc;
-	cbvHeapDesc.NumDescriptors = numDescriptors + 1; // For GUI
-	cbvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-	cbvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-	cbvHeapDesc.NodeMask = 0;
-	if (FAILED( mD3DDevice->CreateDescriptorHeap(&cbvHeapDesc, IID_PPV_ARGS(&mCBVHeap))))
-	{
-		MessageBox(0, L"Create descriptor heap failed", L"Error", MB_OK);
-	}
-}
-
-void Graphics::CreateConstantBuffers()
-{
-	UINT objCBByteSize = CalculateConstantBufferSize(sizeof(FrameResource::mPerObjectConstants));
-	UINT numObjects = (UINT)mNumRenderItems;
-
-	for (int frameIndex = 0; frameIndex < mNumFrameResources; frameIndex++)
-	{
-		auto objectConstantBuffer = mFrameResources[frameIndex]->mPerObjectConstantBuffer->GetBuffer();
-		for (UINT i = 0; i < numObjects; i++)
-		{
-			D3D12_GPU_VIRTUAL_ADDRESS cbAddress = objectConstantBuffer->GetGPUVirtualAddress();
-
-			// Offset to the ith object constant buffer in the buffer.
-			cbAddress += i * objCBByteSize;
-
-			// Offset to the object cbv in the descriptor heap.
-			int heapIndex = frameIndex * numObjects + i;
-			auto handle = CD3DX12_CPU_DESCRIPTOR_HANDLE(mCBVHeap->GetCPUDescriptorHandleForHeapStart());
-			handle.Offset(heapIndex,  mCbvSrvUavDescriptorSize);
-
-			D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc;
-			cbvDesc.BufferLocation = cbAddress;
-			cbvDesc.SizeInBytes = objCBByteSize;
-
-			mD3DDevice->CreateConstantBufferView(&cbvDesc, handle);
-		}
-	}
-	UINT passCBByteSize = CalculateConstantBufferSize(sizeof(FrameResource::mPerFrameConstants));
-
-	// Last three descriptors are the pass CBVs for each frame resource.
-	for (int frameIndex = 0; frameIndex < mNumFrameResources; frameIndex++)
-	{
-		auto passCB = mFrameResources[frameIndex]->mPerFrameConstantBuffer->GetBuffer();
-		D3D12_GPU_VIRTUAL_ADDRESS cbAddress = passCB->GetGPUVirtualAddress();
-
-		// Offset to the pass cbv in the descriptor heap.
-		int heapIndex = mPassCbvOffset + frameIndex;
-		auto handle = CD3DX12_CPU_DESCRIPTOR_HANDLE(mCBVHeap->GetCPUDescriptorHandleForHeapStart());
-		handle.Offset(heapIndex, mCbvSrvUavDescriptorSize);
-
-		D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc;
-		cbvDesc.BufferLocation = cbAddress;
-		cbvDesc.SizeInBytes = passCBByteSize;
-
-		mD3DDevice->CreateConstantBufferView(&cbvDesc, handle);
-	}
-}
-
 void Graphics::Resize(int width, int height)
 {
 	assert(mD3DDevice);
 	assert(mSwapChain);
 	assert(mCommandAllocator);
-
+	
 	EmptyCommandQueue();
 	if (FAILED(mCommandList->Reset(mCommandAllocator.Get(), nullptr)))
 	{
@@ -528,7 +329,7 @@ void Graphics::Resize(int width, int height)
 	dsvDescGUI.Format = mDepthStencilFormat;
 	dsvDescGUI.Texture2D.MipSlice = 0;
 	mD3DDevice->CreateDepthStencilView(mDepthStencilBufferGUI.Get(), &dsvDesc, dsvHeapView);
-
+	
 	// Transition to be used as a depth buffer.
 	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(mDepthStencilBufferGUI.Get(),
 		D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_DEPTH_WRITE));
@@ -583,27 +384,6 @@ void Graphics::EmptyCommandQueue()
 		CloseHandle(eventHandle);
 	}
 
-}
-
-void Graphics::CycleFrameResources()
-{
-	// Cycle frame resources
-	mCurrentFrameResourceIndex = (mCurrentFrameResourceIndex + 1) % mNumFrameResources;
-	mCurrentFrameResource = mFrameResources[mCurrentFrameResourceIndex].get();
-
-	UINT64 completedFence = mFence->GetCompletedValue();
-
-	// Wait for GPU to finish current frame resource commands
-	if (mCurrentFrameResource->Fence != 0 && completedFence < mCurrentFrameResource->Fence)
-	{
-		HANDLE eventHandle = CreateEventEx(nullptr, false, false, EVENT_ALL_ACCESS);
-		if (FAILED(mFence->SetEventOnCompletion(mCurrentFrameResource->Fence, eventHandle)))
-		{
-			MessageBox(0, L"Fence completion event set failed", L"Error", MB_OK);
-		}
-		WaitForSingleObject(eventHandle, INFINITE);
-		CloseHandle(eventHandle);
-	}
 }
 
 // Return current back buffer

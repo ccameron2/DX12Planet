@@ -15,9 +15,9 @@ using Microsoft::WRL::ComPtr;
 // Vertex structure
 struct Vertex
 {
-	XMFLOAT3 Pos;
-	XMFLOAT4 Color;
-
+	XMFLOAT3 Pos = XMFLOAT3{ 0,0,0 };
+	XMFLOAT4 Colour = XMFLOAT4{ 0,0,0,0 };
+	XMFLOAT3 Normal = XMFLOAT3{ 0,0,0 };
 };
 
 static ComPtr<ID3D12Resource> CreateDefaultBuffer(const void* initData, UINT64 byteSize, ComPtr<ID3D12Resource>& uploadBuffer, 
@@ -83,4 +83,13 @@ XMFLOAT4X4 static MakeIdentity4x4()
 		0.0f, 0.0f, 1.0f, 0.0f,
 		0.0f, 0.0f, 0.0f, 1.0f);
 	return I;
+}
+
+DirectX::XMVECTOR static SphericalToCartesian(float radius, float theta, float phi)
+{
+	return DirectX::XMVectorSet(
+		radius * sinf(phi) * cosf(theta),
+		radius * cosf(phi),
+		radius * sinf(phi) * sinf(theta),
+		1.0f);
 }

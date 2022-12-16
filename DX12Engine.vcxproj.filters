@@ -69,6 +69,9 @@
     <ClCompile Include="ImGui\imgui_widgets.cpp">
       <Filter>ImGui</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\Documents\D3D12 Resources\intro-to-dx12-master\src\Common\GeometryGenerator.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="App.h">
@@ -99,6 +102,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Icosahedron.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\Documents\D3D12 Resources\intro-to-dx12-master\src\Common\GeometryGenerator.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

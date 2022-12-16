@@ -11,6 +11,17 @@ public:
 
 	ComPtr<ID3D12CommandAllocator> mCommandAllocator;
 
+    const static int mMaxLights = 16;
+    struct mLight
+    {
+        DirectX::XMFLOAT3 Strength = { 0.5f, 0.5f, 0.5f };
+        float FalloffStart = 1.0f;                          
+        DirectX::XMFLOAT3 Direction = { 0.0f, -1.0f, 0.0f };
+        float FalloffEnd = 10.0f;                           
+        DirectX::XMFLOAT3 Position = { 0.0f, 0.0f, 0.0f };  
+        float SpotPower = 64.0f;                            
+    };
+
 	struct mPerObjectConstants
 	{
 		XMFLOAT4X4 WorldMatrix;
@@ -31,6 +42,8 @@ public:
         float DeltaTime = 0.0f;
         float padding2 = 0.0f;
         float padding3 = 0.0f;
+        XMFLOAT4 AmbientLight = {0.0f, 0.0f, 0.0f, 1.0f};
+        mLight Lights[mMaxLights];
     };
     std::unique_ptr <UploadBuffer<mPerFrameConstants>> mPerFrameConstantBuffer;
 

@@ -35,6 +35,9 @@
 #include "Icosahedron.h"
 #include "Graphics.h"
 #include "UploadBuffer.h"
+#include "FrameResource.h"
+
+#include <fstream>
 
 // Link necessary d3d12 libraries.
 #pragma comment(lib,"d3dcompiler.lib")
@@ -62,9 +65,16 @@ private:
 	void SetupGUI();
 	void ShowGUI();
 	void Update(float frameTime);
+	void CycleFrameResources();
 	void Draw(float frameTime);
 	
 	void CreateIcosohedron();
+	void CreateCBVHeap();
+	void CreateConstantBuffers();
+	void CreateRootSignature();
+	ComPtr<ID3DBlob> CompileShader(const std::wstring& filename, const D3D_SHADER_MACRO* defines, const std::string& entrypoint, const std::string& target);
+	void CreateShaders();
+	void CreatePSO();
 	void RecreateGeometry(bool tesselation);
 	void MouseMoved(SDL_Event&);
 	void PollEvents(SDL_Event& e);
@@ -74,6 +84,9 @@ private:
 	unique_ptr<Graphics> mGraphics;
 	SDL_Window* mWindow;
 	SDL_Surface mScreenSurface;
+
+	unique_ptr<GeometryData> gridGeometry;
+	unique_ptr<GeometryData> mSkullGeometry;
 
 	struct RenderItem
 	{
@@ -97,6 +110,9 @@ private:
 	XMFLOAT4X4 mIcoWorldMatrix = MakeIdentity4x4();
 	XMFLOAT4X4 mIcoTranslationMatrix = MakeIdentity4x4();
 
+	float mSunTheta = 1.25f * XM_PI;
+	float mSunPhi = XM_PIDIV4;
+
 	bool mAppPaused = false;
 	bool mResizing = false;
 	bool mFullscreen = false;
@@ -111,7 +127,6 @@ private:
 
 	int mWidth = 800;
 	int mHeight = 600;
-	int mNumStartingItems = 1;
 
 	std::unique_ptr<Icosahedron> mIcosohedron;
 	float mFrequency = 0.5f;
@@ -126,13 +141,38 @@ private:
 	float mPhi = XM_PIDIV4;
 	float mRadius = 5.0f;
 
+	bool mWireframe = false;
+	int mNumRenderItems = 0;
+	const static int mNumFrameResources = 3;
+	std::vector<std::unique_ptr<FrameResource>> mFrameResources;
+	FrameResource* mCurrentFrameResource = nullptr;
+	int mCurrentFrameResourceIndex = 0;
+
+	ComPtr<ID3D12DescriptorHeap> mCBVHeap;
+	UINT mPassCbvOffset = 0;
+	UINT mGUISRVOffset = 0;
+
 	D3D_DRIVER_TYPE mD3DDriverType = D3D_DRIVER_TYPE_HARDWARE;
 	std::string mMainCaption = "D3D12 Engine Masters";
 
+	// Compiled shader variables
+	ComPtr<ID3DBlob> mVSByteCode = nullptr;
+	ComPtr<ID3DBlob> mPSByteCode = nullptr;
+
+	ComPtr<ID3D12RootSignature> mRootSignature;
+
+	// Input layout
+	std::vector<D3D12_INPUT_ELEMENT_DESC> mInputLayout;
+
+	ComPtr<ID3D12PipelineState> mPSO = nullptr;
+
 	void UpdatePerObjectConstantBuffers();
-	void UpdatePerFrameConstantBuffers();
+	void UpdatePerFrameConstantBuffer();
 
 	void CreateRenderItems();
 
+	void BuildFrameResources();
+
 	void DrawRenderItems(ID3D12GraphicsCommandList* commandList);
+	void BuildSkullGeometry();
 };
