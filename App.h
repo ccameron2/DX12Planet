@@ -130,7 +130,7 @@ private:
 
 	std::unique_ptr<Icosahedron> mIcosohedron;
 	float mFrequency = 0.5f;
-	int mRecursions = 6;
+	int mRecursions = 2;
 	int mOctaves = 8;
 	float mPos[3];
 	float mRot[3];

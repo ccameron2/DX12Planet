@@ -68,98 +68,145 @@ VOut VS(VIn vin)
 	return vout;
 }
 
+
+//float4 PS(VOut pin) : SV_Target
+//{
+	
+//	 //Interpolating normal can unnormalize it, so renormalize it.
+//	pin.NormalW = normalize(pin.NormalW);
+
+//     //Vector from point being lit to eye. 
+//	float3 toEyeW = normalize(EyePosW - pin.PosW);
+
+//	 //Indirect lighting.
+//	float3 ambient = AmbientLight.xyz;
+	
+//	float3 lightDir = normalize(Lights[0].Position - pin.PosW.xyz);
+	
+//	//float3 directionalLightPos = { 0.0f, 1.0f, 0.0f };
+//	//lightDir = normalize(directionalLightPos);
+	
+//	float3 lightColour = { 0.9f, 0.9f, 1.0f };
+//	float3 diffuseLight = ambient + lightColour * max(dot(pin.NormalW, lightDir), 0);
+	
+//	float3 halfway = normalize(lightDir + toEyeW);
+//	float specularPower = 64.0f;
+//	float3 specularLight = lightColour * pow(max(dot(pin.NormalW, halfway), 0), specularPower);
+	
+//	float3 diffuseColour = pin.Colour.xyz;
+//	float specularColour = pin.Colour.a;
+
+//	float3 finalColour = (diffuseLight * diffuseColour) + (specularLight * specularColour);
+
+//	return float4(finalColour, 1.0f);
+//}
+
+float CalcAttenuation(float d, float falloffStart, float falloffEnd)
+{
+    // Linear falloff.
+	return saturate((falloffEnd - d) / (falloffEnd - falloffStart));
+}
+
+// Schlick gives an approximation to Fresnel reflectance (see pg. 233 "Real-Time Rendering 3rd Ed.").
+// R0 = ( (n-1)/(n+1) )^2, where n is the index of refraction.
+float3 SchlickFresnel(float3 R0, float3 normal, float3 lightVec)
+{
+	float cosIncidentAngle = saturate(dot(normal, lightVec));
+
+	float f0 = 1.0f - cosIncidentAngle;
+	float3 reflectPercent = R0 + (1.0f - R0) * (f0 * f0 * f0 * f0 * f0);
+
+	return reflectPercent;
+}
+
+float3 BlinnPhong(float3 colour, float3 lightStrength, float3 lightVec, float3 normal, float3 toEye)
+{
+	const float m = 0.5f * 256.0f;
+	float3 halfVec = normalize(toEye + lightVec);
+
+	float roughnessFactor = (m + 8.0f) * pow(max(dot(halfVec, normal), 0.0f), m) / 8.0f;
+	float3 fresnelFactor = SchlickFresnel(0.05f, halfVec, lightVec); // Fresnel
+
+	float3 specAlbedo = fresnelFactor * roughnessFactor;
+
+    // Our spec formula goes outside [0,1] range, but we are 
+    // doing LDR rendering.  So scale it down a bit.
+	specAlbedo = specAlbedo / (specAlbedo + 1.0f);
+
+	return (colour + specAlbedo) * lightStrength;
+}
+
+float3 ComputePointLight(float3 colour, Light L, float3 pos, float3 normal, float3 toEye)
+{
+    // The vector from the surface to the light.
+	float3 lightVec = L.Position - pos;
+
+    // The distance from surface to light.
+	float d = length(lightVec);
+
+    // Range test.
+	if (d > L.FalloffEnd)
+		return 0.0f;
+
+    // Normalize the light vector.
+	lightVec /= d;
+
+    // Scale light down by Lambert's cosine law.
+	float ndotl = max(dot(lightVec, normal), 0.0f);
+	float3 lightStrength = L.Strength * ndotl;
+
+    // Attenuate light by distance.
+	float att = CalcAttenuation(d, L.FalloffStart, L.FalloffEnd);
+	lightStrength *= att;
+
+	return BlinnPhong(colour, lightStrength, lightVec, normal, toEye);
+}
+
+float3 ComputeDirectionalLight(float3 colour, Light L, float3 normal, float3 toEye)
+{
+    // The light vector aims opposite the direction the light rays travel.
+	float3 lightVec = -L.Direction;
+
+    // Scale light down by Lambert's cosine law.
+	float ndotl = max(dot(lightVec, normal), 0.0f);
+	float3 lightStrength = L.Strength * ndotl;
+
+	return BlinnPhong(colour, lightStrength, lightVec, normal, toEye);
+}
+
+float4 ComputeLighting(float3 colour, Light gLights[MaxLights],
+                       float3 pos, float3 normal, float3 toEye,
+                       float3 shadowFactor)
+{
+	float3 result = 0.0f;
+	for (int i = 0; i < 1; i++)
+	{
+		result += ComputePointLight(colour, gLights[i], pos, normal, toEye);
+		//result += shadowFactor[i] * ComputeDirectionalLight(colour, gLights[i], normal, toEye);
+	}
+	return float4(result, 0.0f);
+}
+
 float4 PS(VOut pin) : SV_Target
 {
-	
-	// Interpolating normal can unnormalize it, so renormalize it.
+    // Interpolating normal can unnormalize it, so renormalize it.
 	pin.NormalW = normalize(pin.NormalW);
 
     // Vector from point being lit to eye. 
 	float3 toEyeW = normalize(EyePosW - pin.PosW);
 
 	// Indirect lighting.
-	float3 ambient = AmbientLight.xyz;
-	
-	float3 lightDir = normalize(Lights[0].Position - pin.PosW.xyz);
-	
-	//float3 directionalLightPos = {0.0f,1.0f,0.0f};
-	//lightDir = normalize(directionalLightPos);
-	
-	float3 lightColour = { 0.9f, 0.9f, 1.0f };
-	float3 diffuseLight = ambient + lightColour * max(dot(pin.NormalW, lightDir), 0);
-	
-	float3 halfway = normalize(lightDir + toEyeW);
-	float specularPower = 64.0f;
-	float3 specularLight = lightColour * pow(max(dot(pin.NormalW, halfway), 0), specularPower);
-	
-	float3 diffuseColour = pin.Colour.xyz;
-	float specularColour = pin.Colour.a;
+	float4 ambient = AmbientLight * pin.Colour;
 
-	float3 finalColour = (diffuseLight * diffuseColour) + (specularLight * specularColour);
+	const float shininess = 1.0f - 0.3f; //Roughness
+	float3 shadowFactor = 1.0f;
+	float4 directLight = ComputeLighting(pin.Colour.xyz, Lights, pin.PosW,
+        pin.NormalW, toEyeW, shadowFactor);
 
-	return float4(finalColour, 1.0f);
+	float4 litColor = ambient + directLight;
+
+    // Common convention to take alpha from diffuse material.
+	litColor.a = 1.0f;
+
+	return litColor;
 }
-
-//// Schlick gives an approximation to Fresnel reflectance (see pg. 233 "Real-Time Rendering 3rd Ed.").
-//// R0 = ( (n-1)/(n+1) )^2, where n is the index of refraction.
-//float3 SchlickFresnel(float3 R0, float3 normal, float3 lightVec)
-//{
-//	float cosIncidentAngle = saturate(dot(normal, lightVec));
-
-//	float f0 = 1.0f - cosIncidentAngle;
-//	float3 reflectPercent = R0 + (1.0f - R0) * (f0 * f0 * f0 * f0 * f0);
-
-//	return reflectPercent;
-//}
-
-//float3 BlinnPhong(float3 lightStrength, float3 lightVec, float3 normal, float3 toEye, float4 colour)
-//{
-//	// Shinyness to roughness
-//	const float m = 0.125f * 256.0f;
-//	float3 halfVec = normalize(toEye + lightVec);
-	
-//	float roughnessFactor = (m + 8.0f) * pow(max(dot(halfVec, normal), 0.0f), m) / 8.0f;
-//	float3 fresnelR0 = { 0.01f, 0.01f, 0.01f };
-//	float3 fresnelFactor = SchlickFresnel(fresnelR0, halfVec, lightVec); //FresnelR0
-
-//	float3 specAlbedo = fresnelFactor * roughnessFactor;
-
-//    // Our spec formula goes outside [0,1] range, but we are 
-//    // doing LDR rendering.  So scale it down a bit.
-//	specAlbedo = specAlbedo / (specAlbedo + 1.0f);
-
-//	return (colour.rgb + specAlbedo) * lightStrength;
-//}
-
-//float4 PS(VOut pin) : SV_Target
-//{
-	
-//	// Interpolating normal can unnormalize it, so renormalize it.
-//	pin.NormalW = normalize(pin.NormalW);
-
-//    // Vector from point being lit to eye. 
-//	float3 toEyeW = normalize(EyePosW - pin.PosW);
-
-//	// Indirect lighting.
-//	float4 ambient = AmbientLight * pin.Colour;
-	
-//	// The light vector aims opposite the direction the light rays travel.
-//	float3 lightVec = -Lights[0].Direction;
-
-//    // Scale light down by Lambert's cosine law.
-//	float ndotl = max(dot(lightVec, pin.NormalW), 0.0f);
-//	float3 lightStrength = Lights[0].Strength * ndotl;
-//	float3 shadowFactor = 1.0f;
-
-//	float4 directLight = 0;
-//	float3 blinnPhong = BlinnPhong(lightStrength, lightVec, pin.NormalW, toEyeW, pin.Colour);
-//	directLight.xyz += shadowFactor * blinnPhong;
-//	float4 litColour = ambient * directLight;
-//	litColour.a = pin.Colour.a;
-	
-//	//return litColour;
-	
-//	return pin.Colour;
-//}
-
-

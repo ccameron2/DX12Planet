@@ -252,8 +252,8 @@ void App::CreateRenderItems()
 	mRenderItems.push_back(icoRenderItem);
 
 	GeometryGenerator geoGen;
-	GeometryGenerator::MeshData grid = geoGen.CreateGrid(160.0f, 160.0f, 50, 50);
-	//GeometryGenerator::MeshData grid = geoGen.CreateGeosphere(5,4);
+	//GeometryGenerator::MeshData grid = geoGen.CreateGrid(160.0f, 160.0f, 50, 50);
+	GeometryGenerator::MeshData grid = geoGen.CreateGeosphere(5,4);
 	// Extract the vertex elements we are interested and apply the height function to
 	// each vertex.  In addition, color the vertices based on their height so we have
 	// sandy looking beaches, grassy low hills, and snow mountain peaks.
@@ -262,7 +262,7 @@ void App::CreateRenderItems()
 	{
 		auto& p = grid.Vertices[i].Position;
 		vertices[i].Pos = p;
-		vertices[i].Colour = {0.0f,1.0f,0.0f,1.0f};
+		vertices[i].Colour = {1.0f,1.0f,0.0f,1.0f};
 	}
 	const UINT vbByteSize = (UINT)vertices.size() * sizeof(Vertex);
 	std::vector<std::uint16_t> indices = grid.GetIndices16();
@@ -278,8 +278,9 @@ void App::CreateRenderItems()
 	gridGeometry->mVertexBufferByteSize = vbByteSize;
 	gridGeometry->mIndexFormat = DXGI_FORMAT_R16_UINT;
 	gridGeometry->mIndexBufferByteSize = ibByteSize;
+
 	RenderItem* gridRitem = new RenderItem();
-	gridRitem->WorldMatrix = MakeIdentity4x4();
+	XMStoreFloat4x4(&gridRitem->WorldMatrix, XMMatrixIdentity() * XMMatrixScaling(0.05, 0.05, 0.05)* XMMatrixTranslation(0.0f,0.0f,8.0f));
 	gridRitem->ObjConstantBufferIndex = 1;
 	gridRitem->Geometry = gridGeometry.get();
 	gridRitem->Topology = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
@@ -297,6 +298,7 @@ void App::CreateRenderItems()
 	skullRitem->StartIndexLocation = 0;
 	skullRitem->BaseVertexLocation = 0;
 	mRenderItems.push_back(skullRitem);
+	
 	mNumRenderItems = mRenderItems.size();
 }
 
@@ -449,7 +451,7 @@ void App::CreateShaders()
 	{
 		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
 		{ "COLOUR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-		{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
+		{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 24, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
 	};
 }
 
@@ -638,8 +640,10 @@ void App::UpdatePerFrameConstantBuffer()
 
 	XMVECTOR lightDir = -SphericalToCartesian(1.0f, mSunTheta, mSunPhi);
 	XMStoreFloat3(&perFrameConstantBuffer.Lights[0].Direction, lightDir);
+
 	perFrameConstantBuffer.Lights[0].Strength = { 2.0f, 2.0f, 2.0f };
-	perFrameConstantBuffer.Lights[0].Position = { 0.0f, 10.0f, -5.0f };
+	perFrameConstantBuffer.Lights[0].Position = { 0.0f, 0.0f, 8.0f };
+	perFrameConstantBuffer.Lights[0].Direction = { 0.57735f, -0.57735f, 0.57735f };
 	// Copy the structure into the per frame constant buffer
 	auto currentFrameCB = mCurrentFrameResource->mPerFrameConstantBuffer.get();
 	currentFrameCB->Copy(0, perFrameConstantBuffer);
@@ -723,13 +727,10 @@ void App::Draw(float frameTime)
 	mGraphics->mCurrentBackBuffer = (mGraphics->mCurrentBackBuffer + 1) % mGraphics->mSwapChainBufferCount;
 
 	// Advance fence value
-	mCurrentFrameResource->Fence = mGraphics->mCurrentFence++;
+	mCurrentFrameResource->Fence = ++mGraphics->mCurrentFence;
 
 	// Tell command queue to set new fence point, will only be set when the GPU gets to new fence value.
 	mGraphics->mCommandQueue->Signal(mGraphics->mFence.Get(), mGraphics->mCurrentFence);
-
-	// Frame buffering broken in debug mode so wait each frame
-	mGraphics->EmptyCommandQueue();
 }
 
 void App::RenderGUI()

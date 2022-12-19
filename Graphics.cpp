@@ -64,7 +64,7 @@ bool Graphics::CreateDeviceAndFence()
 #if defined(DEBUG) || defined(_DEBUG) 
 	// Enable the D3D12 debug layer.
 	{
-		ComPtr<ID3D12Debug> debugController;
+		ComPtr<ID3D12Debug3> debugController;
 		D3D12GetDebugInterface(IID_PPV_ARGS(&debugController));
 		//debugController->SetEnableAutoName(true);
 		//debugController->SetEnableGPUBasedValidation(true);

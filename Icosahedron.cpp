@@ -114,20 +114,20 @@ void Icosahedron::CreateGeometry()
 		SubdivideIcosphere(i);
 	}
 
-	//FastNoiseLite noise;
-	//noise.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
-	//for (auto & vertex : mVertices)
-	//{
-	//	XMVECTOR pos = XMLoadFloat3(&vertex.Pos);
-	//	pos = XMVectorMultiply(pos, { 100,100,100 });
-	//	XMFLOAT3 position; XMStoreFloat3(&position, pos);
-	//	auto ElevationValue = 1 + FractalBrownianMotion(noise, position, mOctaves, mFrequency);
-	//	//auto ElevationValue = 1 + noise.GetNoise(0.5 * vertex.Pos.x * 100, 0.5 * vertex.Pos.y * 100, 0.5 * vertex.Pos.z * 100);
-	//	auto Radius = Distance(vertex.Pos, XMFLOAT3{ 0,0,0 });
-	//	vertex.Pos.x *= 1 + (ElevationValue / Radius);
-	//	vertex.Pos.y *= 1 + (ElevationValue / Radius);
-	//	vertex.Pos.z *= 1 + (ElevationValue / Radius);
-	//}
+	FastNoiseLite noise;
+	noise.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
+	for (auto & vertex : mVertices)
+	{
+		XMVECTOR pos = XMLoadFloat3(&vertex.Pos);
+		pos = XMVectorMultiply(pos, { 100,100,100 });
+		XMFLOAT3 position; XMStoreFloat3(&position, pos);
+		auto ElevationValue = 1 + FractalBrownianMotion(noise, position, mOctaves, mFrequency);
+		//auto ElevationValue = 1 + noise.GetNoise(0.5 * vertex.Pos.x * 100, 0.5 * vertex.Pos.y * 100, 0.5 * vertex.Pos.z * 100);
+		auto Radius = Distance(vertex.Pos, XMFLOAT3{ 0,0,0 });
+		vertex.Pos.x *= 1 + (ElevationValue / Radius);
+		vertex.Pos.y *= 1 + (ElevationValue / Radius);
+		vertex.Pos.z *= 1 + (ElevationValue / Radius);
+	}
 
 	mIndices.clear();
 
@@ -138,13 +138,13 @@ void Icosahedron::CreateGeometry()
 		mIndices.push_back(mTriangles[i].Point[2]);
 	}
 
-	for (int i = 0; i < mVertices.size(); i++)
-	{
-		XMVECTOR n = XMVector3Normalize(XMLoadFloat3(&mVertices[i].Pos));
-		XMStoreFloat3(&mVertices[i].Normal,n);
-	}
+	//for (int i = 0; i < mVertices.size(); i++)
+	//{
+	//	XMVECTOR n = XMVector3Normalize(XMLoadFloat3(&mVertices[i].Pos));
+	//	XMStoreFloat3(&mVertices[i].Normal,n);
+	//}
 
-	//CalculateNormals();
+	CalculateNormals();
 
 	//for (int i = 0; i < mVertices.size() - 3; i+=3)
 	//{
