@@ -1,6 +1,6 @@
 #include "App.h"
 #include <sdl_syswm.h>
-#include "GeometryGenerator.h"
+
 App::App()
 {
 	Initialize();
@@ -243,6 +243,7 @@ void App::CreateRenderItems()
 
 	RenderItem* icoRenderItem = new RenderItem();
 	icoRenderItem->WorldMatrix = mIcoWorldMatrix;
+	//XMStoreFloat4x4(&icoRenderItem->WorldMatrix, XMMatrixIdentity() * XMMatrixScaling(100, 100, 100) * XMMatrixTranslation(0.0f, -200.0f, 0.0f));
 	icoRenderItem->ObjConstantBufferIndex = 0;
 	icoRenderItem->Geometry = mIcosohedron->mGeometryData.get();
 	icoRenderItem->Topology = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
@@ -251,43 +252,24 @@ void App::CreateRenderItems()
 	icoRenderItem->BaseVertexLocation = 0;
 	mRenderItems.push_back(icoRenderItem);
 
-	GeometryGenerator geoGen;
-	//GeometryGenerator::MeshData grid = geoGen.CreateGrid(160.0f, 160.0f, 50, 50);
-	GeometryGenerator::MeshData grid = geoGen.CreateGeosphere(5,4);
-	// Extract the vertex elements we are interested and apply the height function to
-	// each vertex.  In addition, color the vertices based on their height so we have
-	// sandy looking beaches, grassy low hills, and snow mountain peaks.
-	std::vector<Vertex> vertices(grid.Vertices.size());
-	for (size_t i = 0; i < grid.Vertices.size(); ++i)
+	mIcoLight = make_unique<Icosahedron>(0, 2, 0, mEyePos, false);
+	for (auto& vertex : mIcoLight->mGeometryData->mVertices)
 	{
-		auto& p = grid.Vertices[i].Position;
-		vertices[i].Pos = p;
-		vertices[i].Colour = {1.0f,1.0f,0.0f,1.0f};
+		vertex.Colour = XMFLOAT4{ 1.0f,0.8f,0.0f,1.0f };
 	}
-	const UINT vbByteSize = (UINT)vertices.size() * sizeof(Vertex);
-	std::vector<std::uint16_t> indices = grid.GetIndices16();
-	const UINT ibByteSize = (UINT)indices.size() * sizeof(std::uint16_t);
-	gridGeometry = std::make_unique<GeometryData>();
-	D3DCreateBlob(vbByteSize, &gridGeometry->mCPUVertexBuffer);
-	CopyMemory(gridGeometry->mCPUVertexBuffer->GetBufferPointer(), vertices.data(), vbByteSize);
-	D3DCreateBlob(ibByteSize, &gridGeometry->mCPUIndexBuffer);
-	CopyMemory(gridGeometry->mCPUIndexBuffer->GetBufferPointer(), indices.data(), ibByteSize);
-	gridGeometry->mGPUVertexBuffer = CreateDefaultBuffer(vertices.data(), vbByteSize, gridGeometry->mVertexBufferUploader, mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
-	gridGeometry->mGPUIndexBuffer = CreateDefaultBuffer( indices.data(), ibByteSize, gridGeometry->mIndexBufferUploader, mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
-	gridGeometry->mVertexByteStride = sizeof(Vertex);
-	gridGeometry->mVertexBufferByteSize = vbByteSize;
-	gridGeometry->mIndexFormat = DXGI_FORMAT_R16_UINT;
-	gridGeometry->mIndexBufferByteSize = ibByteSize;
+	mIcoLight->mGeometryData->CalculateBufferData(mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
+	//mGraphics->ExecuteCommands();
+	//mGraphics->mCommandList.Reset();
 
-	RenderItem* gridRitem = new RenderItem();
-	XMStoreFloat4x4(&gridRitem->WorldMatrix, XMMatrixIdentity() * XMMatrixScaling(0.05, 0.05, 0.05)* XMMatrixTranslation(0.0f,0.0f,8.0f));
-	gridRitem->ObjConstantBufferIndex = 1;
-	gridRitem->Geometry = gridGeometry.get();
-	gridRitem->Topology = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-	gridRitem->IndexCount = indices.size();
-	gridRitem->StartIndexLocation = 0;
-	gridRitem->BaseVertexLocation = 0;
-	mRenderItems.push_back(gridRitem);
+	RenderItem* lightRitem = new RenderItem();
+	XMStoreFloat4x4(&lightRitem->WorldMatrix, XMMatrixIdentity() * XMMatrixScaling(0.05, 0.05, 0.05)* XMMatrixTranslation(0.0f,0.0f,8.0f));
+	lightRitem->ObjConstantBufferIndex = 1;
+	lightRitem->Geometry = mIcoLight->mGeometryData.get();
+	lightRitem->Topology = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+	lightRitem->IndexCount = mIcoLight->mGeometryData->mIndices.size();
+	lightRitem->StartIndexLocation = 0;
+	lightRitem->BaseVertexLocation = 0;
+	mRenderItems.push_back(lightRitem);
 
 	RenderItem* skullRitem = new RenderItem();
 	skullRitem->WorldMatrix = MakeIdentity4x4();
@@ -560,7 +542,8 @@ void App::Update(float frameTime)
 	}
 
 	// Set first render item to icosahedrons world matrix
-	mRenderItems[0]->WorldMatrix = mIcoWorldMatrix;
+	mRenderItems[2]->WorldMatrix = mIcoWorldMatrix;
+	mRenderItems[2]->NumDirtyFrames += mNumFrameResources;
 	UpdatePerObjectConstantBuffers();
 	UpdatePerFrameConstantBuffer();
 }
@@ -641,9 +624,15 @@ void App::UpdatePerFrameConstantBuffer()
 	XMVECTOR lightDir = -SphericalToCartesian(1.0f, mSunTheta, mSunPhi);
 	XMStoreFloat3(&perFrameConstantBuffer.Lights[0].Direction, lightDir);
 
-	perFrameConstantBuffer.Lights[0].Strength = { 2.0f, 2.0f, 2.0f };
+	//perFrameConstantBuffer.Lights[0].Strength = { 2.0f, 2.0f, 2.0f };
 	perFrameConstantBuffer.Lights[0].Position = { 0.0f, 0.0f, 8.0f };
-	perFrameConstantBuffer.Lights[0].Direction = { 0.57735f, -0.57735f, 0.57735f };
+	perFrameConstantBuffer.Lights[0].Direction = { -0.57735f, -0.57735f, 0.57735f };
+	//perFrameConstantBuffer.Lights[0].Direction = { 0.57735f, -0.57735f, 0.57735f };
+	perFrameConstantBuffer.Lights[0].Strength = { 0.6f, 0.6f, 0.6f };
+	//perFrameConstantBuffer.Lights[1].Direction = { -0.57735f, -0.57735f, 0.57735f };
+	//perFrameConstantBuffer.Lights[1].Strength = { 0.3f, 0.3f, 0.3f };
+	//perFrameConstantBuffer.Lights[2].Direction = { 0.0f, -0.707f, -0.707f };
+	//perFrameConstantBuffer.Lights[2].Strength = { 0.15f, 0.15f, 0.15f };
 	// Copy the structure into the per frame constant buffer
 	auto currentFrameCB = mCurrentFrameResource->mPerFrameConstantBuffer.get();
 	currentFrameCB->Copy(0, perFrameConstantBuffer);

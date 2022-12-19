@@ -85,9 +85,8 @@ private:
 	SDL_Window* mWindow;
 	SDL_Surface mScreenSurface;
 
-	unique_ptr<GeometryData> gridGeometry;
 	unique_ptr<GeometryData> mSkullGeometry;
-
+	unique_ptr<Icosahedron> mIcoLight;
 	struct RenderItem
 	{
 		XMFLOAT4X4 WorldMatrix = MakeIdentity4x4();

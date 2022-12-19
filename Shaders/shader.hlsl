@@ -121,7 +121,7 @@ float3 SchlickFresnel(float3 R0, float3 normal, float3 lightVec)
 
 float3 BlinnPhong(float3 colour, float3 lightStrength, float3 lightVec, float3 normal, float3 toEye)
 {
-	const float m = 0.5f * 256.0f;
+	const float m = 0.7f * 256.0f; // Shinyness
 	float3 halfVec = normalize(toEye + lightVec);
 
 	float roughnessFactor = (m + 8.0f) * pow(max(dot(halfVec, normal), 0.0f), m) / 8.0f;
@@ -181,8 +181,8 @@ float4 ComputeLighting(float3 colour, Light gLights[MaxLights],
 	float3 result = 0.0f;
 	for (int i = 0; i < 1; i++)
 	{
-		result += ComputePointLight(colour, gLights[i], pos, normal, toEye);
-		//result += shadowFactor[i] * ComputeDirectionalLight(colour, gLights[i], normal, toEye);
+		//result += ComputePointLight(colour, gLights[i], pos, normal, toEye);
+		result += shadowFactor[i] * ComputeDirectionalLight(colour, gLights[i], normal, toEye);
 	}
 	return float4(result, 0.0f);
 }
