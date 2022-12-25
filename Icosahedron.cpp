@@ -3,6 +3,31 @@
 #include <execution>
 #include <cmath>
 
+class Node
+{
+private:
+public:
+	Node* mParent;
+	std::vector<Node*> mChildren;
+	Triangle mTriangle;
+	Node() : mParent{ 0 } {};
+	Node(Node* parent) : mParent{ parent }{};
+	~Node()
+	{
+		for (auto& node : mChildren)
+		{
+			mParent = nullptr;
+			delete node;
+		}
+	}
+	void AddChild(Triangle triangle)
+	{
+		Node* newNode = new Node(this);
+		newNode->mTriangle = triangle;
+		mChildren.push_back(newNode);
+	};
+};
+
 float Distance(XMFLOAT3 p1, XMFLOAT3 p2)
 {
 	auto x = (p1.x - p2.x) * (p1.x - p2.x);
@@ -77,7 +102,7 @@ Icosahedron::Icosahedron(float frequency, int recursions, int octaves, XMFLOAT3 
 	// Precalculate angle to stop subdivision
 	mCullAnglePerLevel.push_back(0.5);
 	float angle = std::acos(mCullAnglePerLevel[0]);
-	for (int i = 0; i < mRecursions; i++)
+	for (int i = 0; i < mMaxRecursions; i++)
 	{
 		angle = angle / 2;
 		mCullAnglePerLevel.push_back(sin(angle));
@@ -104,14 +129,20 @@ Icosahedron::Icosahedron(float frequency, int recursions, int octaves, XMFLOAT3 
 
 Icosahedron::~Icosahedron()
 {
-
 }
 
 void Icosahedron::CreateGeometry()
 {
-	for (int i = 0; i < mRecursions; i++)
+	if (!mTesselation)
 	{
-		SubdivideIcosphere(i);
+		for (int i = 0; i < mRecursions; i++)
+		{
+			SubdivideIcosphere(i);
+		}
+	}
+	else
+	{
+		SubdivideIcosphere(0);
 	}
 
 	FastNoiseLite noise;
@@ -201,7 +232,7 @@ void Icosahedron::CreateGeometry()
 
 	mGeometryData->mVertices = mVertices;
 	mGeometryData->mIndices = mIndices;
-
+	
 	//mGeometryData->CalculateBufferData(d3DDevice,commandList);
 	mGeometryData->CalculateDynamicBufferData();
 }
@@ -213,6 +244,59 @@ void Icosahedron::CalculateUVs()
 	{
 		mUVs[i].x = atan2(mVertices[i].Pos.z,mVertices[i].Pos.x) / (2.0f * XM_PI);
 		mUVs[i].y = asin(mVertices[i].Pos.y / (XM_PI) + 0.5f);
+	}
+}
+
+void Icosahedron::SubdivideIco()
+{
+	//for (int i = 0; i < mTriangleTree->mChildren.size(); i++)
+	//{
+	//	mTriangleTree->mChildren[i].mTriangle = mTriangles[i];
+	//	mTriangleTree->mChildren[i].mParent = mTriangleTree.get();
+	//}
+	for (auto& node : mTriangleTree->mChildren)
+	{		
+		Subdivide(node);
+	}
+}
+
+void Icosahedron::Subdivide(Node* node, int level)
+{
+	std::vector<Triangle> newTriangles = SubdivideTriangle(node->mTriangle);
+	for (auto& triangle : newTriangles)
+	{
+		node->AddChild(triangle);
+		mTriangles.push_back(triangle);
+
+	}
+
+	// Dot product between camera and triangle face normal
+	XMFLOAT3 a = mVertices[node->mTriangle.Point[0]].Pos;
+	XMFLOAT3 b = mVertices[node->mTriangle.Point[1]].Pos;
+	XMFLOAT3 c = mVertices[node->mTriangle.Point[2]].Pos;
+	XMFLOAT3 centre = { (a.x + b.x + c.x) / 3, (a.y + b.y + c.y) / 3, (a.z + b.z + c.z) / 3 };
+
+	Normalize(&centre);
+	auto directionToCamera = SubFloat3(centre, mEyePos);
+	Normalize(&directionToCamera);
+
+	auto dot = DotProduct(centre, directionToCamera);
+
+	for (auto& childNode : node->mChildren)
+	{
+		if (level < mMaxRecursions)
+		{
+			//if (dot < mCullAnglePerLevel[level])
+			//{
+			//	//SubdivideTriangle(triangle);
+			//	auto angleSize = atan(mTriSizePerLevel[level] / (Distance(centre, mEyePos) * 2));  //= mTriAnglePerLevel[level];
+			//	if (angleSize / (0.25f * XM_PI) > mMaxScreenPercent)
+			//	{
+					// If should be generated && !has been generated
+					Subdivide(childNode,++level);
+				//}
+			//}
+		}		
 	}
 }
 
@@ -265,6 +349,13 @@ void Icosahedron::ResetGeometry(XMFLOAT3 eyePos, float frequency, int recursions
 	{
 		mTriangles.push_back(Triangle{ mIndices[i],mIndices[i + 1],mIndices[i + 2] });
 	}
+
+	mTriangleTree = make_unique<Node>();
+	for (auto& triangle : mTriangles)
+	{
+		mTriangleTree->AddChild(triangle);
+	}
+
 }
 
 int Icosahedron::VertexForEdge(int p1, int p2)
@@ -289,8 +380,9 @@ int Icosahedron::VertexForEdge(int p1, int p2)
 	return in.first->second;
 }
 
-void Icosahedron::SubdivideTriangle(Triangle triangle)
+std::vector<Triangle> Icosahedron::SubdivideTriangle(Triangle triangle)
 {
+	std::vector<Triangle> newTriangles;
 	// For each edge
 	std::uint32_t mid[3];
 	for (int e = 0; e < 3; e++)
@@ -303,56 +395,69 @@ void Icosahedron::SubdivideTriangle(Triangle triangle)
 	mNewTriangles.push_back({ triangle.Point[1], mid[1], mid[0] });
 	mNewTriangles.push_back({ triangle.Point[2], mid[2], mid[1] });
 	mNewTriangles.push_back({ mid[0], mid[1], mid[2] });
+
+	newTriangles.push_back({ triangle.Point[0], mid[0], mid[2] });
+	newTriangles.push_back({ triangle.Point[1], mid[1], mid[0] });
+	newTriangles.push_back({ triangle.Point[2], mid[2], mid[1] });
+	newTriangles.push_back({ mid[0], mid[1], mid[2] });
+
+	return newTriangles;
 }
 
 void Icosahedron::SubdivideIcosphere(int level)
 {
-	for (auto& triangle : mTriangles)
+	if (!mTesselation)
 	{
-		// Dot product between camera and triangle face normal
-		XMFLOAT3 a = mVertices[triangle.Point[0]].Pos;
-		XMFLOAT3 b = mVertices[triangle.Point[1]].Pos;
-		XMFLOAT3 c = mVertices[triangle.Point[2]].Pos;
-		XMFLOAT3 centre = { (a.x + b.x + c.x) / 3, (a.y + b.y + c.y) / 3, (a.z + b.z + c.z) / 3 };
-		
-		Normalize(&centre);
-		auto directionToCamera = SubFloat3(centre, mEyePos);
-		Normalize(&directionToCamera);
+		for (auto& triangle : mTriangles)
+		{
+			//// Dot product between camera and triangle face normal
+			//XMFLOAT3 a = mVertices[triangle.Point[0]].Pos;
+			//XMFLOAT3 b = mVertices[triangle.Point[1]].Pos;
+			//XMFLOAT3 c = mVertices[triangle.Point[2]].Pos;
+			//XMFLOAT3 centre = { (a.x + b.x + c.x) / 3, (a.y + b.y + c.y) / 3, (a.z + b.z + c.z) / 3 };
+			//
+			//Normalize(&centre);
+			//auto directionToCamera = SubFloat3(centre, mEyePos);
+			//Normalize(&directionToCamera);
 
-		auto dot = DotProduct(centre,directionToCamera);
-		
-		if (mTesselation)
-		{
-			// Dont subdivide rear facing triangles
-			if (dot < mCullAnglePerLevel[level])
-			{
-				//SubdivideTriangle(triangle);
-				auto angleSize = atan(mTriSizePerLevel[level] / (Distance(centre, mEyePos) * 2));//= mTriAnglePerLevel[level];
-				if (angleSize / (0.25f * XM_PI) > mMaxScreenPercent)
-				{
-					SubdivideTriangle(triangle);
-				}
-				else
-				{
-					mNewTriangles.push_back(triangle);
-				}
-			}
-			else
-			{
-				mNewTriangles.push_back(triangle);
-			}
-		}
-		else
-		{
+			//auto dot = DotProduct(centre,directionToCamera);
+			//
+			//if (mTesselation)
+			//{
+			//	// Dont subdivide rear facing triangles
+			//	if (dot < mCullAnglePerLevel[level])
+			//	{
+			//		//SubdivideTriangle(triangle);
+			//		auto angleSize = atan(mTriSizePerLevel[level] / (Distance(centre, mEyePos) * 2));//= mTriAnglePerLevel[level];
+			//		if (angleSize / (0.25f * XM_PI) > mMaxScreenPercent)
+			//		{
+			//			SubdivideTriangle(triangle);
+			//		}
+			//		else
+			//		{
+			//			mNewTriangles.push_back(triangle);
+			//		}
+			//	}
+			//	else
+			//	{
+			//		mNewTriangles.push_back(triangle);
+			//	}
+			//}
+			//else
+			//{
 			SubdivideTriangle(triangle);
-		}	
+			//}	
+		}
+
+		// Swap old triangles with new ones
+		mTriangles.swap(mNewTriangles);
+
+		mNewTriangles.clear();
 	}
-
-	// Swap old triangles with new ones
-	mTriangles.swap(mNewTriangles);
-
-	mNewTriangles.clear();
-
+	else
+	{
+		SubdivideIco();
+	}
 	// Clear the vertex map for re-use
 	mVertexMap.clear();
 }

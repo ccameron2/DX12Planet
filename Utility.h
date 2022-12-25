@@ -12,6 +12,11 @@ using namespace std;
 using namespace DirectX;
 using Microsoft::WRL::ComPtr;
 
+struct Triangle
+{
+	std::uint32_t Point[3];
+};
+
 // Vertex structure
 struct Vertex
 {

@@ -132,6 +132,8 @@ void App::ShowGUI()
 
 	ImGui::Text("World Matrix");
 
+	ImGui::SliderInt("Render Item", &mSelectedRenderItem, 0, mNumRenderItems - 1);
+
 	if (ImGui::SliderFloat3("Position", mPos, -5.0f, 5.0f, "%.1f"))
 	{
 		mWMatrixChanged = true;
@@ -242,7 +244,7 @@ void App::CreateRenderItems()
 	}
 
 	RenderItem* icoRenderItem = new RenderItem();
-	icoRenderItem->WorldMatrix = mIcoWorldMatrix;
+	icoRenderItem->WorldMatrix = mGUIWorldMatrix;
 	//XMStoreFloat4x4(&icoRenderItem->WorldMatrix, XMMatrixIdentity() * XMMatrixScaling(100, 100, 100) * XMMatrixTranslation(0.0f, -200.0f, 0.0f));
 	icoRenderItem->ObjConstantBufferIndex = 0;
 	icoRenderItem->Geometry = mIcosohedron->mGeometryData.get();
@@ -271,15 +273,15 @@ void App::CreateRenderItems()
 	lightRitem->BaseVertexLocation = 0;
 	mRenderItems.push_back(lightRitem);
 
-	RenderItem* skullRitem = new RenderItem();
-	skullRitem->WorldMatrix = MakeIdentity4x4();
-	skullRitem->ObjConstantBufferIndex = 2;
-	skullRitem->Geometry = mSkullGeometry.get();
-	skullRitem->Topology = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-	skullRitem->IndexCount = mSkullGeometry->mIndicesCount;
-	skullRitem->StartIndexLocation = 0;
-	skullRitem->BaseVertexLocation = 0;
-	mRenderItems.push_back(skullRitem);
+	//RenderItem* skullRitem = new RenderItem();
+	//skullRitem->WorldMatrix = MakeIdentity4x4();
+	//skullRitem->ObjConstantBufferIndex = 2;
+	//skullRitem->Geometry = mSkullGeometry.get();
+	//skullRitem->Topology = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+	//skullRitem->IndexCount = mSkullGeometry->mIndicesCount;
+	//skullRitem->StartIndexLocation = 0;
+	//skullRitem->BaseVertexLocation = 0;
+	//mRenderItems.push_back(skullRitem);
 	
 	mNumRenderItems = mRenderItems.size();
 }
@@ -536,14 +538,14 @@ void App::Update(float frameTime)
 		translationMatrix *= XMMatrixScaling(mScale, mScale, mScale);
 
 		// Set result to icosahedron's world matrix
-		XMStoreFloat4x4(&mIcoWorldMatrix, IDMatrix *= translationMatrix);
+		XMStoreFloat4x4(&mGUIWorldMatrix, IDMatrix *= translationMatrix);
 
 		mWMatrixChanged = false;
 	}
 
 	// Set first render item to icosahedrons world matrix
-	mRenderItems[2]->WorldMatrix = mIcoWorldMatrix;
-	mRenderItems[2]->NumDirtyFrames += mNumFrameResources;
+	mRenderItems[mSelectedRenderItem]->WorldMatrix = mGUIWorldMatrix;
+	mRenderItems[mSelectedRenderItem]->NumDirtyFrames += mNumFrameResources;
 	UpdatePerObjectConstantBuffers();
 	UpdatePerFrameConstantBuffer();
 }

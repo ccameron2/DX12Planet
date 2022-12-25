@@ -7,14 +7,13 @@
 #include <map>
 #include <utility>
 
+class Node;
+
 using namespace DirectX;
 using namespace std;
 class Icosahedron
 {
-	struct Triangle
-	{
-		std::uint32_t Point[3];
-	};
+
 
 public:
 	Icosahedron(float frequency, int recursions, int octaves, XMFLOAT3 eyePos, bool tesselation);
@@ -29,7 +28,7 @@ public:
 	std::vector<Triangle> mNewTriangles;
 	std::vector<XMFLOAT3> mNormals;
 	int mRecursions = 2;
-	int mMaxRecursions = 20;
+	int mMaxRecursions = 8;
 	std::map<std::pair<int, int>, int> mVertexMap;
 	int mOctaves = 8;
 	float mFrequency = 1;
@@ -39,7 +38,7 @@ public:
 	int mScreenWidth = 800;
 	std::vector<XMFLOAT2> mUVs;
 	bool mTesselation = false;
-
+	unique_ptr<Node> mTriangleTree;
 	float mMaxScreenPercent;
 	float mMaxPixelsPerTriangle = 5.0f;
 
@@ -50,7 +49,8 @@ private:
 	void SubdivideIcosphere(int level);
 	float FractalBrownianMotion(FastNoiseLite fastNoise, XMFLOAT3 fractalInput, float octaves, float frequency);
 	void CalculateNormals();
-	void SubdivideTriangle(Triangle triangle);
+	std::vector<Triangle> SubdivideTriangle(Triangle triangle);
 	void CalculateUVs();
-	void CalculateNormals2();
+	void SubdivideIco();
+	void Subdivide(Node* node,int level = 1);
 };

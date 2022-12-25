@@ -106,7 +106,7 @@ private:
 	XMFLOAT4X4 mViewMatrix = MakeIdentity4x4();
 	XMFLOAT4X4 mProjectionMatrix = MakeIdentity4x4();
 	
-	XMFLOAT4X4 mIcoWorldMatrix = MakeIdentity4x4();
+	XMFLOAT4X4 mGUIWorldMatrix = MakeIdentity4x4();
 	XMFLOAT4X4 mIcoTranslationMatrix = MakeIdentity4x4();
 
 	float mSunTheta = 1.25f * XM_PI;
@@ -121,9 +121,9 @@ private:
 	bool mKeyboardFocus = false;
 	bool mMinimized = false;
 	bool mQuit = false;
-	bool mTesselation = false;
+	bool mTesselation = true;
 	POINT mLastMousePos;
-
+	int mSelectedRenderItem = 0;
 	int mWidth = 800;
 	int mHeight = 600;
 
