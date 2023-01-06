@@ -62,7 +62,7 @@ VOut VS(VIn vin)
 	
 	vout.PosH = mul(posW, ViewProj);
 	
-	// Pass vertex color into the pixel shader.
+	// Pass vertex colour into the pixel shader.
 	vout.Colour = vin.Colour;
     
 	return vout;
@@ -203,10 +203,15 @@ float4 PS(VOut pin) : SV_Target
 	float4 directLight = ComputeLighting(pin.Colour.xyz, Lights, pin.PosW,
         pin.NormalW, toEyeW, shadowFactor);
 
-	float4 litColor = ambient + directLight;
+	float4 litColour = ambient + directLight;
 
     // Common convention to take alpha from diffuse material.
-	litColor.a = 1.0f;
-
-	return litColor;
+	litColour.a = 1.0f;
+	
+	//litColour.rgb = 0.5 * (pin.NormalW + 1);
+	//litColour.rgb = pin.NormalW;
+	
+	//float3 normalEndpoint = pin.PosW + 0.1 * pin.NormalW;
+	
+	return litColour;
 }

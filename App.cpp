@@ -244,8 +244,8 @@ void App::CreateRenderItems()
 	}
 
 	RenderItem* icoRenderItem = new RenderItem();
-	icoRenderItem->WorldMatrix = mGUIWorldMatrix;
-	//XMStoreFloat4x4(&icoRenderItem->WorldMatrix, XMMatrixIdentity() * XMMatrixScaling(100, 100, 100) * XMMatrixTranslation(0.0f, -200.0f, 0.0f));
+	//icoRenderItem->WorldMatrix = mGUIWorldMatrix;
+	XMStoreFloat4x4(&icoRenderItem->WorldMatrix, XMMatrixIdentity() * /*XMMatrixScaling(100, 100, 100) **/ XMMatrixTranslation(0.0f, 0.0f, 0.0f));
 	icoRenderItem->ObjConstantBufferIndex = 0;
 	icoRenderItem->Geometry = mIcosohedron->mGeometryData.get();
 	icoRenderItem->Topology = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
@@ -263,15 +263,15 @@ void App::CreateRenderItems()
 	//mGraphics->ExecuteCommands();
 	//mGraphics->mCommandList.Reset();
 
-	RenderItem* lightRitem = new RenderItem();
-	XMStoreFloat4x4(&lightRitem->WorldMatrix, XMMatrixIdentity() * XMMatrixScaling(0.05, 0.05, 0.05)* XMMatrixTranslation(0.0f,0.0f,8.0f));
-	lightRitem->ObjConstantBufferIndex = 1;
-	lightRitem->Geometry = mIcoLight->mGeometryData.get();
-	lightRitem->Topology = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-	lightRitem->IndexCount = mIcoLight->mGeometryData->mIndices.size();
-	lightRitem->StartIndexLocation = 0;
-	lightRitem->BaseVertexLocation = 0;
-	mRenderItems.push_back(lightRitem);
+	//RenderItem* lightRitem = new RenderItem();
+	//XMStoreFloat4x4(&lightRitem->WorldMatrix, XMMatrixIdentity() * XMMatrixScaling(0.05, 0.05, 0.05)* XMMatrixTranslation(0.0f,0.0f,8.0f));
+	//lightRitem->ObjConstantBufferIndex = 1;
+	//lightRitem->Geometry = mIcoLight->mGeometryData.get();
+	//lightRitem->Topology = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+	//lightRitem->IndexCount = mIcoLight->mGeometryData->mIndices.size();
+	//lightRitem->StartIndexLocation = 0;
+	//lightRitem->BaseVertexLocation = 0;
+	//mRenderItems.push_back(lightRitem);
 
 	//RenderItem* skullRitem = new RenderItem();
 	//skullRitem->WorldMatrix = MakeIdentity4x4();
@@ -540,12 +540,13 @@ void App::Update(float frameTime)
 		// Set result to icosahedron's world matrix
 		XMStoreFloat4x4(&mGUIWorldMatrix, IDMatrix *= translationMatrix);
 
+		// Set first render item to icosahedrons world matrix
+		mRenderItems[mSelectedRenderItem]->WorldMatrix = mGUIWorldMatrix;
+		mRenderItems[mSelectedRenderItem]->NumDirtyFrames += mNumFrameResources;
+
 		mWMatrixChanged = false;
 	}
 
-	// Set first render item to icosahedrons world matrix
-	mRenderItems[mSelectedRenderItem]->WorldMatrix = mGUIWorldMatrix;
-	mRenderItems[mSelectedRenderItem]->NumDirtyFrames += mNumFrameResources;
 	UpdatePerObjectConstantBuffers();
 	UpdatePerFrameConstantBuffer();
 }
@@ -803,7 +804,7 @@ void App::MouseMoved(SDL_Event& event)
 		mRadius += dx - dy;
 
 		//// Restrict the radius.
-		//mRadius = std::clamp(mRadius, 3.0f, 15.0f);
+		mRadius = std::clamp(mRadius, 0.1f, 15.0f);
 	}
 	mLastMousePos.x = mouseX;
 	mLastMousePos.y = mouseY;

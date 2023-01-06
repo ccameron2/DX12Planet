@@ -28,7 +28,7 @@ public:
 	std::vector<Triangle> mNewTriangles;
 	std::vector<XMFLOAT3> mNormals;
 	int mRecursions = 2;
-	int mMaxRecursions = 8;
+	int mMaxRecursions = 10;
 	std::map<std::pair<int, int>, int> mVertexMap;
 	int mOctaves = 8;
 	float mFrequency = 1;

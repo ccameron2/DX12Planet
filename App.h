@@ -121,7 +121,7 @@ private:
 	bool mKeyboardFocus = false;
 	bool mMinimized = false;
 	bool mQuit = false;
-	bool mTesselation = true;
+	bool mTesselation = false;
 	POINT mLastMousePos;
 	int mSelectedRenderItem = 0;
 	int mWidth = 800;
@@ -129,7 +129,7 @@ private:
 
 	std::unique_ptr<Icosahedron> mIcosohedron;
 	float mFrequency = 0.5f;
-	int mRecursions = 2;
+	int mRecursions = 4;
 	int mOctaves = 8;
 	float mPos[3];
 	float mRot[3];

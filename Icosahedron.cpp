@@ -133,33 +133,33 @@ Icosahedron::~Icosahedron()
 
 void Icosahedron::CreateGeometry()
 {
-	if (!mTesselation)
-	{
+	//if (!mTesselation)
+	//{
 		for (int i = 0; i < mRecursions; i++)
 		{
 			SubdivideIcosphere(i);
 		}
-	}
-	else
-	{
-		SubdivideIcosphere(0);
-	}
+	//}
+	//else
+	//{
+	//	SubdivideIcosphere(0);
+	//}
 
-	FastNoiseLite noise;
-	noise.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
-	for (auto & vertex : mVertices)
-	{
-		XMVECTOR pos = XMLoadFloat3(&vertex.Pos);
-		pos = XMVectorMultiply(pos, { 100,100,100 });
-		XMFLOAT3 position; XMStoreFloat3(&position, pos);
-		auto ElevationValue = 1 + FractalBrownianMotion(noise, position, mOctaves, mFrequency);
-		//auto ElevationValue = 1 + noise.GetNoise(0.5 * vertex.Pos.x * 100, 0.5 * vertex.Pos.y * 100, 0.5 * vertex.Pos.z * 100);
-		ElevationValue *= 1.5;
-		auto Radius = Distance(vertex.Pos, XMFLOAT3{ 0,0,0 });
-		vertex.Pos.x *= 1 + (ElevationValue / Radius);
-		vertex.Pos.y *= 1 + (ElevationValue / Radius);
-		vertex.Pos.z *= 1 + (ElevationValue / Radius);
-	}
+	//FastNoiseLite noise;
+	//noise.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
+	//for (auto & vertex : mVertices)
+	//{
+	//	XMVECTOR pos = XMLoadFloat3(&vertex.Pos);
+	//	pos = XMVectorMultiply(pos, { 100,100,100 });
+	//	XMFLOAT3 position; XMStoreFloat3(&position, pos);
+	//	auto ElevationValue = 1 + FractalBrownianMotion(noise, position, mOctaves, mFrequency);
+	//	//auto ElevationValue = 1 + noise.GetNoise(0.5 * vertex.Pos.x * 100, 0.5 * vertex.Pos.y * 100, 0.5 * vertex.Pos.z * 100);
+	//	ElevationValue *= 1.5;
+	//	auto Radius = Distance(vertex.Pos, XMFLOAT3{ 0,0,0 });
+	//	vertex.Pos.x *= 1 + (ElevationValue / Radius);
+	//	vertex.Pos.y *= 1 + (ElevationValue / Radius);
+	//	vertex.Pos.z *= 1 + (ElevationValue / Radius);
+	//}
 
 	mIndices.clear();
 
@@ -176,6 +176,7 @@ void Icosahedron::CreateGeometry()
 	//	XMStoreFloat3(&mVertices[i].Normal,n);
 	//}
 
+	mNormals.clear();
 	CalculateNormals();
 
 	//for (int i = 0; i < mVertices.size() - 3; i+=3)
@@ -267,7 +268,6 @@ void Icosahedron::Subdivide(Node* node, int level)
 	{
 		node->AddChild(triangle);
 		mTriangles.push_back(triangle);
-
 	}
 
 	// Dot product between camera and triangle face normal
@@ -286,16 +286,15 @@ void Icosahedron::Subdivide(Node* node, int level)
 	{
 		if (level < mMaxRecursions)
 		{
-			//if (dot < mCullAnglePerLevel[level])
-			//{
-			//	//SubdivideTriangle(triangle);
-			//	auto angleSize = atan(mTriSizePerLevel[level] / (Distance(centre, mEyePos) * 2));  //= mTriAnglePerLevel[level];
-			//	if (angleSize / (0.25f * XM_PI) > mMaxScreenPercent)
-			//	{
+			if (dot < mCullAnglePerLevel[level])
+			{
+				auto angleSize = atan(mTriSizePerLevel[level] / (Distance(centre, mEyePos) * 2));  //= mTriAnglePerLevel[level];
+				if (angleSize / (0.25f * XM_PI) > mMaxScreenPercent)
+				{
 					// If should be generated && !has been generated
 					Subdivide(childNode,++level);
-				//}
-			//}
+				}
+			}
 		}		
 	}
 }
@@ -368,8 +367,8 @@ int Icosahedron::VertexForEdge(int p1, int p2)
 	auto in = mVertexMap.insert({ vertexPair, mVertices.size() });
 	if (in.second)
 	{
-		auto& edge1 = mVertices[p1];
-		auto& edge2 = mVertices[p2];
+		auto& edge1 = mVertices[p2];
+		auto& edge2 = mVertices[p1];
 		auto point = AddFloat3(edge1.Pos,edge2.Pos);
 		Normalize(&point.Pos);
 		point.Colour.x = std::lerp(edge1.Colour.x, edge2.Colour.x, 0.5);
@@ -406,58 +405,59 @@ std::vector<Triangle> Icosahedron::SubdivideTriangle(Triangle triangle)
 
 void Icosahedron::SubdivideIcosphere(int level)
 {
-	if (!mTesselation)
-	{
+	//if (!mTesselation)
+	//{
 		for (auto& triangle : mTriangles)
 		{
-			//// Dot product between camera and triangle face normal
-			//XMFLOAT3 a = mVertices[triangle.Point[0]].Pos;
-			//XMFLOAT3 b = mVertices[triangle.Point[1]].Pos;
-			//XMFLOAT3 c = mVertices[triangle.Point[2]].Pos;
-			//XMFLOAT3 centre = { (a.x + b.x + c.x) / 3, (a.y + b.y + c.y) / 3, (a.z + b.z + c.z) / 3 };
-			//
-			//Normalize(&centre);
-			//auto directionToCamera = SubFloat3(centre, mEyePos);
-			//Normalize(&directionToCamera);
+			// Dot product between camera and triangle face normal
+			XMFLOAT3 a = mVertices[triangle.Point[0]].Pos;
+			XMFLOAT3 b = mVertices[triangle.Point[1]].Pos;
+			XMFLOAT3 c = mVertices[triangle.Point[2]].Pos;
+			XMFLOAT3 centre = { (a.x + b.x + c.x) / 3, (a.y + b.y + c.y) / 3, (a.z + b.z + c.z) / 3 };
+			
+			Normalize(&centre);
+			auto directionToCamera = SubFloat3(centre, mEyePos);
+			Normalize(&directionToCamera);
 
-			//auto dot = DotProduct(centre,directionToCamera);
-			//
-			//if (mTesselation)
-			//{
-			//	// Dont subdivide rear facing triangles
-			//	if (dot < mCullAnglePerLevel[level])
-			//	{
-			//		//SubdivideTriangle(triangle);
-			//		auto angleSize = atan(mTriSizePerLevel[level] / (Distance(centre, mEyePos) * 2));//= mTriAnglePerLevel[level];
-			//		if (angleSize / (0.25f * XM_PI) > mMaxScreenPercent)
-			//		{
-			//			SubdivideTriangle(triangle);
-			//		}
-			//		else
-			//		{
-			//			mNewTriangles.push_back(triangle);
-			//		}
-			//	}
-			//	else
-			//	{
-			//		mNewTriangles.push_back(triangle);
-			//	}
-			//}
-			//else
-			//{
-			SubdivideTriangle(triangle);
-			//}	
+			auto dot = DotProduct(centre,directionToCamera);
+			
+			if (mTesselation)
+			{
+				// Dont subdivide rear facing triangles
+				if (dot < mCullAnglePerLevel[level])
+				{
+					//SubdivideTriangle(triangle);
+					auto angleSize = atan(mTriSizePerLevel[level] / (Distance(centre, mEyePos) * 2));//= mTriAnglePerLevel[level];
+					if (angleSize / (0.25f * XM_PI) > mMaxScreenPercent)
+					{
+						SubdivideTriangle(triangle);
+					}
+					else
+					{
+						mNewTriangles.push_back(triangle);
+					}
+				}
+				else
+				{
+					mNewTriangles.push_back(triangle);
+				}
+			}
+			else
+			{
+				SubdivideTriangle(triangle);
+			}	
 		}
 
 		// Swap old triangles with new ones
 		mTriangles.swap(mNewTriangles);
 
 		mNewTriangles.clear();
-	}
-	else
-	{
-		SubdivideIco();
-	}
+	//}
+	//else
+	//{
+	//	SubdivideIco();
+	//}
+	
 	// Clear the vertex map for re-use
 	mVertexMap.clear();
 }
@@ -551,7 +551,7 @@ void Icosahedron::CalculateNormals()
 			auto E2 = XMVectorSubtract(c, b);
 			
 			// Calculate normal with cross product and normalise
-			XMFLOAT3 Normal; XMStoreFloat3(&Normal, -XMVector3Normalize(XMVector3Cross(E1, E2)));
+			XMFLOAT3 Normal; XMStoreFloat3(&Normal, XMVector3Normalize(XMVector3Cross(E1, E2)));
 
 			mNormals[i].x += Normal.x;
 			mNormals[i].y += Normal.y;
@@ -563,7 +563,7 @@ void Icosahedron::CalculateNormals()
 	for (auto& normal : mNormals)
 	{
 		XMFLOAT3 normalizedNormal;
-		XMStoreFloat3(&normalizedNormal,XMVector3Normalize(XMLoadFloat3(&normal)));
+		XMStoreFloat3(&normalizedNormal, -XMVector3Normalize(XMLoadFloat3(&normal)));
 		normal = normalizedNormal;
 	}
 
