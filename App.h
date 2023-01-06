@@ -102,6 +102,7 @@ private:
 	vector<RenderItem*> mRenderItems;
 
 	XMFLOAT3 mEyePos = { 0.0f, 0.0f, 0.0f };
+	XMFLOAT3 mLastEyePos = { 0.0f, 0.0f, 0.0f };
 	XMFLOAT4X4 mWorldMatrix = MakeIdentity4x4();
 	XMFLOAT4X4 mViewMatrix = MakeIdentity4x4();
 	XMFLOAT4X4 mProjectionMatrix = MakeIdentity4x4();

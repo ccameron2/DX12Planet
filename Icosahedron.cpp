@@ -145,21 +145,21 @@ void Icosahedron::CreateGeometry()
 	//	SubdivideIcosphere(0);
 	//}
 
-	//FastNoiseLite noise;
-	//noise.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
-	//for (auto & vertex : mVertices)
-	//{
-	//	XMVECTOR pos = XMLoadFloat3(&vertex.Pos);
-	//	pos = XMVectorMultiply(pos, { 100,100,100 });
-	//	XMFLOAT3 position; XMStoreFloat3(&position, pos);
-	//	auto ElevationValue = 1 + FractalBrownianMotion(noise, position, mOctaves, mFrequency);
-	//	//auto ElevationValue = 1 + noise.GetNoise(0.5 * vertex.Pos.x * 100, 0.5 * vertex.Pos.y * 100, 0.5 * vertex.Pos.z * 100);
-	//	ElevationValue *= 1.5;
-	//	auto Radius = Distance(vertex.Pos, XMFLOAT3{ 0,0,0 });
-	//	vertex.Pos.x *= 1 + (ElevationValue / Radius);
-	//	vertex.Pos.y *= 1 + (ElevationValue / Radius);
-	//	vertex.Pos.z *= 1 + (ElevationValue / Radius);
-	//}
+	FastNoiseLite noise;
+	noise.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
+	for (auto & vertex : mVertices)
+	{
+		XMVECTOR pos = XMLoadFloat3(&vertex.Pos);
+		pos = XMVectorMultiply(pos, { 100,100,100 });
+		XMFLOAT3 position; XMStoreFloat3(&position, pos);
+		auto ElevationValue = 1 + FractalBrownianMotion(noise, position, mOctaves, mFrequency);
+		//auto ElevationValue = 1 + noise.GetNoise(0.5 * vertex.Pos.x * 100, 0.5 * vertex.Pos.y * 100, 0.5 * vertex.Pos.z * 100);
+		ElevationValue *= 1.5;
+		auto Radius = Distance(vertex.Pos, XMFLOAT3{ 0,0,0 });
+		vertex.Pos.x *= 1 + (ElevationValue / Radius);
+		vertex.Pos.y *= 1 + (ElevationValue / Radius);
+		vertex.Pos.z *= 1 + (ElevationValue / Radius);
+	}
 
 	mIndices.clear();
 

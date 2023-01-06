@@ -502,6 +502,17 @@ void App::RecreateGeometry(bool tesselation)
 	mRenderItems[0]->IndexCount = mIcosohedron->mIndices.size();
 }
 
+bool Float3IsSame(XMFLOAT3 a, XMFLOAT3 b) 
+{
+	if (a.x == b.x && a.y == b.y && a.z == b.z) 
+	{
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
 
 void App::Update(float frameTime)
 {
@@ -520,7 +531,11 @@ void App::Update(float frameTime)
 	// If tesselation is enabled recreate geometry
 	if (mTesselation)
 	{
-		RecreateGeometry(mTesselation);
+		if (!Float3IsSame(mLastEyePos,mEyePos)) 
+		{
+			RecreateGeometry(mTesselation);
+			mLastEyePos = mEyePos;
+		}
 	}
 
 	// If the world matrix has changed
