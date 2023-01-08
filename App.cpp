@@ -170,6 +170,8 @@ void App::CreateIcosohedron()
 {
 	if (!mIcosohedron) { mIcosohedron.release(); }
 	mIcosohedron = std::make_unique<Icosahedron>(mFrequency, mRecursions, mOctaves, mEyePos, mTesselation);
+
+	mPlanet = std::make_unique<Planet>(mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
 }
 
 void App::BuildSkullGeometry()
@@ -254,12 +256,31 @@ void App::CreateRenderItems()
 	icoRenderItem->BaseVertexLocation = 0;
 	mRenderItems.push_back(icoRenderItem);
 
-	mIcoLight = make_unique<Icosahedron>(0, 2, 0, mEyePos, false);
-	for (auto& vertex : mIcoLight->mGeometryData->mVertices)
-	{
-		vertex.Colour = XMFLOAT4{ 1.0f,0.8f,0.0f,1.0f };
-	}
-	mIcoLight->mGeometryData->CalculateBufferData(mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
+	RenderItem* planetRenderItem = new RenderItem();
+	//icoRenderItem->WorldMatrix = mGUIWorldMatrix;
+	XMStoreFloat4x4(&planetRenderItem->WorldMatrix, XMMatrixIdentity() * /*XMMatrixScaling(100, 100, 100) **/ XMMatrixTranslation(0.0f, 0.0f, 0.0f));
+	planetRenderItem->ObjConstantBufferIndex = 1;
+	planetRenderItem->Geometry = mPlanet->mGeometryData.get();
+	planetRenderItem->Topology = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+	planetRenderItem->IndexCount = mPlanet->mGeometryData->mIndices.size();
+	planetRenderItem->StartIndexLocation = 0;
+	planetRenderItem->BaseVertexLocation = 0;
+	mRenderItems.push_back(planetRenderItem);
+
+	//mIcoLight = make_unique<Icosahedron>(0, 2, 0, mEyePos, false);
+	//for (auto& vertex : mIcoLight->mGeometryData->mVertices)
+	//{
+	//	vertex.Colour = XMFLOAT4{ 1.0f,0.8f,0.0f,1.0f };
+	//}
+	//mIcoLight->mGeometryData->CalculateBufferData(mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
+
+	//mIcoLight = make_unique<Icosahedron>(0, 2, 0, mEyePos, false);
+	//for (auto& vertex : mIcoLight->mGeometryData->mVertices)
+	//{
+	//	vertex.Colour = XMFLOAT4{ 1.0f,0.8f,0.0f,1.0f };
+	//}
+	//mIcoLight->mGeometryData->CalculateBufferData(mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
+	
 	//mGraphics->ExecuteCommands();
 	//mGraphics->mCommandList.Reset();
 
@@ -461,7 +482,6 @@ void App::CreatePSO()
 	psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
 
 	psoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
-	if (mWireframe) psoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_WIREFRAME;
 	psoDesc.RasterizerState.MultisampleEnable = true;
 	psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
 	psoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
@@ -472,9 +492,15 @@ void App::CreatePSO()
 	psoDesc.SampleDesc.Count = mGraphics->mMSAASampleCount;
 	psoDesc.SampleDesc.Quality = mGraphics->mMSAAQuality - 1;
 	psoDesc.DSVFormat = mGraphics->mDepthStencilFormat;
-	if (FAILED(mGraphics->mD3DDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mPSO))))
+	if (FAILED(mGraphics->mD3DDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mSolidPSO))))
 	{
-		MessageBox(0, L"Pipeline State Creation failed", L"Error", MB_OK);
+		MessageBox(0, L"Solid Pipeline State Creation failed", L"Error", MB_OK);
+	}
+
+	psoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_WIREFRAME;
+	if (FAILED(mGraphics->mD3DDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mWireframePSO))))
+	{
+		MessageBox(0, L"Wireframe Pipeline State Creation failed", L"Error", MB_OK);
 	}
 }
 
@@ -683,8 +709,11 @@ void App::Draw(float frameTime)
 		MessageBox(0, L"Command Allocator reset failed", L"Error", MB_OK);
 	}
 
+	if (mWireframe) { mCurrentPSO = mSolidPSO.Get(); }
+	else { mCurrentPSO = mWireframePSO.Get(); }
+
 	// A command list can be reset after it has been added to the command queue via ExecuteCommandList.
-	if (FAILED(commandList->Reset(commandAllocator.Get(), mPSO.Get())))
+	if (FAILED(commandList->Reset(commandAllocator.Get(), mCurrentPSO)))
 	{
 		MessageBox(0, L"Command List reset failed", L"Error", MB_OK);
 	}
@@ -899,7 +928,7 @@ void App::PollEvents(SDL_Event& event)
 	{
 		if (event.button.button == 3) { mRightMouse = true; }
 		else if (event.button.button == 1) { mLeftMouse = true; }
-		else if (event.button.button == 2) { mWireframe = !mWireframe; CreatePSO(); }
+		else if (event.button.button == 2) { mWireframe = !mWireframe;}
 	}
 	else if (event.type == SDL_MOUSEBUTTONUP)
 	{

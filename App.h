@@ -21,7 +21,7 @@
 #include <array>
 #include <algorithm>
 #include <memory>
-
+#include "Planet.h"
 //#include "DDSTextureLoader.h"
 
 #include <SDL.h>
@@ -84,6 +84,8 @@ private:
 	unique_ptr<Graphics> mGraphics;
 	SDL_Window* mWindow;
 	SDL_Surface mScreenSurface;
+
+	unique_ptr<Planet> mPlanet;
 
 	unique_ptr<GeometryData> mSkullGeometry;
 	unique_ptr<Icosahedron> mIcoLight;
@@ -164,7 +166,9 @@ private:
 	// Input layout
 	std::vector<D3D12_INPUT_ELEMENT_DESC> mInputLayout;
 
-	ComPtr<ID3D12PipelineState> mPSO = nullptr;
+	ComPtr<ID3D12PipelineState> mSolidPSO = nullptr;
+	ComPtr<ID3D12PipelineState> mWireframePSO = nullptr;
+	ID3D12PipelineState* mCurrentPSO = nullptr;
 
 	void UpdatePerObjectConstantBuffers();
 	void UpdatePerFrameConstantBuffer();

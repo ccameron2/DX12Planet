@@ -51,6 +51,4 @@ private:
 	void CalculateNormals();
 	std::vector<Triangle> SubdivideTriangle(Triangle triangle);
 	void CalculateUVs();
-	void SubdivideIco();
-	void Subdivide(Node* node,int level = 1);
 };
