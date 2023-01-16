@@ -105,9 +105,12 @@ void Planet::GetTriangles(Node* node)
 	{
 		for (auto& subNode : node->mChildren)
 		{
-			mTriangles.push_back(node->mTriangle);
 			GetTriangles(subNode);
 		}
+	}
+	else 
+	{
+		mTriangles.push_back(node->mTriangle);
 	}
 }
 
@@ -117,19 +120,12 @@ void Planet::Update()
 
 void Planet::Subdivide(Node* node, int level)
 {
+	if (level >= mMaxLOD) return;
+	level++;
 	std::vector<Triangle> newTriangles = SubdivideTriangle(node->mTriangle);
 	for (auto& triangle : newTriangles)
 	{
-		node->AddChild(triangle);
-		//mTriangles.push_back(node->mTriangle);
-	}
-
-	if (level < mMaxLOD)
-	{
-		for (auto& subNode : node->mChildren)
-		{
-			Subdivide(subNode, ++level);
-		}
+		Subdivide(node->AddChild(triangle),level);
 	}
 }
 

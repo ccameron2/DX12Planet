@@ -25,11 +25,12 @@ public:
 			delete node;
 		}
 	}
-	void AddChild(Triangle triangle)
+	Node* AddChild(Triangle triangle)
 	{
 		Node* newNode = new Node(this);
 		newNode->mTriangle = triangle;
 		mChildren.push_back(newNode);
+		return newNode;
 	};
 };
 
