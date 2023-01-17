@@ -62,7 +62,6 @@ public:
 	ComPtr<ID3D12DescriptorHeap> mRTVHeap;
 	ComPtr<ID3D12DescriptorHeap> mDSVHeap;
 
-	bool mVSync = false;
 	XMVECTORF32 mBackgroundColour = DirectX::Colors::Purple;
 
 	bool CreateDeviceAndFence();
@@ -79,7 +78,19 @@ public:
 	void ExecuteCommands();
 	void CreateDescriptorHeaps();
 
-	void ResolveMSAAToBackBuffer(ID3D12GraphicsCommandList* commandList);
+	void ResolveMSAAToBackBuffer();
+
+
+	void ResetCommandAllocator(ID3D12CommandAllocator* commandAllocator);
+	void ResetCommandList(ID3D12CommandAllocator* commandAllocator, ID3D12PipelineState* pipeline);
+	void SetViewportAndScissorRects();
+	void ClearBackBuffer();
+	void ClearDepthBuffer();
+	void SetMSAARenderTarget();
+	void SetDescriptorHeap(ID3D12DescriptorHeap* descriptorHeap);
+	void SetGraphicsRootDescriptorTable(ID3D12DescriptorHeap* descriptorHeap, int frameCbvIndex);
+	void CloseAndExecuteCommandList();
+	void SwapBackBuffers(bool vSync);
 };
 
 

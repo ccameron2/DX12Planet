@@ -21,11 +21,13 @@
 #include <array>
 #include <algorithm>
 #include <memory>
+
 #include "Planet.h"
 //#include "DDSTextureLoader.h"
 
 #include <SDL.h>
 #include <imgui.h>
+#include "DX12GUI.h"
 
 #include "imgui_impl_sdl.h"
 #include "imgui_impl_dx12.h"
@@ -63,7 +65,6 @@ private:
 	Timer mTimer;
 
 	void SetupGUI();
-	void ShowGUI();
 	void Update(float frameTime);
 	void CycleFrameResources();
 	void Draw(float frameTime);
@@ -77,10 +78,9 @@ private:
 	void CreatePSO();
 	void RecreateGeometry(bool tesselation);
 	void MouseMoved(SDL_Event&);
-	void PollEvents(SDL_Event& e);
+	void ProcessEvents(SDL_Event& e);
 	void Resized();
 	void UpdateCamera();
-	void RenderGUI();
 	unique_ptr<Graphics> mGraphics;
 	SDL_Window* mWindow;
 	SDL_Surface mScreenSurface;
@@ -112,6 +112,8 @@ private:
 	XMFLOAT4X4 mGUIWorldMatrix = MakeIdentity4x4();
 	XMFLOAT4X4 mIcoTranslationMatrix = MakeIdentity4x4();
 
+	unique_ptr<DX12GUI> mGUI;
+
 	float mSunTheta = 1.25f * XM_PI;
 	float mSunPhi = XM_PIDIV4;
 
@@ -124,20 +126,12 @@ private:
 	bool mKeyboardFocus = false;
 	bool mMinimized = false;
 	bool mQuit = false;
-	bool mTesselation = false;
+
 	POINT mLastMousePos;
-	int mSelectedRenderItem = 0;
 	int mWidth = 800;
 	int mHeight = 600;
 
 	std::unique_ptr<Icosahedron> mIcosohedron;
-	float mFrequency = 0.5f;
-	int mRecursions = 4;
-	int mOctaves = 8;
-	float mPos[3];
-	float mRot[3];
-	float mScale = 1;
-	bool mWMatrixChanged = false;
 
 	float mTheta = 1.5f * XM_PI;
 	float mPhi = XM_PIDIV4;
@@ -151,8 +145,8 @@ private:
 	int mCurrentFrameResourceIndex = 0;
 
 	ComPtr<ID3D12DescriptorHeap> mCBVHeap;
-	UINT mPassCbvOffset = 0;
-	UINT mGUISRVOffset = 0;
+	UINT mFrameCbvOffset = 0;
+	UINT mGuiSrvOffset = 0;
 
 	D3D_DRIVER_TYPE mD3DDriverType = D3D_DRIVER_TYPE_HARDWARE;
 	std::string mMainCaption = "D3D12 Engine Masters";
@@ -179,4 +173,7 @@ private:
 
 	void DrawRenderItems(ID3D12GraphicsCommandList* commandList);
 	void BuildSkullGeometry();
+	void StartFrame();
+	void EndFrame();
+	void SetWindowTitle();
 };

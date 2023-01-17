@@ -139,6 +139,7 @@
     <ClCompile Include="App.cpp" />
     <ClCompile Include="GeometryData.cpp" />
     <ClCompile Include="Graphics.cpp" />
+    <ClCompile Include="DX12GUI.cpp" />
     <ClCompile Include="Icosahedron.cpp" />
     <ClCompile Include="ImGui\imgui.cpp" />
     <ClCompile Include="ImGui\imgui_demo.cpp" />
@@ -159,6 +160,7 @@
     <ClInclude Include="d3dx12.h" />
     <ClInclude Include="GeometryData.h" />
     <ClInclude Include="Graphics.h" />
+    <ClInclude Include="DX12GUI.h" />
     <ClInclude Include="Icosahedron.h" />
     <ClInclude Include="Planet.h" />
     <ClInclude Include="UploadBuffer.h" />

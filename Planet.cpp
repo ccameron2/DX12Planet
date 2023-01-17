@@ -74,6 +74,8 @@ void Planet::CreateIcosahedron()
 		mTriangleTree->AddChild(triangle);
 	}
 
+	mTriangles.clear();
+
 	for (auto& node : mTriangleTree->mChildren)
 	{
 		Subdivide(node);

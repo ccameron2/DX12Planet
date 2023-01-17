@@ -35,26 +35,102 @@ Graphics::~Graphics()
 
 }
 
-void Graphics::ResolveMSAAToBackBuffer(ID3D12GraphicsCommandList* commandList)
+void Graphics::ResolveMSAAToBackBuffer()
 {
 	// Transition MSAA texture to resolve source
-	commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(mMSAARenderTarget.Get(),
+	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(mMSAARenderTarget.Get(),
 		D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_RESOLVE_SOURCE));
 
 	// Transition Back buffer to resolve destination
-	commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
+	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
 		D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RESOLVE_DEST));
 
 	// Resolve MSAA to back buffer
-	commandList->ResolveSubresource(CurrentBackBuffer(), 0, mMSAARenderTarget.Get(), 0, mBackBufferFormat);
+	mCommandList->ResolveSubresource(CurrentBackBuffer(), 0, mMSAARenderTarget.Get(), 0, mBackBufferFormat);
 
 	// Transition back buffer to present
-	commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
+	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
 		D3D12_RESOURCE_STATE_RESOLVE_DEST, D3D12_RESOURCE_STATE_PRESENT));
 
 	// Transition MSAA texture to render target for use next frame
-	commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(mMSAARenderTarget.Get(),
+	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(mMSAARenderTarget.Get(),
 		D3D12_RESOURCE_STATE_RESOLVE_SOURCE, D3D12_RESOURCE_STATE_RENDER_TARGET));
+}
+
+void Graphics::ResetCommandAllocator(ID3D12CommandAllocator* commandAllocator)
+{
+	// We can only reset when the associated command lists have finished execution on the GPU.
+	if (FAILED(commandAllocator->Reset()))
+	{
+		MessageBox(0, L"Command Allocator reset failed", L"Error", MB_OK);
+	}
+}
+
+void Graphics::ResetCommandList(ID3D12CommandAllocator* commandAllocator, ID3D12PipelineState* pipelineState)
+{
+	// A command list can be reset after it has been added to the command queue via ExecuteCommandList.
+	if (FAILED(mCommandList->Reset(commandAllocator, pipelineState)))
+	{
+		MessageBox(0, L"Command List reset failed", L"Error", MB_OK);
+	}
+}
+
+void Graphics::SetViewportAndScissorRects()
+{
+	// Set the viewport and scissor rect.  This needs to be reset whenever the command list is reset.
+	mCommandList->RSSetViewports(1, &mViewport);
+	mCommandList->RSSetScissorRects(1, &mScissorRect);
+}
+
+void Graphics::ClearBackBuffer()
+{
+	mCommandList->ClearRenderTargetView(MSAAView(), mBackgroundColour, 0, nullptr);
+}
+
+void Graphics::ClearDepthBuffer()
+{
+	mCommandList->ClearDepthStencilView(DepthStencilView(), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
+}
+
+void Graphics::SetMSAARenderTarget()
+{
+	mCommandList->OMSetRenderTargets(1, &MSAAView(), true, &DepthStencilView());
+}
+
+void Graphics::SetDescriptorHeap(ID3D12DescriptorHeap* descriptorHeap)
+{
+	ID3D12DescriptorHeap* descriptorHeaps[] = { descriptorHeap };
+	mCommandList->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
+}
+
+void Graphics::SwapBackBuffers(bool vSync)
+{
+	// Swap the back and front buffers
+	if (FAILED(mSwapChain->Present(vSync, 0)))
+	{
+		MessageBox(0, L"Swap chain present failed", L"Error", MB_OK);
+	}
+	mCurrentBackBuffer = (mCurrentBackBuffer + 1) % mSwapChainBufferCount;
+}
+
+void Graphics::SetGraphicsRootDescriptorTable(ID3D12DescriptorHeap* descriptorHeap, int frameCbvIndex)
+{
+	auto passCbvHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(descriptorHeap->GetGPUDescriptorHandleForHeapStart());
+	passCbvHandle.Offset(frameCbvIndex, mCbvSrvUavDescriptorSize);
+	mCommandList->SetGraphicsRootDescriptorTable(1, passCbvHandle);
+}
+
+void Graphics::CloseAndExecuteCommandList()
+{
+	// Close the command list
+	if (FAILED(mCommandList->Close()))
+	{
+		MessageBox(0, L"Command List close failed", L"Error", MB_OK);
+	}
+
+	// Add the command list to the queue for execution
+	ID3D12CommandList* cmdLists[] = { mCommandList.Get() };
+	mCommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
 }
 
 

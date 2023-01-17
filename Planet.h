@@ -44,7 +44,7 @@ public:
 	void Update();
 	void Subdivide(Node* node, int level = 0);
 	int GetVertexForEdge(int v1, int v2);
-	int mMaxLOD = 8;
+	int mMaxLOD = 4;
 	std::vector<Triangle> SubdivideTriangle(Triangle triangle);
 	void GetTriangles(Node* node);
 	unique_ptr<GeometryData> mGeometryData;
