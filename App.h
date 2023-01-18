@@ -32,6 +32,8 @@
 #include "imgui_impl_sdl.h"
 #include "imgui_impl_dx12.h"
 
+#include "SDL2Window.h"
+
 #include "Timer.h"
 #include "Utility.h"
 #include "Icosahedron.h"
@@ -82,7 +84,7 @@ private:
 	void Resized();
 	void UpdateCamera();
 	unique_ptr<Graphics> mGraphics;
-	SDL_Window* mWindow;
+	unique_ptr<SDL2Window> mWindow;
 	SDL_Surface mScreenSurface;
 
 	unique_ptr<Planet> mPlanet;
@@ -117,19 +119,7 @@ private:
 	float mSunTheta = 1.25f * XM_PI;
 	float mSunPhi = XM_PIDIV4;
 
-	bool mAppPaused = false;
-	bool mResizing = false;
-	bool mFullscreen = false;
-	bool mRightMouse = false;
-	bool mLeftMouse = false;
-	bool mMouseFocus = false;
-	bool mKeyboardFocus = false;
-	bool mMinimized = false;
-	bool mQuit = false;
-
 	POINT mLastMousePos;
-	int mWidth = 800;
-	int mHeight = 600;
 
 	std::unique_ptr<Icosahedron> mIcosohedron;
 
@@ -149,7 +139,6 @@ private:
 	UINT mGuiSrvOffset = 0;
 
 	D3D_DRIVER_TYPE mD3DDriverType = D3D_DRIVER_TYPE_HARDWARE;
-	std::string mMainCaption = "D3D12 Engine Masters";
 
 	// Compiled shader variables
 	ComPtr<ID3DBlob> mVSByteCode = nullptr;
@@ -175,5 +164,4 @@ private:
 	void BuildSkullGeometry();
 	void StartFrame();
 	void EndFrame();
-	void SetWindowTitle();
 };

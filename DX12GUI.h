@@ -16,7 +16,7 @@ public:
 	void NewFrame();
 	void Update(int numRenderItems);
 	void Render(ID3D12GraphicsCommandList* commandList, ID3D12Resource* currentBackBuffer, D3D12_CPU_DESCRIPTOR_HANDLE currentBackBufferView, ID3D12DescriptorHeap* dsvHeap, UINT dsvDescriptorSize);
-
+	bool ProcessEvents(SDL_Event& event);
 	bool mUpdated = false;
 	float mFrequency = 0.5f;
 	int mRecursions = 4;

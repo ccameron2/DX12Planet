@@ -113,11 +113,11 @@ void Graphics::SwapBackBuffers(bool vSync)
 	mCurrentBackBuffer = (mCurrentBackBuffer + 1) % mSwapChainBufferCount;
 }
 
-void Graphics::SetGraphicsRootDescriptorTable(ID3D12DescriptorHeap* descriptorHeap, int frameCbvIndex)
+void Graphics::SetGraphicsRootDescriptorTable(ID3D12DescriptorHeap* descriptorHeap, int cbvIndex, int rootParameterIndex)
 {
-	auto passCbvHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(descriptorHeap->GetGPUDescriptorHandleForHeapStart());
-	passCbvHandle.Offset(frameCbvIndex, mCbvSrvUavDescriptorSize);
-	mCommandList->SetGraphicsRootDescriptorTable(1, passCbvHandle);
+	auto cbvHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(descriptorHeap->GetGPUDescriptorHandleForHeapStart());
+	cbvHandle.Offset(cbvIndex, mCbvSrvUavDescriptorSize);
+	mCommandList->SetGraphicsRootDescriptorTable(rootParameterIndex, cbvHandle);
 }
 
 void Graphics::CloseAndExecuteCommandList()

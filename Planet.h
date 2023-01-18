@@ -8,6 +8,8 @@
 #include <memory>
 #include <map>
 
+
+
 class Node
 {
 private:
@@ -44,7 +46,7 @@ public:
 	void Update();
 	void Subdivide(Node* node, int level = 0);
 	int GetVertexForEdge(int v1, int v2);
-	int mMaxLOD = 4;
+	int mMaxLOD = 6;
 	std::vector<Triangle> SubdivideTriangle(Triangle triangle);
 	void GetTriangles(Node* node);
 	unique_ptr<GeometryData> mGeometryData;
@@ -52,8 +54,18 @@ private:
 	std::vector<Vertex> mVertices;
 	std::vector<uint32_t> mIndices;
 	std::vector<Triangle> mTriangles;
+	std::vector<XMFLOAT3> mNormals;
 	unique_ptr<Node> mTriangleTree;
 	std::map<std::pair<int, int>, int> mVertexMap;
+
+	XMVECTOR ComputeNormal(XMVECTOR p0, XMVECTOR p1, XMVECTOR p2)
+	{
+		XMVECTOR u = p1 - p0;
+		XMVECTOR v = p2 - p0;
+		return XMVector3Normalize(XMVector3Cross(u, v));
+	}
+
+	void CalculateNormals();
 
 };
 

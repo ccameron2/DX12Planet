@@ -123,3 +123,14 @@ void DX12GUI::Render(ID3D12GraphicsCommandList* commandList, ID3D12Resource* cur
 	commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(currentBackBuffer,
 		D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));
 }
+
+bool DX12GUI::ProcessEvents(SDL_Event& event)
+{
+	//Window event occured
+	ImGuiIO& io = ImGui::GetIO();
+	ImGui_ImplSDL2_ProcessEvent(&event);
+	if (io.WantCaptureMouse || io.WantCaptureKeyboard)
+	{
+		return true;
+	}
+}

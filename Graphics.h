@@ -88,7 +88,7 @@ public:
 	void ClearDepthBuffer();
 	void SetMSAARenderTarget();
 	void SetDescriptorHeap(ID3D12DescriptorHeap* descriptorHeap);
-	void SetGraphicsRootDescriptorTable(ID3D12DescriptorHeap* descriptorHeap, int frameCbvIndex);
+	void SetGraphicsRootDescriptorTable(ID3D12DescriptorHeap* descriptorHeap, int cbvIndex, int rootParameterIndex);
 	void CloseAndExecuteCommandList();
 	void SwapBackBuffers(bool vSync);
 };

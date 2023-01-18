@@ -1,5 +1,4 @@
 #include "App.h"
-#include <sdl_syswm.h>
 
 App::App()
 {
@@ -16,10 +15,10 @@ void App::Run()
 	// Set initial frame resources
 	CycleFrameResources();
 
-	while (!mQuit)
+	while (!mWindow->mQuit)
 	{
 		StartFrame();
-		if (!mMinimized)
+		if (!mWindow->mMinimized)
 		{
 			float frameTime = mTimer.GetLapTime();
 			Update(frameTime);
@@ -31,17 +30,11 @@ void App::Run()
 
 void App::Initialize()
 {
-	SDL_Init(SDL_INIT_VIDEO);
-	mWindow = SDL_CreateWindow("D3D12 Masters Project",SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, mWidth, mHeight, SDL_WINDOW_RESIZABLE | SDL_WINDOW_SHOWN);
+	mWindow = make_unique<SDL2Window>(800,600);
 
-	SetWindowTitle();
-
-	SDL_SysWMinfo info;
-	SDL_GetVersion(&info.version);
-	SDL_GetWindowWMInfo(mWindow, &info);
-	HWND hwnd = info.info.win.window;
+	HWND hwnd = mWindow->GetHWND();
 ;
-	mGraphics = make_unique<Graphics>(hwnd, mWidth, mHeight);
+	mGraphics = make_unique<Graphics>(hwnd, mWindow->mWidth, mWindow->mHeight);
 	
 	UpdateCamera();
 	CreateIcosohedron();
@@ -70,7 +63,7 @@ void App::Initialize()
 void App::SetupGUI()
 {
 	mGUI = make_unique<DX12GUI>();
-	mGUI->SetupGUI(mCBVHeap.Get(), mGuiSrvOffset, mGraphics->mCbvSrvUavDescriptorSize, mWindow, mGraphics->mD3DDevice.Get(), mNumFrameResources, mGraphics->mBackBufferFormat);
+	mGUI->SetupGUI(mCBVHeap.Get(), mGuiSrvOffset, mGraphics->mCbvSrvUavDescriptorSize, mWindow->mSDLWindow, mGraphics->mD3DDevice.Get(), mNumFrameResources, mGraphics->mBackBufferFormat);
 }
 
 void App::CreateIcosohedron()
@@ -148,7 +141,7 @@ void App::StartFrame()
 	{
 		ProcessEvents(event);
 	}
-	if (!mMinimized)
+	if (!mWindow->mMinimized)
 	{
 		mGUI->NewFrame();
 	}
@@ -166,8 +159,7 @@ void App::CreateRenderItems()
 	}
 
 	RenderItem* icoRenderItem = new RenderItem();
-	//icoRenderItem->WorldMatrix = mGUIWorldMatrix;
-	XMStoreFloat4x4(&icoRenderItem->WorldMatrix, XMMatrixIdentity() * /*XMMatrixScaling(100, 100, 100) **/ XMMatrixTranslation(0.0f, 0.0f, 0.0f));
+	XMStoreFloat4x4(&icoRenderItem->WorldMatrix, XMMatrixIdentity() * XMMatrixScaling(0, 0, 0) * XMMatrixTranslation(0.0f, 0.0f, 0.0f));
 	icoRenderItem->ObjConstantBufferIndex = 0;
 	icoRenderItem->Geometry = mIcosohedron->mGeometryData.get();
 	icoRenderItem->Topology = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
@@ -177,8 +169,7 @@ void App::CreateRenderItems()
 	mRenderItems.push_back(icoRenderItem);
 
 	RenderItem* planetRenderItem = new RenderItem();
-	//icoRenderItem->WorldMatrix = mGUIWorldMatrix;
-	XMStoreFloat4x4(&planetRenderItem->WorldMatrix, XMMatrixIdentity() * /*XMMatrixScaling(100, 100, 100) **/ XMMatrixTranslation(0.0f, 0.0f, 0.0f));
+	XMStoreFloat4x4(&planetRenderItem->WorldMatrix, XMMatrixIdentity() * /*XMMatrixScaling(0, 0, 0) **/ XMMatrixTranslation(0.0f, 0.0f, 0.0f));
 	planetRenderItem->ObjConstantBufferIndex = 1;
 	planetRenderItem->Geometry = mPlanet->mGeometryData.get();
 	planetRenderItem->Topology = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
@@ -194,19 +185,12 @@ void App::CreateRenderItems()
 	//}
 	//mIcoLight->mGeometryData->CalculateBufferData(mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
 
-	//mIcoLight = make_unique<Icosahedron>(0, 2, 0, mEyePos, false);
-	//for (auto& vertex : mIcoLight->mGeometryData->mVertices)
-	//{
-	//	vertex.Colour = XMFLOAT4{ 1.0f,0.8f,0.0f,1.0f };
-	//}
-	//mIcoLight->mGeometryData->CalculateBufferData(mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
-	
 	//mGraphics->ExecuteCommands();
 	//mGraphics->mCommandList.Reset();
 
 	//RenderItem* lightRitem = new RenderItem();
 	//XMStoreFloat4x4(&lightRitem->WorldMatrix, XMMatrixIdentity() * XMMatrixScaling(0.05, 0.05, 0.05)* XMMatrixTranslation(0.0f,0.0f,8.0f));
-	//lightRitem->ObjConstantBufferIndex = 1;
+	//lightRitem->ObjConstantBufferIndex = 2;
 	//lightRitem->Geometry = mIcoLight->mGeometryData.get();
 	//lightRitem->Topology = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 	//lightRitem->IndexCount = mIcoLight->mGeometryData->mIndices.size();
@@ -582,7 +566,7 @@ void App::UpdatePerFrameConstantBuffer()
 
 	// Set the rest of the structure's values
 	perFrameConstantBuffer.EyePosW = mEyePos;
-	perFrameConstantBuffer.RenderTargetSize = XMFLOAT2((float)mWidth, (float)mHeight);
+	perFrameConstantBuffer.RenderTargetSize = XMFLOAT2((float)mWindow->mWidth, (float)mWindow->mHeight);
 	perFrameConstantBuffer.NearZ = 1.0f;
 	perFrameConstantBuffer.FarZ = 1000.0f;
 	perFrameConstantBuffer.TotalTime = mTimer.GetTime();
@@ -601,8 +585,7 @@ void App::UpdatePerFrameConstantBuffer()
 	//perFrameConstantBuffer.Lights[1].Strength = { 0.3f, 0.3f, 0.3f };
 	//perFrameConstantBuffer.Lights[2].Direction = { 0.0f, -0.707f, -0.707f };
 	//perFrameConstantBuffer.Lights[2].Strength = { 0.15f, 0.15f, 0.15f };
-	 
-	
+	 	
 	// Copy the structure into the per frame constant buffer
 	auto currentFrameCB = mCurrentFrameResource->mPerFrameConstantBuffer.get();
 	currentFrameCB->Copy(0, perFrameConstantBuffer);
@@ -650,7 +633,7 @@ void App::Draw(float frameTime)
 	commandList->SetGraphicsRootSignature(mRootSignature.Get());
 
 	int frameCbvIndex = mFrameCbvOffset + mCurrentFrameResourceIndex;
-	mGraphics->SetGraphicsRootDescriptorTable(mCBVHeap.Get(), frameCbvIndex);
+	mGraphics->SetGraphicsRootDescriptorTable(mCBVHeap.Get(), frameCbvIndex,1);
 
 	DrawRenderItems(commandList.Get());
 
@@ -682,9 +665,7 @@ void App::DrawRenderItems(ID3D12GraphicsCommandList* commandList)
 
 		// Offset to the CBV in the descriptor heap for this object and for this frame resource
 		UINT cbvIndex = mCurrentFrameResourceIndex * (UINT)mRenderItems.size()+ renderItem->ObjConstantBufferIndex;
-		auto cbvHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(mCBVHeap->GetGPUDescriptorHandleForHeapStart());
-		cbvHandle.Offset(cbvIndex, mGraphics->mCbvSrvUavDescriptorSize);
-		commandList->SetGraphicsRootDescriptorTable(0, cbvHandle);
+		mGraphics->SetGraphicsRootDescriptorTable(mCBVHeap.Get(), cbvIndex, 0);
 		commandList->DrawIndexedInstanced(renderItem->IndexCount, 1, renderItem->StartIndexLocation, renderItem->BaseVertexLocation, 0);
 	}
 }
@@ -705,7 +686,7 @@ void App::MouseMoved(SDL_Event& event)
 	int mouseX, mouseY;
 	mouseX = event.motion.x;
 	mouseY = event.motion.y;
-	if (mLeftMouse)
+	if (mWindow->mLeftMouse)
 	{
 		// Make each pixel correspond to a quarter of a degree.
 		float dx = XMConvertToRadians(0.25f * static_cast<float>(mouseX - mLastMousePos.x));
@@ -718,7 +699,7 @@ void App::MouseMoved(SDL_Event& event)
 		// Restrict the angle mPhi.
 		mPhi = std::clamp(mPhi, 0.1f, XM_PI - 0.1f);
 	}
-	else if (mRightMouse)
+	else if (mWindow->mRightMouse)
 	{
 		// Make each pixel correspond to 0.005 unit in the scene.
 		float dx = 0.005f * static_cast<float>(mouseX - mLastMousePos.x);
@@ -732,103 +713,42 @@ void App::MouseMoved(SDL_Event& event)
 	}
 	mLastMousePos.x = mouseX;
 	mLastMousePos.y = mouseY;
+
 }
 
 void App::ProcessEvents(SDL_Event& event)
 {
-	//Window event occured
-	ImGuiIO& io = ImGui::GetIO();
-	ImGui_ImplSDL2_ProcessEvent(&event);
-	if (io.WantCaptureMouse || io.WantCaptureKeyboard)
+	if(mGUI->ProcessEvents(event)) return;
+	
+	mWindow->ProcessEvents(event);
+
+	if (mWindow->mMinimized) mTimer.Stop();
+	else mTimer.Start();
+
+	if (mWindow->mResized)
 	{
-		return;
+		mGraphics->Resize(mWindow->mWidth, mWindow->mHeight);
+		Resized();
+		mWindow->mResized = false;
 	}
-	if (event.type == SDL_WINDOWEVENT)
-	{		
-		switch (event.window.event)
-		{
-		case SDL_WINDOWEVENT_SIZE_CHANGED:
-			mWidth = event.window.data1;
-			mHeight = event.window.data2;
-			mGraphics->Resize(mWidth, mHeight);
-			Resized();
-			break;
-		case SDL_WINDOWEVENT_EXPOSED:
-			break;
-		case SDL_WINDOWEVENT_ENTER:
-			mMouseFocus = true;
-			break;
-		case SDL_WINDOWEVENT_LEAVE:
-			mMouseFocus = false;
-			break;
-		case SDL_WINDOWEVENT_FOCUS_GAINED:
-			mKeyboardFocus = true;
-			break;
-		case SDL_WINDOWEVENT_FOCUS_LOST:
-			mKeyboardFocus = false;
-			break;
-		case SDL_WINDOWEVENT_MINIMIZED:
-			mMinimized = true;
-			mTimer.Stop();
-			break;
-		case SDL_WINDOWEVENT_MAXIMIZED:
-			mMinimized = false;
-			break;
-		case SDL_WINDOWEVENT_RESTORED:
-			mMinimized = false;
-			mTimer.Start();
-			break;
-		}
-	}
-	else if (event.type == SDL_KEYDOWN)
+
+	if(mWindow->mMiddleMouse)
 	{
-		auto key = event.key.keysym.sym;
-		if (key == SDLK_F11)
-		{	
-			if (mFullscreen)
-			{
-				SDL_SetWindowFullscreen(mWindow, SDL_FALSE);
-			}
-			else
-			{
-				SDL_SetWindowFullscreen(mWindow, SDL_TRUE);
-			}
-			mFullscreen = !mFullscreen;
-		}
+		mWireframe = !mWireframe;
 	}
-	else if (event.type == SDL_MOUSEMOTION)
+
+	if (mWindow->mMouseMoved)
 	{
 		MouseMoved(event);
+		mWindow->mMouseMoved = false;
 	}
-	else if (event.type == SDL_QUIT)
-	{
-		mQuit = true;
-	}
-	else if (event.type == SDL_MOUSEBUTTONDOWN)
-	{
-		if (event.button.button == 3) { mRightMouse = true; }
-		else if (event.button.button == 1) { mLeftMouse = true; }
-		else if (event.button.button == 2) { mWireframe = !mWireframe;}
-	}
-	else if (event.type == SDL_MOUSEBUTTONUP)
-	{
-		if (event.button.button == 3) { mRightMouse = false; }
-		else if (event.button.button == 1) { mLeftMouse = false; }
-	}
-}
 
-void App::SetWindowTitle()
-{
-	// Set window text to title
-	std::string windowText = mMainCaption;
-	const char* array = windowText.c_str();
-	SDL_SetWindowTitle(mWindow, array);
 }
 
 void App::Resized()
 {
 	// The window resized, so update the aspect ratio and recompute projection matrix
-	XMMATRIX proj = XMMatrixPerspectiveFovLH(0.25f * XM_PI, static_cast<float>(mWidth) / mHeight, 1.0f, 1000.0f);
+	XMMATRIX proj = XMMatrixPerspectiveFovLH(0.25f * XM_PI, static_cast<float>(mWindow->mWidth) / mWindow->mHeight, 1.0f, 1000.0f);
 	XMStoreFloat4x4(&mProjectionMatrix, proj);
 }
 
@@ -837,15 +757,9 @@ App::~App()
 	// Empty the command queue
 	if (mGraphics->mD3DDevice != nullptr) { mGraphics->EmptyCommandQueue(); }
 
-	//delete mRenderItems[1]->Geometry;
-
 	// Delete render items
 	for (auto& renderItem : mRenderItems)
 	{
 		delete renderItem;
 	}
-
-	// Shutdown SDL
-	SDL_DestroyWindow(mWindow);
-	SDL_Quit();
 }
