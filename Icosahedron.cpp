@@ -28,61 +28,7 @@ public:
 	};
 };
 
-float Distance(XMFLOAT3 p1, XMFLOAT3 p2)
-{
-	auto x = (p1.x - p2.x) * (p1.x - p2.x);
-	auto y = (p1.y - p2.y) * (p1.y - p2.y);
-	auto z = (p1.z - p2.z) * (p1.z - p2.z);
-	return std::sqrt(x + y + z);
-}
 
-Vertex AddFloat3(XMFLOAT3 a, XMFLOAT3 b)
-{
-	Vertex result;
-
-	result.Pos.x = a.x + b.x;
-	result.Pos.y = a.y + b.y;
-	result.Pos.z = a.z + b.z;
-
-	return result;
-}
-
-XMFLOAT3 SubFloat3(XMFLOAT3 a, XMFLOAT3 b)
-{
-	XMFLOAT3 result;
-
-	result.x = a.x - b.x;
-	result.y = a.y - b.y;
-	result.z = a.z - b.z;
-
-	return result;
-}
-
-float DotProduct(XMFLOAT3 v1, XMFLOAT3 v2)
-{
-	auto x = v1.x * v2.x;
-	auto y = v1.y * v2.y;
-	auto z = v1.z * v2.z;
-	auto result = x + y + z;
-	return result;
-}
-
-void Normalize(XMFLOAT3* p)
-{
-	float w = sqrt(p->x * p->x + p->y * p->y + p->z * p->z);
-	p->x /= w;
-	p->y /= w;
-	p->z /= w;
-}
-
-XMFLOAT3 CrossProduct(XMFLOAT3 v1, XMFLOAT3 v2)
-{
-	XMFLOAT3 product = XMFLOAT3{0,0,0};
-	product.x = v1.y * v2.z - v1.z * v2.y;
-	product.y = -(v1.x * v2.z - v1.z * v2.x);
-	product.z = v1.x * v2.y - v1.y * v2.x;
-	return product;
-}
 
 
 XMVECTOR ComputeNormal(XMVECTOR p0, XMVECTOR p1, XMVECTOR p2)

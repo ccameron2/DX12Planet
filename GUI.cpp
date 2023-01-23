@@ -1,18 +1,6 @@
 #include "GUI.h"
 
-GUI::GUI()
-{
-}
-
-GUI::~GUI()
-{
-	// Shutdown ImGui
-	ImGui_ImplDX12_Shutdown();
-	ImGui_ImplSDL2_Shutdown();
-	ImGui::DestroyContext();
-}
-
-void GUI::SetupGUI(ID3D12DescriptorHeap* cbvHeap, UINT guiSrvOffset, UINT cbvDescriptorSize, SDL_Window* window, ID3D12Device* device, UINT numFrameResources, DXGI_FORMAT backBufferFormat)
+GUI::GUI(ID3D12DescriptorHeap* cbvHeap, UINT guiSrvOffset, UINT cbvDescriptorSize, SDL_Window* window, ID3D12Device* device, UINT numFrameResources, DXGI_FORMAT backBufferFormat)
 {
 	// Setup ImGui context
 	IMGUI_CHECKVERSION();
@@ -28,6 +16,14 @@ void GUI::SetupGUI(ID3D12DescriptorHeap* cbvHeap, UINT guiSrvOffset, UINT cbvDes
 
 	ImGui_ImplSDL2_InitForD3D(window);
 	ImGui_ImplDX12_Init(device, numFrameResources, backBufferFormat, cbvHeap, cpuhandle, gpuhandle);
+}
+
+GUI::~GUI()
+{
+	// Shutdown ImGui
+	ImGui_ImplDX12_Shutdown();
+	ImGui_ImplSDL2_Shutdown();
+	ImGui::DestroyContext();
 }
 
 void GUI::NewFrame()
@@ -47,19 +43,19 @@ void GUI::Update(int numRenderItems)
 
 	ImGui::Text("Geometry");
 
-	if (ImGui::SliderInt("Recursions", &mRecursions, 0, 10))
+	if (ImGui::SliderInt("LOD", &mLOD, 0, 10))
 	{
 		mUpdated = true;
 	};
 
-	if (ImGui::Checkbox("Tesselation", &mTesselation))
-	{
-		mUpdated = true;
-	};
+	//if (ImGui::Checkbox("Tesselation", &mTesselation))
+	//{
+	//	mUpdated = true;
+	//};
 
 	ImGui::Text("Noise");
 
-	if (ImGui::SliderFloat("Noise Frequency", &mFrequency, 0.0f, 1.0f, "%.1f"))
+	if (ImGui::SliderFloat("Noise Freq", &mFrequency, 0.0f, 1.0f, "%.1f"))
 	{
 		mUpdated = true;
 	};
@@ -96,7 +92,7 @@ void GUI::Update(int numRenderItems)
 
 	if (ImGui::Checkbox("VSync", &mVSync));
 
-	ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+	ImGui::Text("Average: %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 	ImGui::End();
 
 }

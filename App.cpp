@@ -15,6 +15,8 @@ void App::Run()
 	// Set initial frame resources
 	CycleFrameResources();
 
+	RecreatePlanetGeometry();
+
 	while (!mWindow->mQuit)
 	{
 		StartFrame();
@@ -37,7 +39,9 @@ void App::Initialize()
 	mGraphics = make_unique<Graphics>(hwnd, mWindow->mWidth, mWindow->mHeight);
 	
 	UpdateCamera();
-	CreateIcosohedron();
+
+	mPlanet = std::make_unique<Planet>();
+
 	BuildSkullGeometry();
 	CreateRenderItems();
 
@@ -51,29 +55,11 @@ void App::Initialize()
 
 	mGraphics->ExecuteCommands();
 
-	SetupGUI();
-
-	// Fix for not being able to use GUI values before creating the GUI. Should be fixed when move to new planet class
-	mIcosohedron->ResetGeometry(mEyePos, mGUI->mFrequency, mGUI->mRecursions, mGUI->mOctaves, mGUI->mTesselation);
-	mIcosohedron->CreateGeometry();
+	mGUI = make_unique<GUI>(mCBVDescriptorHeap->mCBVHeap.Get(), mCBVDescriptorHeap->mGuiSrvOffset, mGraphics->mCbvSrvUavDescriptorSize,
+		mWindow->mSDLWindow, mGraphics->mD3DDevice.Get(), mNumFrameResources, mGraphics->mBackBufferFormat);
 
 	// Make initial projection matrix
 	Resized();
-}
-
-void App::SetupGUI()
-{
-	mGUI = make_unique<GUI>();
-	mGUI->SetupGUI(mCBVDescriptorHeap->mCBVHeap.Get(), mCBVDescriptorHeap->mGuiSrvOffset, mGraphics->mCbvSrvUavDescriptorSize, 
-		mWindow->mSDLWindow, mGraphics->mD3DDevice.Get(), mNumFrameResources, mGraphics->mBackBufferFormat);
-}
-
-void App::CreateIcosohedron()
-{
-	if (!mIcosohedron) { mIcosohedron.release(); }
-	mIcosohedron = std::make_unique<Icosahedron>(0.5, 1, 8, mEyePos, false);
-
-	mPlanet = std::make_unique<Planet>(mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
 }
 
 void App::BuildSkullGeometry()
@@ -160,29 +146,19 @@ void App::CreateRenderItems()
 		mRenderItems.clear();
 	}
 
-	RenderItem* icoRenderItem = new RenderItem();
-	XMStoreFloat4x4(&icoRenderItem->WorldMatrix, XMMatrixIdentity() * XMMatrixScaling(0, 0, 0) * XMMatrixTranslation(0.0f, 0.0f, 0.0f));
-	icoRenderItem->ObjConstantBufferIndex = 0;
-	icoRenderItem->Geometry = mIcosohedron->mGeometryData.get();
-	icoRenderItem->Topology = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-	icoRenderItem->IndexCount = mIcosohedron->mGeometryData->mIndices.size();
-	icoRenderItem->StartIndexLocation = 0;
-	icoRenderItem->BaseVertexLocation = 0;
-	mRenderItems.push_back(icoRenderItem);
-
 	RenderItem* planetRenderItem = new RenderItem();
 	XMStoreFloat4x4(&planetRenderItem->WorldMatrix, XMMatrixIdentity() * /*XMMatrixScaling(0, 0, 0) **/ XMMatrixTranslation(0.0f, 0.0f, 0.0f));
-	planetRenderItem->ObjConstantBufferIndex = 1;
+	planetRenderItem->ObjConstantBufferIndex = 0;
 	planetRenderItem->Geometry = mPlanet->mGeometryData.get();
 	planetRenderItem->Topology = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-	planetRenderItem->IndexCount = mPlanet->mGeometryData->mIndices.size();
+	planetRenderItem->IndexCount = 0;
 	planetRenderItem->StartIndexLocation = 0;
 	planetRenderItem->BaseVertexLocation = 0;
 	mRenderItems.push_back(planetRenderItem);
 
 	//RenderItem* skullRitem = new RenderItem();
 	//skullRitem->WorldMatrix = MakeIdentity4x4();
-	//skullRitem->ObjConstantBufferIndex = 2;
+	//skullRitem->ObjConstantBufferIndex = 1;
 	//skullRitem->Geometry = mSkullGeometry.get();
 	//skullRitem->Topology = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 	//skullRitem->IndexCount = mSkullGeometry->mIndicesCount;
@@ -317,40 +293,23 @@ void App::CreatePSO()
 	}
 }
 
-void App::RecreateGeometry(bool tesselation)
+void App::RecreatePlanetGeometry()
 {
-	static bool firstFrame = true;
-	if (!firstFrame)
-	{
-		mIcosohedron->ResetGeometry(mEyePos, mGUI->mFrequency, mGUI->mRecursions, mGUI->mOctaves, tesselation);
-		mIcosohedron->CreateGeometry();
-	}
-	else { firstFrame = false; }
+	mPlanet->CreatePlanet(mGUI->mFrequency, mGUI->mOctaves, mGUI->mLOD);
 
-	for (int i = 0; i < mIcosohedron->mVertices.size(); i++)
+	for (int i = 0; i < mPlanet->mVertices.size(); i++)
 	{
-		mCurrentFrameResource->mPlanetVB->Copy(i, mIcosohedron->mVertices[i]);
+		mCurrentFrameResource->mPlanetVB->Copy(i, mPlanet->mVertices[i]);
 	}
-	for (int i = 0; i < mIcosohedron->mIndices.size(); i++)
+	for (int i = 0; i < mPlanet->mIndices.size(); i++)
 	{
-		mCurrentFrameResource->mPlanetIB->Copy(i, mIcosohedron->mIndices[i]);
+		mCurrentFrameResource->mPlanetIB->Copy(i, mPlanet->mIndices[i]);
 	}
 
+	mRenderItems[0]->Geometry = mPlanet->mGeometryData.get();
 	mRenderItems[0]->Geometry->mGPUVertexBuffer = mCurrentFrameResource->mPlanetVB->GetBuffer();
 	mRenderItems[0]->Geometry->mGPUIndexBuffer = mCurrentFrameResource->mPlanetIB->GetBuffer();
-	mRenderItems[0]->IndexCount = mIcosohedron->mIndices.size();
-}
-
-bool Float3IsSame(XMFLOAT3 a, XMFLOAT3 b) 
-{
-	if (a.x == b.x && a.y == b.y && a.z == b.z) 
-	{
-		return true;
-	}
-	else
-	{
-		return false;
-	}
+	mRenderItems[0]->IndexCount = mPlanet->mIndices.size();
 }
 
 void App::Update(float frameTime)
@@ -358,24 +317,6 @@ void App::Update(float frameTime)
 	mGUI->Update(mNumRenderItems);
 
 	UpdateCamera();
-
-	// Create geometry if its the first frame
-	static bool firstGenerationFrame = true;
-	if (firstGenerationFrame)
-	{
-		RecreateGeometry(mGUI->mTesselation);
-		firstGenerationFrame = false;
-	}
-
-	// If tesselation is enabled recreate geometry
-	if (mGUI->mTesselation)
-	{
-		if (!Float3IsSame(mLastEyePos,mEyePos)) 
-		{
-			RecreateGeometry(mGUI->mTesselation);
-			mLastEyePos = mEyePos;
-		}
-	}
 
 	// If the world matrix has changed
 	if (mGUI->mWMatrixChanged)
@@ -403,7 +344,7 @@ void App::Update(float frameTime)
 
 	if (mGUI->mUpdated)
 	{
-		RecreateGeometry(mGUI->mTesselation);
+		RecreatePlanetGeometry();
 		mGUI->mUpdated = false;
 	}
 
@@ -487,10 +428,8 @@ void App::UpdatePerFrameConstantBuffer()
 	XMVECTOR lightDir = -SphericalToCartesian(1.0f, mSunTheta, mSunPhi);
 	XMStoreFloat3(&perFrameConstantBuffer.Lights[0].Direction, lightDir);
 
-	//perFrameConstantBuffer.Lights[0].Strength = { 2.0f, 2.0f, 2.0f };
 	perFrameConstantBuffer.Lights[0].Position = { 0.0f, 0.0f, 8.0f };
 	perFrameConstantBuffer.Lights[0].Direction = { -0.57735f, -0.57735f, 0.57735f };
-	//perFrameConstantBuffer.Lights[0].Direction = { 0.57735f, -0.57735f, 0.57735f };
 	perFrameConstantBuffer.Lights[0].Strength = { 0.6f, 0.6f, 0.6f };
 	//perFrameConstantBuffer.Lights[1].Direction = { -0.57735f, -0.57735f, 0.57735f };
 	//perFrameConstantBuffer.Lights[1].Strength = { 0.3f, 0.3f, 0.3f };

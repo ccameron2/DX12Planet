@@ -67,17 +67,15 @@ public:
 private:
 	Timer mTimer;
 
-	void SetupGUI();
 	void Update(float frameTime);
 	void CycleFrameResources();
 	void Draw(float frameTime);
 	
-	void CreateIcosohedron();
 	void CreateRootSignature();
 	ComPtr<ID3DBlob> CompileShader(const std::wstring& filename, const D3D_SHADER_MACRO* defines, const std::string& entrypoint, const std::string& target);
 	void CreateShaders();
 	void CreatePSO();
-	void RecreateGeometry(bool tesselation);
+	void RecreatePlanetGeometry();
 	void MouseMoved(SDL_Event&);
 	void ProcessEvents(SDL_Event& e);
 	void Resized();
@@ -101,6 +99,7 @@ private:
 		UINT StartIndexLocation = 0;
 		int BaseVertexLocation = 0;
 	};
+
 	// If diffent PSOs needed then use different lists
 	vector<RenderItem*> mRenderItems;
 
@@ -119,8 +118,6 @@ private:
 	float mSunPhi = XM_PIDIV4;
 
 	POINT mLastMousePos;
-
-	std::unique_ptr<Icosahedron> mIcosohedron;
 
 	float mTheta = 1.5f * XM_PI;
 	float mPhi = XM_PIDIV4;

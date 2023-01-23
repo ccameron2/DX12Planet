@@ -8,7 +8,7 @@
 #include <memory>
 #include <map>
 
-
+#include "FastNoiseLite.h"
 
 class Node
 {
@@ -40,30 +40,29 @@ public:
 class Planet
 {
 public:
-	Planet(ID3D12Device* device, ID3D12GraphicsCommandList* commandList);
+	Planet();
 	~Planet();
-	void CreateIcosahedron();
+	void CreatePlanet(float frequency, int octaves, int lod);
+	void ResetGeometry();
 	void Update();
 	void Subdivide(Node* node, int level = 0);
 	int GetVertexForEdge(int v1, int v2);
-	int mMaxLOD = 6;
 	std::vector<Triangle> SubdivideTriangle(Triangle triangle);
 	void GetTriangles(Node* node);
 	unique_ptr<GeometryData> mGeometryData;
-private:
+	void ApplyNoise(float frequency, int octaves);
 	std::vector<Vertex> mVertices;
 	std::vector<uint32_t> mIndices;
+	int mMaxLOD = 0;
+private:
 	std::vector<Triangle> mTriangles;
 	std::vector<XMFLOAT3> mNormals;
 	unique_ptr<Node> mTriangleTree;
 	std::map<std::pair<int, int>, int> mVertexMap;
 
-	XMVECTOR ComputeNormal(XMVECTOR p0, XMVECTOR p1, XMVECTOR p2)
-	{
-		XMVECTOR u = p1 - p0;
-		XMVECTOR v = p2 - p0;
-		return XMVector3Normalize(XMVector3Cross(u, v));
-	}
+	void BuildIndices();
+
+	float FractalBrownianMotion(FastNoiseLite fastNoise, XMFLOAT3 fractalInput, float octaves, float frequency);
 
 	void CalculateNormals();
 

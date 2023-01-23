@@ -1,36 +1,45 @@
 #include "Planet.h"
 
-Vertex AddFloat32(XMFLOAT3 a, XMFLOAT3 b)
+Planet::Planet()
 {
-	Vertex result;
-
-	result.Pos.x = a.x + b.x;
-	result.Pos.y = a.y + b.y;
-	result.Pos.z = a.z + b.z;
-
-	return result;
-}
-
-void Normalize2(XMFLOAT3* p)
-{
-	float w = sqrt(p->x * p->x + p->y * p->y + p->z * p->z);
-	p->x /= w;
-	p->y /= w;
-	p->z /= w;
-}
-
-Planet::Planet(ID3D12Device* device, ID3D12GraphicsCommandList* commandList)
-{
-	CreateIcosahedron();
-	mGeometryData->CalculateBufferData(device, commandList);
 }
 
 Planet::~Planet()
 {
 }
 
-void Planet::CreateIcosahedron()
+void Planet::CreatePlanet(float frequency, int octaves, int lod)
 {
+	mMaxLOD = lod;
+	if (mGeometryData) mGeometryData.reset();
+
+	ResetGeometry();
+
+	for (auto& node : mTriangleTree->mChildren)
+	{
+		Subdivide(node);
+	}
+
+	BuildIndices();
+
+	ApplyNoise(frequency, octaves);
+
+	mGeometryData = make_unique<GeometryData>();
+
+	mGeometryData->mVertices = mVertices;
+	mGeometryData->mIndices = mIndices;
+
+	mGeometryData->CalculateDynamicBufferData();
+}
+
+void Planet::ResetGeometry()
+{
+	mVertices.clear();
+	mIndices.clear();
+	mTriangles.clear();
+	mVertexMap.clear();
+	mTriangleTree.reset();
+
 	const float X = 0.525731112119133606f;
 	const float Z = 0.850650808352039932f;
 	const float N = 0.0f;
@@ -62,6 +71,7 @@ void Planet::CreateIcosahedron()
 		5,2,9,	11,2,7
 	};
 
+
 	// Build triangles
 	for (int i = 0; i < mIndices.size(); i += 3)
 	{
@@ -76,29 +86,6 @@ void Planet::CreateIcosahedron()
 
 	mTriangles.clear();
 
-	for (auto& node : mTriangleTree->mChildren)
-	{
-		Subdivide(node);
-	}
-
-	for (auto& node : mTriangleTree->mChildren)
-	{
-		GetTriangles(node);
-	}
-
-	mIndices.clear();
-
-	for (int i = 0; i < mTriangles.size(); i++)
-	{
-		mIndices.push_back(mTriangles[i].Point[0]);
-		mIndices.push_back(mTriangles[i].Point[1]);
-		mIndices.push_back(mTriangles[i].Point[2]);
-	}
-
-	mGeometryData = make_unique<GeometryData>();
-
-	mGeometryData->mVertices = mVertices;
-	mGeometryData->mIndices = mIndices;
 }
 
 void Planet::GetTriangles(Node* node)
@@ -143,8 +130,8 @@ int Planet::GetVertexForEdge(int v1, int v2)
 	{
 		auto& edge1 = mVertices[v2];
 		auto& edge2 = mVertices[v1];
-		auto newPoint = AddFloat32(edge1.Pos, edge2.Pos);
-		Normalize2(&newPoint.Pos);
+		auto newPoint = AddFloat3(edge1.Pos, edge2.Pos);
+		Normalize(&newPoint.Pos);
 
 		// Set colours
 		newPoint.Colour.x = std::lerp(edge1.Colour.x, edge2.Colour.x, 0.5);
@@ -176,4 +163,58 @@ std::vector<Triangle> Planet::SubdivideTriangle(Triangle triangle)
 	newTriangles.push_back({ mid[0], mid[1], mid[2] });
 
 	return newTriangles;
+}
+
+void Planet::BuildIndices()
+{
+	for (auto& node : mTriangleTree->mChildren)
+	{
+		GetTriangles(node);
+	}
+
+	mIndices.clear();
+
+	for (int i = 0; i < mTriangles.size(); i++)
+	{
+		mIndices.push_back(mTriangles[i].Point[0]);
+		mIndices.push_back(mTriangles[i].Point[1]);
+		mIndices.push_back(mTriangles[i].Point[2]);
+	}
+}
+
+float Planet::FractalBrownianMotion(FastNoiseLite fastNoise, XMFLOAT3 fractalInput, float octaves, float frequency)
+{
+	float result = 0;
+	float amplitude = 0.5;
+	float lacunarity = 2.0;
+	float gain = 0.5;
+
+	// Add iterations of noise at different frequencies to get more detail from perlin noise
+	for (int i = 0; i < octaves; i++)
+	{
+		result += amplitude * fastNoise.GetNoise(frequency * fractalInput.x, frequency * fractalInput.y, frequency * fractalInput.z);
+		frequency *= lacunarity;
+		amplitude *= gain;
+	}
+
+	return result;
+}
+
+void Planet::ApplyNoise(float frequency, int octaves)
+{
+	FastNoiseLite noise;
+	noise.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
+	for (auto& vertex : mVertices)
+	{
+		XMVECTOR pos = XMLoadFloat3(&vertex.Pos);
+		pos = XMVectorMultiply(pos, { 100,100,100 });
+		XMFLOAT3 position; XMStoreFloat3(&position, pos);
+		auto ElevationValue = 1 + FractalBrownianMotion(noise, position, octaves, frequency);
+		//auto ElevationValue = 1 + noise.GetNoise(0.5 * vertex.Pos.x * 100, 0.5 * vertex.Pos.y * 100, 0.5 * vertex.Pos.z * 100);
+		ElevationValue *= 1.5;
+		auto Radius = Distance(vertex.Pos, XMFLOAT3{ 0,0,0 });
+		vertex.Pos.x *= 1 + (ElevationValue / Radius);
+		vertex.Pos.y *= 1 + (ElevationValue / Radius);
+		vertex.Pos.z *= 1 + (ElevationValue / Radius);
+	}
 }
