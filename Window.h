@@ -6,13 +6,13 @@
 
 #include <string>;
 
-class SDL2Window
+class Window
 {
 private:
 	void SetWindowTitle();
 public:
-	SDL2Window(int width, int height);
-	~SDL2Window();
+	Window(int width, int height);
+	~Window();
 	void ProcessEvents(SDL_Event& event);
 	HWND GetHWND();
 	SDL_Window* mSDLWindow;

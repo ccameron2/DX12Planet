@@ -135,11 +135,12 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="DescriptorHeap.cpp" />
     <ClCompile Include="FrameResource.cpp" />
     <ClCompile Include="App.cpp" />
     <ClCompile Include="GeometryData.cpp" />
     <ClCompile Include="Graphics.cpp" />
-    <ClCompile Include="DX12GUI.cpp" />
+    <ClCompile Include="GUI.cpp" />
     <ClCompile Include="Icosahedron.cpp" />
     <ClCompile Include="ImGui\imgui.cpp" />
     <ClCompile Include="ImGui\imgui_demo.cpp" />
@@ -150,21 +151,22 @@
     <ClCompile Include="ImGui\imgui_widgets.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Planet.cpp" />
-    <ClCompile Include="SDL2Window.cpp" />
+    <ClCompile Include="Window.cpp" />
     <ClCompile Include="Timer.cpp" />
     <ClCompile Include="UploadBuffer.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="DescriptorHeap.h" />
     <ClInclude Include="FastNoiseLite.h" />
     <ClInclude Include="FrameResource.h" />
     <ClInclude Include="App.h" />
     <ClInclude Include="d3dx12.h" />
     <ClInclude Include="GeometryData.h" />
     <ClInclude Include="Graphics.h" />
-    <ClInclude Include="DX12GUI.h" />
+    <ClInclude Include="GUI.h" />
     <ClInclude Include="Icosahedron.h" />
     <ClInclude Include="Planet.h" />
-    <ClInclude Include="SDL2Window.h" />
+    <ClInclude Include="Window.h" />
     <ClInclude Include="UploadBuffer.h" />
     <ClInclude Include="Utility.h" />
     <ClInclude Include="Timer.h" />

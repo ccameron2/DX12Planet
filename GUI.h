@@ -6,12 +6,12 @@
 #include "SDL.h"
 #include "d3dx12.h"
 
-class DX12GUI
+class GUI
 {
 	UINT mGuiSrvOffset = 0;
 public:
-	DX12GUI();
-	~DX12GUI();
+	GUI();
+	~GUI();
 	void SetupGUI(ID3D12DescriptorHeap* cbvHeap, UINT guiSrvOffset, UINT cbvDescriptorSize, SDL_Window* window, ID3D12Device* device, UINT numFrameResources, DXGI_FORMAT backBufferFormat);
 	void NewFrame();
 	void Update(int numRenderItems);

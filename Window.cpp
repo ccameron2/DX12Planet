@@ -1,6 +1,6 @@
-#include "SDL2Window.h"
+#include "Window.h"
 
-SDL2Window::SDL2Window(int width, int height)
+Window::Window(int width, int height)
 {
 	SDL_Init(SDL_INIT_VIDEO);
 	mWidth = width;
@@ -9,14 +9,14 @@ SDL2Window::SDL2Window(int width, int height)
 	SetWindowTitle();
 }
 
-SDL2Window::~SDL2Window()
+Window::~Window()
 {
 	// Shutdown SDL
 	SDL_DestroyWindow(mSDLWindow);
 	SDL_Quit();
 }
 
-void SDL2Window::SetWindowTitle()
+void Window::SetWindowTitle()
 {
 	// Set window text to title
 	std::string windowText = mMainCaption;
@@ -24,7 +24,7 @@ void SDL2Window::SetWindowTitle()
 	SDL_SetWindowTitle(mSDLWindow, array);
 }
 
-void SDL2Window::ProcessEvents(SDL_Event& event)
+void Window::ProcessEvents(SDL_Event& event)
 {
 	if (event.type == SDL_WINDOWEVENT)
 	{
@@ -99,7 +99,7 @@ void SDL2Window::ProcessEvents(SDL_Event& event)
 	}
 }
 
-HWND SDL2Window::GetHWND()
+HWND Window::GetHWND()
 {
 	SDL_SysWMinfo info;
 	SDL_GetVersion(&info.version);

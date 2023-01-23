@@ -1,10 +1,10 @@
-#include "DX12GUI.h"
+#include "GUI.h"
 
-DX12GUI::DX12GUI()
+GUI::GUI()
 {
 }
 
-DX12GUI::~DX12GUI()
+GUI::~GUI()
 {
 	// Shutdown ImGui
 	ImGui_ImplDX12_Shutdown();
@@ -12,7 +12,7 @@ DX12GUI::~DX12GUI()
 	ImGui::DestroyContext();
 }
 
-void DX12GUI::SetupGUI(ID3D12DescriptorHeap* cbvHeap, UINT guiSrvOffset, UINT cbvDescriptorSize, SDL_Window* window, ID3D12Device* device, UINT numFrameResources, DXGI_FORMAT backBufferFormat)
+void GUI::SetupGUI(ID3D12DescriptorHeap* cbvHeap, UINT guiSrvOffset, UINT cbvDescriptorSize, SDL_Window* window, ID3D12Device* device, UINT numFrameResources, DXGI_FORMAT backBufferFormat)
 {
 	// Setup ImGui context
 	IMGUI_CHECKVERSION();
@@ -30,7 +30,7 @@ void DX12GUI::SetupGUI(ID3D12DescriptorHeap* cbvHeap, UINT guiSrvOffset, UINT cb
 	ImGui_ImplDX12_Init(device, numFrameResources, backBufferFormat, cbvHeap, cpuhandle, gpuhandle);
 }
 
-void DX12GUI::NewFrame()
+void GUI::NewFrame()
 {
 	// Start the ImGui frame
 	ImGui_ImplDX12_NewFrame();
@@ -38,7 +38,7 @@ void DX12GUI::NewFrame()
 	ImGui::NewFrame();
 }
 
-void DX12GUI::Update(int numRenderItems)
+void GUI::Update(int numRenderItems)
 {
 	//static bool showDemoWindow = false;
 	//ImGui::ShowDemoWindow(&showDemoWindow);
@@ -101,7 +101,7 @@ void DX12GUI::Update(int numRenderItems)
 
 }
 
-void DX12GUI::Render(ID3D12GraphicsCommandList* commandList, ID3D12Resource* currentBackBuffer, D3D12_CPU_DESCRIPTOR_HANDLE currentBackBufferView, ID3D12DescriptorHeap* dsvHeap, UINT dsvDescriptorSize)
+void GUI::Render(ID3D12GraphicsCommandList* commandList, ID3D12Resource* currentBackBuffer, D3D12_CPU_DESCRIPTOR_HANDLE currentBackBufferView, ID3D12DescriptorHeap* dsvHeap, UINT dsvDescriptorSize)
 {
 	ImGui::Render();
 
@@ -124,7 +124,7 @@ void DX12GUI::Render(ID3D12GraphicsCommandList* commandList, ID3D12Resource* cur
 		D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));
 }
 
-bool DX12GUI::ProcessEvents(SDL_Event& event)
+bool GUI::ProcessEvents(SDL_Event& event)
 {
 	//Window event occured
 	ImGuiIO& io = ImGui::GetIO();

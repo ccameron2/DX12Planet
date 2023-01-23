@@ -4,6 +4,8 @@
 #include <memory>
 #include "Utility.h"
 
+#pragma once
+
 class FrameResource
 {
 public:

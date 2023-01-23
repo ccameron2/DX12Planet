@@ -30,7 +30,7 @@ void App::Run()
 
 void App::Initialize()
 {
-	mWindow = make_unique<SDL2Window>(800,600);
+	mWindow = make_unique<Window>(800,600);
 
 	HWND hwnd = mWindow->GetHWND();
 ;
@@ -42,8 +42,9 @@ void App::Initialize()
 	CreateRenderItems();
 
 	BuildFrameResources();
-	CreateCBVHeap();
-	CreateConstantBuffers();
+
+	mCBVDescriptorHeap = make_unique<DescriptorHeap>(mGraphics->mD3DDevice.Get(),mFrameResources,mNumRenderItems,mGraphics->mCbvSrvUavDescriptorSize);
+
 	CreateRootSignature();
 	CreateShaders();
 	CreatePSO();
@@ -62,8 +63,9 @@ void App::Initialize()
 
 void App::SetupGUI()
 {
-	mGUI = make_unique<DX12GUI>();
-	mGUI->SetupGUI(mCBVHeap.Get(), mGuiSrvOffset, mGraphics->mCbvSrvUavDescriptorSize, mWindow->mSDLWindow, mGraphics->mD3DDevice.Get(), mNumFrameResources, mGraphics->mBackBufferFormat);
+	mGUI = make_unique<GUI>();
+	mGUI->SetupGUI(mCBVDescriptorHeap->mCBVHeap.Get(), mCBVDescriptorHeap->mGuiSrvOffset, mGraphics->mCbvSrvUavDescriptorSize, 
+		mWindow->mSDLWindow, mGraphics->mD3DDevice.Get(), mNumFrameResources, mGraphics->mBackBufferFormat);
 }
 
 void App::CreateIcosohedron()
@@ -178,26 +180,6 @@ void App::CreateRenderItems()
 	planetRenderItem->BaseVertexLocation = 0;
 	mRenderItems.push_back(planetRenderItem);
 
-	//mIcoLight = make_unique<Icosahedron>(0, 2, 0, mEyePos, false);
-	//for (auto& vertex : mIcoLight->mGeometryData->mVertices)
-	//{
-	//	vertex.Colour = XMFLOAT4{ 1.0f,0.8f,0.0f,1.0f };
-	//}
-	//mIcoLight->mGeometryData->CalculateBufferData(mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
-
-	//mGraphics->ExecuteCommands();
-	//mGraphics->mCommandList.Reset();
-
-	//RenderItem* lightRitem = new RenderItem();
-	//XMStoreFloat4x4(&lightRitem->WorldMatrix, XMMatrixIdentity() * XMMatrixScaling(0.05, 0.05, 0.05)* XMMatrixTranslation(0.0f,0.0f,8.0f));
-	//lightRitem->ObjConstantBufferIndex = 2;
-	//lightRitem->Geometry = mIcoLight->mGeometryData.get();
-	//lightRitem->Topology = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-	//lightRitem->IndexCount = mIcoLight->mGeometryData->mIndices.size();
-	//lightRitem->StartIndexLocation = 0;
-	//lightRitem->BaseVertexLocation = 0;
-	//mRenderItems.push_back(lightRitem);
-
 	//RenderItem* skullRitem = new RenderItem();
 	//skullRitem->WorldMatrix = MakeIdentity4x4();
 	//skullRitem->ObjConstantBufferIndex = 2;
@@ -216,77 +198,6 @@ void App::BuildFrameResources()
 	for (int i = 0; i < mNumFrameResources; i++)
 	{
 		mFrameResources.push_back(std::make_unique<FrameResource>(mGraphics->mD3DDevice.Get(), 1, mNumRenderItems, 20000000, 80000000));
-	}
-}
-
-void App::CreateCBVHeap()
-{
-	UINT objCount = (UINT)mNumRenderItems;
-	// Need a CBV descriptor for each object for each frame resource,
-	UINT numDescriptors = (objCount + 1) * mNumFrameResources; // +1 for the perFrameCB for each frame resource.
-
-	// Save an offset to the start of the per frame CBVs.
-	mFrameCbvOffset = objCount * mNumFrameResources;
-
-	// Save an offset to the start of the GUI SRVs
-	mGuiSrvOffset = (objCount * mNumFrameResources) + mNumFrameResources;
-
-	D3D12_DESCRIPTOR_HEAP_DESC cbvHeapDesc;
-	cbvHeapDesc.NumDescriptors = numDescriptors + 1; // For GUI
-	cbvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-	cbvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-	cbvHeapDesc.NodeMask = 0;
-	if (FAILED(mGraphics->mD3DDevice->CreateDescriptorHeap(&cbvHeapDesc, IID_PPV_ARGS(&mCBVHeap))))
-	{
-		MessageBox(0, L"Create descriptor heap failed", L"Error", MB_OK);
-	}
-}
-
-void App::CreateConstantBuffers()
-{
-	UINT objCBByteSize = CalculateConstantBufferSize(sizeof(FrameResource::mPerObjectConstants));
-	UINT numObjects = (UINT)mNumRenderItems;
-
-	for (int frameIndex = 0; frameIndex < mNumFrameResources; frameIndex++)
-	{
-		auto objectConstantBuffer = mFrameResources[frameIndex]->mPerObjectConstantBuffer->GetBuffer();
-		for (UINT i = 0; i < numObjects; i++)
-		{
-			D3D12_GPU_VIRTUAL_ADDRESS cbAddress = objectConstantBuffer->GetGPUVirtualAddress();
-
-			// Offset to the ith object constant buffer in the buffer.
-			cbAddress += i * objCBByteSize;
-
-			// Offset to the object cbv in the descriptor heap.
-			int heapIndex = frameIndex * numObjects + i;
-			auto handle = CD3DX12_CPU_DESCRIPTOR_HANDLE(mCBVHeap->GetCPUDescriptorHandleForHeapStart());
-			handle.Offset(heapIndex, mGraphics->mCbvSrvUavDescriptorSize);
-
-			D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc;
-			cbvDesc.BufferLocation = cbAddress;
-			cbvDesc.SizeInBytes = objCBByteSize;
-
-			mGraphics->mD3DDevice->CreateConstantBufferView(&cbvDesc, handle);
-		}
-	}
-	UINT passCBByteSize = CalculateConstantBufferSize(sizeof(FrameResource::mPerFrameConstants));
-
-	// Last three descriptors are the pass CBVs for each frame resource.
-	for (int frameIndex = 0; frameIndex < mNumFrameResources; frameIndex++)
-	{
-		auto passCB = mFrameResources[frameIndex]->mPerFrameConstantBuffer->GetBuffer();
-		D3D12_GPU_VIRTUAL_ADDRESS cbAddress = passCB->GetGPUVirtualAddress();
-
-		// Offset to the pass cbv in the descriptor heap.
-		int heapIndex = mFrameCbvOffset + frameIndex;
-		auto handle = CD3DX12_CPU_DESCRIPTOR_HANDLE(mCBVHeap->GetCPUDescriptorHandleForHeapStart());
-		handle.Offset(heapIndex, mGraphics->mCbvSrvUavDescriptorSize);
-
-		D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc;
-		cbvDesc.BufferLocation = cbAddress;
-		cbvDesc.SizeInBytes = passCBByteSize;
-
-		mGraphics->mD3DDevice->CreateConstantBufferView(&cbvDesc, handle);
 	}
 }
 
@@ -628,12 +539,12 @@ void App::Draw(float frameTime)
 	// Select MSAA texture as render target
 	mGraphics->SetMSAARenderTarget();
 
-	mGraphics->SetDescriptorHeap(mCBVHeap.Get());
+	mGraphics->SetDescriptorHeap(mCBVDescriptorHeap->mCBVHeap.Get());
 
 	commandList->SetGraphicsRootSignature(mRootSignature.Get());
 
-	int frameCbvIndex = mFrameCbvOffset + mCurrentFrameResourceIndex;
-	mGraphics->SetGraphicsRootDescriptorTable(mCBVHeap.Get(), frameCbvIndex,1);
+	int frameCbvIndex = mCBVDescriptorHeap->mFrameCbvOffset + mCurrentFrameResourceIndex;
+	mGraphics->SetGraphicsRootDescriptorTable(mCBVDescriptorHeap->mCBVHeap.Get(), frameCbvIndex,1);
 
 	DrawRenderItems(commandList.Get());
 
@@ -665,7 +576,7 @@ void App::DrawRenderItems(ID3D12GraphicsCommandList* commandList)
 
 		// Offset to the CBV in the descriptor heap for this object and for this frame resource
 		UINT cbvIndex = mCurrentFrameResourceIndex * (UINT)mRenderItems.size()+ renderItem->ObjConstantBufferIndex;
-		mGraphics->SetGraphicsRootDescriptorTable(mCBVHeap.Get(), cbvIndex, 0);
+		mGraphics->SetGraphicsRootDescriptorTable(mCBVDescriptorHeap->mCBVHeap.Get(), cbvIndex, 0);
 		commandList->DrawIndexedInstanced(renderItem->IndexCount, 1, renderItem->StartIndexLocation, renderItem->BaseVertexLocation, 0);
 	}
 }

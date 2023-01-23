@@ -27,12 +27,12 @@
 
 #include <SDL.h>
 #include <imgui.h>
-#include "DX12GUI.h"
+#include "GUI.h"
 
 #include "imgui_impl_sdl.h"
 #include "imgui_impl_dx12.h"
 
-#include "SDL2Window.h"
+#include "Window.h"
 
 #include "Timer.h"
 #include "Utility.h"
@@ -40,6 +40,7 @@
 #include "Graphics.h"
 #include "UploadBuffer.h"
 #include "FrameResource.h"
+#include "DescriptorHeap.h"
 
 #include <fstream>
 
@@ -72,8 +73,6 @@ private:
 	void Draw(float frameTime);
 	
 	void CreateIcosohedron();
-	void CreateCBVHeap();
-	void CreateConstantBuffers();
 	void CreateRootSignature();
 	ComPtr<ID3DBlob> CompileShader(const std::wstring& filename, const D3D_SHADER_MACRO* defines, const std::string& entrypoint, const std::string& target);
 	void CreateShaders();
@@ -84,7 +83,7 @@ private:
 	void Resized();
 	void UpdateCamera();
 	unique_ptr<Graphics> mGraphics;
-	unique_ptr<SDL2Window> mWindow;
+	unique_ptr<Window> mWindow;
 	SDL_Surface mScreenSurface;
 
 	unique_ptr<Planet> mPlanet;
@@ -114,7 +113,7 @@ private:
 	XMFLOAT4X4 mGUIWorldMatrix = MakeIdentity4x4();
 	XMFLOAT4X4 mIcoTranslationMatrix = MakeIdentity4x4();
 
-	unique_ptr<DX12GUI> mGUI;
+	unique_ptr<GUI> mGUI;
 
 	float mSunTheta = 1.25f * XM_PI;
 	float mSunPhi = XM_PIDIV4;
@@ -134,9 +133,7 @@ private:
 	FrameResource* mCurrentFrameResource = nullptr;
 	int mCurrentFrameResourceIndex = 0;
 
-	ComPtr<ID3D12DescriptorHeap> mCBVHeap;
-	UINT mFrameCbvOffset = 0;
-	UINT mGuiSrvOffset = 0;
+	unique_ptr<DescriptorHeap> mCBVDescriptorHeap;
 
 	D3D_DRIVER_TYPE mD3DDriverType = D3D_DRIVER_TYPE_HARDWARE;
 
