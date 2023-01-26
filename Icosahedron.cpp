@@ -365,8 +365,8 @@ void Icosahedron::CalculateNormals()
 			auto b = XMLoadFloat3(&B.Pos);
 			auto c = XMLoadFloat3(&C.Pos);
 
-			auto E1 = XMVectorSubtract(a, b);
-			auto E2 = XMVectorSubtract(c, b);
+			auto E1 = XMVectorSubtract(a, c);
+			auto E2 = XMVectorSubtract(b, c);
 			
 			// Calculate normal with cross product and normalise
 			XMFLOAT3 Normal; XMStoreFloat3(&Normal, XMVector3Normalize(XMVector3Cross(E1, E2)));

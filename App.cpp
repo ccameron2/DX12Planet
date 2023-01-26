@@ -156,15 +156,15 @@ void App::CreateRenderItems()
 	planetRenderItem->BaseVertexLocation = 0;
 	mRenderItems.push_back(planetRenderItem);
 
-	//RenderItem* skullRitem = new RenderItem();
-	//skullRitem->WorldMatrix = MakeIdentity4x4();
-	//skullRitem->ObjConstantBufferIndex = 1;
-	//skullRitem->Geometry = mSkullGeometry.get();
-	//skullRitem->Topology = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-	//skullRitem->IndexCount = mSkullGeometry->mIndicesCount;
-	//skullRitem->StartIndexLocation = 0;
-	//skullRitem->BaseVertexLocation = 0;
-	//mRenderItems.push_back(skullRitem);
+	RenderItem* skullRitem = new RenderItem();
+	skullRitem->WorldMatrix = MakeIdentity4x4();
+	skullRitem->ObjConstantBufferIndex = 1;
+	skullRitem->Geometry = mSkullGeometry.get();
+	skullRitem->Topology = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+	skullRitem->IndexCount = mSkullGeometry->mIndicesCount;
+	skullRitem->StartIndexLocation = 0;
+	skullRitem->BaseVertexLocation = 0;
+	mRenderItems.push_back(skullRitem);
 	
 	mNumRenderItems = mRenderItems.size();
 }
