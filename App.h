@@ -102,6 +102,8 @@ private:
 
 	// If diffent PSOs needed then use different lists
 	vector<RenderItem*> mRenderItems;
+	GeometryData* modelGeometry;
+
 
 	XMFLOAT3 mEyePos = { 0.0f, 0.0f, 0.0f };
 	XMFLOAT3 mLastEyePos = { 0.0f, 0.0f, 0.0f };
@@ -156,6 +158,7 @@ private:
 
 	void DrawRenderItems(ID3D12GraphicsCommandList* commandList);
 	void BuildSkullGeometry();
+	void LoadTeapotModel();
 	void StartFrame();
 	void EndFrame();
 };

@@ -1,4 +1,7 @@
 #include "App.h"
+#include <assimp/Importer.hpp>
+#include <assimp/scene.h>
+#include <assimp/postprocess.h>
 
 App::App()
 {
@@ -42,6 +45,7 @@ void App::Initialize()
 
 	mPlanet = std::make_unique<Planet>();
 
+	LoadTeapotModel();
 	BuildSkullGeometry();
 	CreateRenderItems();
 
@@ -135,6 +139,74 @@ void App::StartFrame()
 	}
 }
 
+void App::LoadTeapotModel()
+{
+	Assimp::Importer importer;
+	string file = "Models/Teapot.x";
+
+	const aiScene* scene = importer.ReadFile(file,
+		aiProcess_CalcTangentSpace |
+		aiProcess_Triangulate |
+		aiProcess_JoinIdenticalVertices |
+		aiProcess_SortByPType |
+		aiProcess_ConvertToLeftHanded);
+
+	if (!scene)
+	{
+		LPCWSTR str = LPCWSTR(importer.GetErrorString());
+		MessageBox(0, str, L"Error", MB_OK);
+	}
+
+	modelGeometry = new GeometryData();
+	
+	for (int i = 0; i < scene->mNumMeshes; i++)
+	{
+		aiMesh* mesh = scene->mMeshes[i];
+		for (int j = 0; j < mesh->mNumVertices; j++)
+		{
+			Vertex vertex;
+
+			if (mesh->HasPositions())
+			{
+				vertex.Pos.x = mesh->mVertices[j].x;
+				vertex.Pos.y = mesh->mVertices[j].y;
+				vertex.Pos.z = mesh->mVertices[j].z;
+			}
+
+			if (mesh->HasNormals())
+			{
+				vertex.Normal.x = mesh->mNormals[j].x;
+				vertex.Normal.y = mesh->mNormals[j].y;
+				vertex.Normal.z = mesh->mNormals[j].z;
+			}
+
+
+			if (mesh->HasVertexColors(j))
+			{
+				vertex.Colour.x = mesh->mColors[j]->r;
+				vertex.Colour.y = mesh->mColors[j]->g;
+				vertex.Colour.z = mesh->mColors[j]->b;
+				vertex.Colour.w = mesh->mColors[j]->a;
+			}
+			else
+			{
+				vertex.Colour = { 1,0.2,0.2,0 };
+			}
+			modelGeometry->mVertices.push_back(vertex);
+		}
+
+		for (int i = 0; i < mesh->mNumFaces; i++)
+		{
+			aiFace face = mesh->mFaces[i];
+			for (int j = 0; j < face.mNumIndices; j++)
+			{
+				modelGeometry->mIndices.push_back(face.mIndices[j]);
+			}
+		}
+	}
+	modelGeometry->CalculateBufferData(mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
+}
+
 void App::CreateRenderItems()
 {
 	if (mRenderItems.size() != 0)
@@ -165,6 +237,17 @@ void App::CreateRenderItems()
 	skullRitem->StartIndexLocation = 0;
 	skullRitem->BaseVertexLocation = 0;
 	mRenderItems.push_back(skullRitem);
+
+	RenderItem* teapotRItem = new RenderItem();
+	XMStoreFloat4x4(&teapotRItem->WorldMatrix, XMMatrixIdentity() * XMMatrixScaling(0.1, 0.1, 0.1) * XMMatrixTranslation(4.0f, 0.0f, 0.0f) /** XMMatrixRotationX(90)*/);
+	teapotRItem->ObjConstantBufferIndex = 2;
+	teapotRItem->Geometry = modelGeometry;
+	teapotRItem->Topology = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+	teapotRItem->IndexCount = modelGeometry->mIndicesCount;
+	teapotRItem->StartIndexLocation = 0;
+	teapotRItem->BaseVertexLocation = 0;
+	mRenderItems.push_back(teapotRItem);
+
 	
 	mNumRenderItems = mRenderItems.size();
 }
@@ -606,6 +689,8 @@ App::~App()
 {
 	// Empty the command queue
 	if (mGraphics->mD3DDevice != nullptr) { mGraphics->EmptyCommandQueue(); }
+
+	delete modelGeometry;
 
 	// Delete render items
 	for (auto& renderItem : mRenderItems)
