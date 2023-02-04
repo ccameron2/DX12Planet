@@ -1,5 +1,5 @@
 #include "Model.h"
-
+#include <regex>
 Model::Model(std::string fileName, ID3D12Device* device, ID3D12GraphicsCommandList* commandList)
 {
 	Assimp::Importer importer;
@@ -20,7 +20,7 @@ Model::Model(std::string fileName, ID3D12Device* device, ID3D12GraphicsCommandLi
 	}
 
 	mDirectory = fileName.substr(0, fileName.find_last_of('/'));
-
+	mFileName = fileName.substr(fileName.find_last_of('/') + 1, fileName.find_last_of('.') - fileName.find_last_of('/') - 1);
 	ProcessNode(scene->mRootNode, scene);
 
 	for (auto& mesh : mMeshes)
@@ -133,12 +133,36 @@ GeometryData* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 			aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
 
 			// Diffuse maps
-			vector<Texture*> diffuseMaps = LoadMaterialTextures(material, aiTextureType_BASE_COLOR, "texture_diffuse", scene);
+			vector<Texture*> diffuseMaps = LoadMaterialTextures(material, aiTextureType_DIFFUSE, "texture_diffuse", scene);
 			modelGeometry->mTextures.insert(modelGeometry->mTextures.end(), diffuseMaps.begin(), diffuseMaps.end());
 
 			// Specular maps
-			vector<Texture*> specularMaps = LoadMaterialTextures(material, aiTextureType_SPECULAR, "texture_specular", scene);
+			vector<Texture*> specularMaps = LoadMaterialTextures(material, aiTextureType_SPECULAR, "texture_normal", scene);
 			modelGeometry->mTextures.insert(modelGeometry->mTextures.end(), specularMaps.begin(), specularMaps.end());
+
+			// Base Colour maps
+			vector<Texture*> baseColourMaps = LoadMaterialTextures(material, aiTextureType_BASE_COLOR, "texture_diffuse", scene);
+			modelGeometry->mTextures.insert(modelGeometry->mTextures.end(), baseColourMaps.begin(), baseColourMaps.end());
+
+			// Normal maps
+			vector<Texture*> normalMaps = LoadMaterialTextures(material, aiTextureType_NORMAL_CAMERA, "texture_normal", scene);
+			modelGeometry->mTextures.insert(modelGeometry->mTextures.end(), normalMaps.begin(), normalMaps.end());
+
+			// Metalness maps
+			vector<Texture*> metalnessMaps = LoadMaterialTextures(material, aiTextureType_METALNESS, "texture_metalness", scene);
+			modelGeometry->mTextures.insert(modelGeometry->mTextures.end(), metalnessMaps.begin(), metalnessMaps.end());
+
+			// Roughness maps
+			vector<Texture*> roughnessMaps = LoadMaterialTextures(material, aiTextureType_DIFFUSE_ROUGHNESS, "texture_roughness", scene);
+			modelGeometry->mTextures.insert(modelGeometry->mTextures.end(), roughnessMaps.begin(), roughnessMaps.end());
+
+			// ao maps
+			vector<Texture*> aoMaps = LoadMaterialTextures(material, aiTextureType_AMBIENT_OCCLUSION, "texture_ao", scene);
+			modelGeometry->mTextures.insert(modelGeometry->mTextures.end(), aoMaps.begin(), aoMaps.end());
+
+			// Emission maps
+			vector<Texture*> emissionMaps = LoadMaterialTextures(material, aiTextureType_EMISSION_COLOR, "texture_emission", scene);
+			modelGeometry->mTextures.insert(modelGeometry->mTextures.end(), emissionMaps.begin(), emissionMaps.end());
 		}
 	}
 	
@@ -149,38 +173,69 @@ vector<Texture*> Model::LoadMaterialTextures(aiMaterial* mat, aiTextureType type
 {
 	vector<Texture*> textures;
 
-	for (int i = 0; i < mat->GetTextureCount(type); i++)
+	// If textures are in model
+	if (mat->GetTextureCount(type) > 0)
 	{
-		aiString str;
-		mat->GetTexture(type, i, &str);
-		bool skip = false;
-		for (int j = 0; j < mLoadedTextures.size(); j++)
+		for (int i = 0; i < mat->GetTextureCount(type); i++)
 		{
-			if (mLoadedTextures[j]->Path == str)
+			aiString str;
+			mat->GetTexture(type, i, &str);
+			bool skip = false;
+			for (int j = 0; j < mLoadedTextures.size(); j++)
 			{
-				textures.push_back(mLoadedTextures[j]);
-				skip = true; // Texture has already been laoded
-				break;
+				if (mLoadedTextures[j]->Path == str)
+				{
+					textures.push_back(mLoadedTextures[j]);
+					skip = true; // Texture has already been laoded
+					break;
+				}
+			}
+			if (!skip)
+			{
+				Texture* texture = new Texture();
+				const aiTexture* embeddedTexture = scene->GetEmbeddedTexture(str.C_Str());
+				if (embeddedTexture != nullptr)
+				{
+					LoadEmbeddedTexture(embeddedTexture);
+				}
+				else
+				{
+					texture->ID = LoadTextureFromFile(str.C_Str(), mDirectory);
+				}
+				texture->Type = typeName;
+				texture->Path = str;
+				textures.push_back(texture);
+				mLoadedTextures.push_back(texture);
 			}
 		}
-		if (!skip)
-		{ 
-			Texture* texture = new Texture();
+	}
+	else // Manually load textures
+	{
+		switch (type)
+		{
+		case aiTextureType_BASE_COLOR:
 
-			const aiTexture* embeddedTexture = scene->GetEmbeddedTexture(str.C_Str());
-			if (embeddedTexture != nullptr)
-			{
-				LoadEmbeddedTexture(embeddedTexture);
-			}
-			else
-			{
-				texture->ID = LoadTextureFromFile(str.C_Str(), mDirectory);
-			}		
-			texture->Type = typeName;
-			texture->Path = str;
-			textures.push_back(texture);
-			mLoadedTextures.push_back(texture);
+			break;
+		case aiTextureType_METALNESS:
+			break;
+		case aiTextureType_NORMAL_CAMERA:
+			break;
+		case aiTextureType_DIFFUSE_ROUGHNESS:
+			break;
+		case aiTextureType_AMBIENT_OCCLUSION:
+			break;
+		case aiTextureType_EMISSION_COLOR:
+			break;
+		default:
+			break;
 		}
+			
+			
+			
+			
+			
+			
+
 	}
 	return textures;
 }
@@ -198,10 +253,12 @@ int Model::LoadTextureFromFile(const char* path, string directory)
 
 void Model::LoadEmbeddedTexture(const aiTexture* embeddedTexture)
 {
-	if (embeddedTexture->mHeight != 0)
-	{
-		// Make texture
-		auto width = embeddedTexture->mWidth;
-		auto height = embeddedTexture->mHeight;
-	}
+	// Unsupported as assimp sample does not work
+
+	//if (embeddedTexture->mHeight != 0)
+	//{
+	//	// Make texture
+	//	auto width = embeddedTexture->mWidth;
+	//	auto height = embeddedTexture->mHeight;
+	//}
 }

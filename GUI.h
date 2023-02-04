@@ -5,12 +5,13 @@
 #include "imgui_impl_sdl.h"
 #include "SDL.h"
 #include "d3dx12.h"
+#include "CBVDescriptorHeap.h"
 
 class GUI
 {
 	UINT mGuiSrvOffset = 0;
 public:
-	GUI(ID3D12DescriptorHeap* cbvHeap, UINT guiSrvOffset, UINT cbvDescriptorSize, SDL_Window* window, ID3D12Device* device, UINT numFrameResources, DXGI_FORMAT backBufferFormat);
+	GUI(CBVDescriptorHeap* descriptorHeap, SDL_Window* window, ID3D12Device* device, UINT numFrameResources, DXGI_FORMAT backBufferFormat);
 	~GUI();
 	void NewFrame();
 	void Update(int numRenderItems);

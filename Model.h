@@ -24,6 +24,7 @@ private:
 	void LoadEmbeddedTexture(const aiTexture* embeddedTexture);
 	std::vector<Texture*> mLoadedTextures;
 	std::string mDirectory;
+	std::string mFileName;
 
 };
 

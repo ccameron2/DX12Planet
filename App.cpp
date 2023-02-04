@@ -49,7 +49,7 @@ void App::Initialize()
 
 	BuildFrameResources();
 
-	mCBVDescriptorHeap = make_unique<DescriptorHeap>(mGraphics->mD3DDevice.Get(),mFrameResources,mNumRenderItems + mModels.size(), mGraphics->mCbvSrvUavDescriptorSize);
+	mCBVDescriptorHeap = make_unique<CBVDescriptorHeap>(mGraphics->mD3DDevice.Get(),mFrameResources,mNumRenderItems + mModels.size(), mGraphics->mCbvSrvUavDescriptorSize);
 
 	CreateRootSignature();
 	CreateShaders();
@@ -58,8 +58,8 @@ void App::Initialize()
 	mGraphics->ExecuteCommands();
 
 	// Change this to pass descriptor heap class instead of half of these parameters. Save them in the descriptor when passed in above constructor.
-	mGUI = make_unique<GUI>(mCBVDescriptorHeap->mCBVHeap.Get(), mCBVDescriptorHeap->mGuiSrvOffset, mGraphics->mCbvSrvUavDescriptorSize,
-		mWindow->mSDLWindow, mGraphics->mD3DDevice.Get(), mNumFrameResources, mGraphics->mBackBufferFormat);
+	mGUI = make_unique<GUI>(mCBVDescriptorHeap.get(), mWindow->mSDLWindow, mGraphics->mD3DDevice.Get(),
+								mNumFrameResources, mGraphics->mBackBufferFormat);
 
 	// Make initial projection matrix
 	Resized();
@@ -140,19 +140,20 @@ void App::StartFrame()
 
 void App::LoadModels()
 {
-	Model* foxModel = new Model("Models/fox.fbx", mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
-	XMStoreFloat4x4(&foxModel->mWorldMatrix, XMMatrixIdentity() *
-														XMMatrixScaling(1, 1, 1) *
-														XMMatrixTranslation(4.0f, 0.0f, 0.0f) *
-														XMMatrixRotationX(90));
-	mModels.push_back(foxModel);
+	Model* earthModel = new Model("Models/tank.fbx", mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
+	XMStoreFloat4x4(&earthModel->mWorldMatrix, XMMatrixIdentity() 
+														* XMMatrixScaling(0.02, 0.02, 0.02)
+														* XMMatrixRotationY(90)
+														* XMMatrixTranslation(4.0f, 0.0f, 0.0f));
+														
+	mModels.push_back(earthModel);
 
-	Model* huskyModel = new Model("Models/Husky.fbx", mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
-	XMStoreFloat4x4(&huskyModel->mWorldMatrix, XMMatrixIdentity() *
-														XMMatrixScaling(1, 1, 1) * 
-														XMMatrixTranslation(-4.0f, 0.0f, 0.0f) * 
-														XMMatrixRotationX(90));
-	mModels.push_back(huskyModel);
+	//Model* huskyModel = new Model("Models/Fox.fbx", mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
+	//XMStoreFloat4x4(&huskyModel->mWorldMatrix, XMMatrixIdentity() *
+	//													XMMatrixScaling(1, 1, 1) * 
+	//													XMMatrixTranslation(-4.0f, 0.0f, 0.0f) * 
+	//													XMMatrixRotationX(90));
+	//mModels.push_back(huskyModel);
 
 	for (int i = 0; i < mModels.size(); i++)
 	{

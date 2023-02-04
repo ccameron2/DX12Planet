@@ -40,7 +40,7 @@
 #include "Graphics.h"
 #include "UploadBuffer.h"
 #include "FrameResource.h"
-#include "DescriptorHeap.h"
+#include "CBVDescriptorHeap.h"
 
 #include <fstream>
 
@@ -132,7 +132,7 @@ private:
 	FrameResource* mCurrentFrameResource = nullptr;
 	int mCurrentFrameResourceIndex = 0;
 
-	unique_ptr<DescriptorHeap> mCBVDescriptorHeap;
+	unique_ptr<CBVDescriptorHeap> mCBVDescriptorHeap;
 
 	D3D_DRIVER_TYPE mD3DDriverType = D3D_DRIVER_TYPE_HARDWARE;
 

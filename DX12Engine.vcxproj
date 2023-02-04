@@ -135,7 +135,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="DescriptorHeap.cpp" />
+    <ClCompile Include="CBVDescriptorHeap.cpp" />
     <ClCompile Include="FrameResource.cpp" />
     <ClCompile Include="App.cpp" />
     <ClCompile Include="GeometryData.cpp" />
@@ -157,7 +157,7 @@
     <ClCompile Include="UploadBuffer.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="DescriptorHeap.h" />
+    <ClInclude Include="CBVDescriptorHeap.h" />
     <ClInclude Include="FastNoiseLite.h" />
     <ClInclude Include="FrameResource.h" />
     <ClInclude Include="App.h" />
