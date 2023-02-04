@@ -43,9 +43,9 @@ void App::Initialize()
 
 	mPlanet = std::make_unique<Planet>();
 
-	LoadModels();
 	BuildSkullGeometry();
 	CreateRenderItems();
+	LoadModels();
 
 	BuildFrameResources();
 
@@ -140,9 +140,24 @@ void App::StartFrame()
 
 void App::LoadModels()
 {
-	Model* model = new Model("Models/fox.fbx", mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
-	XMStoreFloat4x4(&model->mWorldMatrix, XMMatrixIdentity() * /*XMMatrixScaling(0, 0, 0) **/ XMMatrixTranslation(4.0f, 0.0f, 0.0f) * XMMatrixRotationX(90));
-	mModels.push_back(model);
+	Model* foxModel = new Model("Models/fox.fbx", mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
+	XMStoreFloat4x4(&foxModel->mWorldMatrix, XMMatrixIdentity() *
+														XMMatrixScaling(1, 1, 1) *
+														XMMatrixTranslation(4.0f, 0.0f, 0.0f) *
+														XMMatrixRotationX(90));
+	mModels.push_back(foxModel);
+
+	Model* huskyModel = new Model("Models/Husky.fbx", mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
+	XMStoreFloat4x4(&huskyModel->mWorldMatrix, XMMatrixIdentity() *
+														XMMatrixScaling(1, 1, 1) * 
+														XMMatrixTranslation(-4.0f, 0.0f, 0.0f) * 
+														XMMatrixRotationX(90));
+	mModels.push_back(huskyModel);
+
+	for (int i = 0; i < mModels.size(); i++)
+	{
+		mModels[i]->mObjConstantBufferIndex = mNumRenderItems + i;
+	}
 }
 
 void App::CreateRenderItems()
@@ -176,15 +191,6 @@ void App::CreateRenderItems()
 	skullRitem->BaseVertexLocation = 0;
 	mRenderItems.push_back(skullRitem);
 
-	//RenderItem* foxRItem = new RenderItem();
-	//XMStoreFloat4x4(&foxRItem->WorldMatrix, XMMatrixIdentity() * XMMatrixScaling(1, 1, 1) * XMMatrixTranslation(4.0f, 0.0f, 0.0f) /** XMMatrixRotationX(90)*/);
-	//foxRItem->ObjConstantBufferIndex = 2;
-	//foxRItem->Geometry = mModels[0]->mMesh;
-	//foxRItem->Topology = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-	//foxRItem->IndexCount = mModels[0]->mMesh->mIndicesCount;
-	//foxRItem->StartIndexLocation = 0;
-	//foxRItem->BaseVertexLocation = 0;
-	//mRenderItems.push_back(foxRItem);
 
 	mNumRenderItems = mRenderItems.size();
 }

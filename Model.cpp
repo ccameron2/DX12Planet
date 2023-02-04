@@ -28,8 +28,6 @@ Model::Model(std::string fileName, ID3D12Device* device, ID3D12GraphicsCommandLi
 		mesh->CalculateBufferData(device, commandList);
 	}
 
-	//mMesh = new GeometryData();
-
 	//int numVerts = 0;
 	//for (auto& mesh : mMeshes)
 	//{
@@ -44,13 +42,10 @@ Model::Model(std::string fileName, ID3D12Device* device, ID3D12GraphicsCommandLi
 	//	}
 	//	numVerts = mMesh->mVertices.size();
 	//}
-
-	//mMesh->CalculateBufferData(device,commandList);
 }
 
 Model::~Model()
 {
-	delete mMesh;
 	for (auto& mesh : mMeshes)
 	{
 		delete mesh;
@@ -104,9 +99,9 @@ GeometryData* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 		}
 		else
 		{
-			vertex.Colour = { 1,0.2,0.2,0 };
+			vertex.Colour = { 0.1,0.1,0,0 };
 		}
-		// Texture Coordinates
+
 		if (mesh->mTextureCoords[0])
 		{
 			XMFLOAT2 vec;
@@ -131,23 +126,26 @@ GeometryData* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 	}
 
 	// Process materials
-	if (mesh->mMaterialIndex >= 0)
+	if (scene->HasMaterials())
 	{
-		aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
+		if (mesh->mMaterialIndex >= 0)
+		{
+			aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
 
-		// Diffuse maps
-		vector<Texture*> diffuseMaps = LoadMaterialTextures(material, aiTextureType_DIFFUSE, "texture_diffuse");
-		modelGeometry->mTextures.insert(modelGeometry->mTextures.end(), diffuseMaps.begin(), diffuseMaps.end());
-		
-		// Specular maps
-		vector<Texture*> specularMaps = LoadMaterialTextures(material, aiTextureType_SPECULAR, "texture_specular");
-		modelGeometry->mTextures.insert(modelGeometry->mTextures.end(), specularMaps.begin(), specularMaps.end());
+			// Diffuse maps
+			vector<Texture*> diffuseMaps = LoadMaterialTextures(material, aiTextureType_BASE_COLOR, "texture_diffuse", scene);
+			modelGeometry->mTextures.insert(modelGeometry->mTextures.end(), diffuseMaps.begin(), diffuseMaps.end());
+
+			// Specular maps
+			vector<Texture*> specularMaps = LoadMaterialTextures(material, aiTextureType_SPECULAR, "texture_specular", scene);
+			modelGeometry->mTextures.insert(modelGeometry->mTextures.end(), specularMaps.begin(), specularMaps.end());
+		}
 	}
-
+	
 	return modelGeometry;
 }
 
-vector<Texture*> Model::LoadMaterialTextures(aiMaterial* mat, aiTextureType type, string typeName)
+vector<Texture*> Model::LoadMaterialTextures(aiMaterial* mat, aiTextureType type, string typeName, const aiScene* scene)
 {
 	vector<Texture*> textures;
 
@@ -168,7 +166,16 @@ vector<Texture*> Model::LoadMaterialTextures(aiMaterial* mat, aiTextureType type
 		if (!skip)
 		{ 
 			Texture* texture = new Texture();
-			texture->ID = LoadTextureFromFile(str.C_Str(), mDirectory);
+
+			const aiTexture* embeddedTexture = scene->GetEmbeddedTexture(str.C_Str());
+			if (embeddedTexture != nullptr)
+			{
+				LoadEmbeddedTexture(embeddedTexture);
+			}
+			else
+			{
+				texture->ID = LoadTextureFromFile(str.C_Str(), mDirectory);
+			}		
 			texture->Type = typeName;
 			texture->Path = str;
 			textures.push_back(texture);
@@ -183,6 +190,18 @@ int Model::LoadTextureFromFile(const char* path, string directory)
 	// Generate texture ID and load texture data 
 	string filename = string(path);
 	filename = directory + '/' + filename;
+
+	// Make texture
 	//DirectX::CreateDDSTextureFromFile();
 	return 0;
+}
+
+void Model::LoadEmbeddedTexture(const aiTexture* embeddedTexture)
+{
+	if (embeddedTexture->mHeight != 0)
+	{
+		// Make texture
+		auto width = embeddedTexture->mWidth;
+		auto height = embeddedTexture->mHeight;
+	}
 }
