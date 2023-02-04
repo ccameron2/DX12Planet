@@ -23,7 +23,7 @@
 #include <memory>
 
 #include "Planet.h"
-//#include "DDSTextureLoader.h"
+#include "Model.h"
 
 #include <SDL.h>
 #include <imgui.h>
@@ -103,7 +103,7 @@ private:
 	// If diffent PSOs needed then use different lists
 	vector<RenderItem*> mRenderItems;
 	GeometryData* modelGeometry;
-
+	vector<Model*> mModels;
 
 	XMFLOAT3 mEyePos = { 0.0f, 0.0f, 0.0f };
 	XMFLOAT3 mLastEyePos = { 0.0f, 0.0f, 0.0f };
@@ -158,7 +158,8 @@ private:
 
 	void DrawRenderItems(ID3D12GraphicsCommandList* commandList);
 	void BuildSkullGeometry();
-	void LoadTeapotModel();
+	void LoadModels();
+	void DrawModels(ID3D12GraphicsCommandList* commandList);
 	void StartFrame();
 	void EndFrame();
 };

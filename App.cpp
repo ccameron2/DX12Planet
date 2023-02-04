@@ -1,7 +1,5 @@
 #include "App.h"
-#include <assimp/Importer.hpp>
-#include <assimp/scene.h>
-#include <assimp/postprocess.h>
+
 
 App::App()
 {
@@ -45,13 +43,13 @@ void App::Initialize()
 
 	mPlanet = std::make_unique<Planet>();
 
-	LoadTeapotModel();
+	LoadModels();
 	BuildSkullGeometry();
 	CreateRenderItems();
 
 	BuildFrameResources();
 
-	mCBVDescriptorHeap = make_unique<DescriptorHeap>(mGraphics->mD3DDevice.Get(),mFrameResources,mNumRenderItems,mGraphics->mCbvSrvUavDescriptorSize);
+	mCBVDescriptorHeap = make_unique<DescriptorHeap>(mGraphics->mD3DDevice.Get(),mFrameResources,mNumRenderItems + mModels.size(), mGraphics->mCbvSrvUavDescriptorSize);
 
 	CreateRootSignature();
 	CreateShaders();
@@ -59,6 +57,7 @@ void App::Initialize()
 
 	mGraphics->ExecuteCommands();
 
+	// Change this to pass descriptor heap class instead of half of these parameters. Save them in the descriptor when passed in above constructor.
 	mGUI = make_unique<GUI>(mCBVDescriptorHeap->mCBVHeap.Get(), mCBVDescriptorHeap->mGuiSrvOffset, mGraphics->mCbvSrvUavDescriptorSize,
 		mWindow->mSDLWindow, mGraphics->mD3DDevice.Get(), mNumFrameResources, mGraphics->mBackBufferFormat);
 
@@ -139,72 +138,11 @@ void App::StartFrame()
 	}
 }
 
-void App::LoadTeapotModel()
+void App::LoadModels()
 {
-	Assimp::Importer importer;
-	string file = "Models/Teapot.x";
-
-	const aiScene* scene = importer.ReadFile(file,
-		aiProcess_CalcTangentSpace |
-		aiProcess_Triangulate |
-		aiProcess_JoinIdenticalVertices |
-		aiProcess_SortByPType |
-		aiProcess_ConvertToLeftHanded);
-
-	if (!scene)
-	{
-		LPCWSTR str = LPCWSTR(importer.GetErrorString());
-		MessageBox(0, str, L"Error", MB_OK);
-	}
-
-	modelGeometry = new GeometryData();
-	
-	for (int i = 0; i < scene->mNumMeshes; i++)
-	{
-		aiMesh* mesh = scene->mMeshes[i];
-		for (int j = 0; j < mesh->mNumVertices; j++)
-		{
-			Vertex vertex;
-
-			if (mesh->HasPositions())
-			{
-				vertex.Pos.x = mesh->mVertices[j].x;
-				vertex.Pos.y = mesh->mVertices[j].y;
-				vertex.Pos.z = mesh->mVertices[j].z;
-			}
-
-			if (mesh->HasNormals())
-			{
-				vertex.Normal.x = mesh->mNormals[j].x;
-				vertex.Normal.y = mesh->mNormals[j].y;
-				vertex.Normal.z = mesh->mNormals[j].z;
-			}
-
-
-			if (mesh->HasVertexColors(j))
-			{
-				vertex.Colour.x = mesh->mColors[j]->r;
-				vertex.Colour.y = mesh->mColors[j]->g;
-				vertex.Colour.z = mesh->mColors[j]->b;
-				vertex.Colour.w = mesh->mColors[j]->a;
-			}
-			else
-			{
-				vertex.Colour = { 1,0.2,0.2,0 };
-			}
-			modelGeometry->mVertices.push_back(vertex);
-		}
-
-		for (int i = 0; i < mesh->mNumFaces; i++)
-		{
-			aiFace face = mesh->mFaces[i];
-			for (int j = 0; j < face.mNumIndices; j++)
-			{
-				modelGeometry->mIndices.push_back(face.mIndices[j]);
-			}
-		}
-	}
-	modelGeometry->CalculateBufferData(mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
+	Model* model = new Model("Models/fox.fbx", mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
+	XMStoreFloat4x4(&model->mWorldMatrix, XMMatrixIdentity() * /*XMMatrixScaling(0, 0, 0) **/ XMMatrixTranslation(4.0f, 0.0f, 0.0f) * XMMatrixRotationX(90));
+	mModels.push_back(model);
 }
 
 void App::CreateRenderItems()
@@ -238,17 +176,16 @@ void App::CreateRenderItems()
 	skullRitem->BaseVertexLocation = 0;
 	mRenderItems.push_back(skullRitem);
 
-	RenderItem* teapotRItem = new RenderItem();
-	XMStoreFloat4x4(&teapotRItem->WorldMatrix, XMMatrixIdentity() * XMMatrixScaling(0.1, 0.1, 0.1) * XMMatrixTranslation(4.0f, 0.0f, 0.0f) /** XMMatrixRotationX(90)*/);
-	teapotRItem->ObjConstantBufferIndex = 2;
-	teapotRItem->Geometry = modelGeometry;
-	teapotRItem->Topology = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-	teapotRItem->IndexCount = modelGeometry->mIndicesCount;
-	teapotRItem->StartIndexLocation = 0;
-	teapotRItem->BaseVertexLocation = 0;
-	mRenderItems.push_back(teapotRItem);
+	//RenderItem* foxRItem = new RenderItem();
+	//XMStoreFloat4x4(&foxRItem->WorldMatrix, XMMatrixIdentity() * XMMatrixScaling(1, 1, 1) * XMMatrixTranslation(4.0f, 0.0f, 0.0f) /** XMMatrixRotationX(90)*/);
+	//foxRItem->ObjConstantBufferIndex = 2;
+	//foxRItem->Geometry = mModels[0]->mMesh;
+	//foxRItem->Topology = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+	//foxRItem->IndexCount = mModels[0]->mMesh->mIndicesCount;
+	//foxRItem->StartIndexLocation = 0;
+	//foxRItem->BaseVertexLocation = 0;
+	//mRenderItems.push_back(foxRItem);
 
-	
 	mNumRenderItems = mRenderItems.size();
 }
 
@@ -256,7 +193,7 @@ void App::BuildFrameResources()
 {
 	for (int i = 0; i < mNumFrameResources; i++)
 	{
-		mFrameResources.push_back(std::make_unique<FrameResource>(mGraphics->mD3DDevice.Get(), 1, mNumRenderItems, 20000000, 80000000));
+		mFrameResources.push_back(std::make_unique<FrameResource>(mGraphics->mD3DDevice.Get(), 1, mNumRenderItems + mModels.size(), 20000000, 80000000));
 	}
 }
 
@@ -482,6 +419,26 @@ void App::UpdatePerObjectConstantBuffers()
 			rItem->NumDirtyFrames--;
 		}
 	}
+	for (auto& model : mModels)
+	{
+		// If their values have been changed
+		if (model->mNumDirtyFrames > 0)
+		{
+			// Get the world matrix of the item
+			XMMATRIX worldMatrix = XMLoadFloat4x4(&model->mWorldMatrix);
+
+			// Create a per object constants structure
+			FrameResource::mPerObjectConstants objectConstants;
+
+			// Transpose the world matrix into it
+			XMStoreFloat4x4(&objectConstants.WorldMatrix, XMMatrixTranspose(worldMatrix));
+
+			// Copy the structure into the current buffer at the item's index
+			currentObjectConstantBuffer->Copy(model->mObjConstantBufferIndex, objectConstants);
+
+			model->mNumDirtyFrames--;
+		}
+	}
 }
 
 void App::UpdatePerFrameConstantBuffer()
@@ -570,6 +527,8 @@ void App::Draw(float frameTime)
 
 	DrawRenderItems(commandList.Get());
 
+	DrawModels(commandList.Get());
+
 	mGraphics->ResolveMSAAToBackBuffer();
 
 	mGUI->Render(mGraphics->mCommandList.Get(), mGraphics->CurrentBackBuffer(), mGraphics->CurrentBackBufferView(), mGraphics->mDSVHeap.Get(), mGraphics->mDsvDescriptorSize);
@@ -597,9 +556,36 @@ void App::DrawRenderItems(ID3D12GraphicsCommandList* commandList)
 		commandList->IASetPrimitiveTopology(renderItem->Topology);
 
 		// Offset to the CBV in the descriptor heap for this object and for this frame resource
-		UINT cbvIndex = mCurrentFrameResourceIndex * (UINT)mRenderItems.size()+ renderItem->ObjConstantBufferIndex;
+		UINT cbvIndex = mCurrentFrameResourceIndex * ((UINT)mRenderItems.size() + mModels.size()) + renderItem->ObjConstantBufferIndex;
 		mGraphics->SetGraphicsRootDescriptorTable(mCBVDescriptorHeap->mCBVHeap.Get(), cbvIndex, 0);
 		commandList->DrawIndexedInstanced(renderItem->IndexCount, 1, renderItem->StartIndexLocation, renderItem->BaseVertexLocation, 0);
+	}
+}
+
+void App::DrawModels(ID3D12GraphicsCommandList* commandList)
+{
+	// Get size of the per object constant buffer 
+	UINT objCBByteSize = CalculateConstantBufferSize(sizeof(FrameResource::mPerObjectConstants));
+
+	// Get reference to current per object constant buffer
+	auto objectCB = mCurrentFrameResource->mPerObjectConstantBuffer->GetBuffer();
+
+	// For each model
+	for (size_t i = 0; i < mModels.size(); i++)
+	{
+		// Set topology, vertex and index buffers
+		auto model = mModels[i];
+		
+		for (auto mesh : model->mMeshes)
+		{
+			commandList->IASetVertexBuffers(0, 1, &mesh->GetVertexBufferView());
+			commandList->IASetIndexBuffer(&mesh->GetIndexBufferView());
+			commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+			// Offset to the CBV in the descriptor heap for this object and for this frame resource
+			UINT cbvIndex = mCurrentFrameResourceIndex * ((UINT)mRenderItems.size() + (UINT)mModels.size()) + model->mObjConstantBufferIndex;
+			mGraphics->SetGraphicsRootDescriptorTable(mCBVDescriptorHeap->mCBVHeap.Get(), cbvIndex, 0);
+			commandList->DrawIndexedInstanced(mesh->mIndices.size(), 1, 0, 0, 0);
+		}
 	}
 }
 
@@ -691,6 +677,11 @@ App::~App()
 	if (mGraphics->mD3DDevice != nullptr) { mGraphics->EmptyCommandQueue(); }
 
 	delete modelGeometry;
+
+	for (auto& model : mModels)
+	{
+		delete model;
+	}
 
 	// Delete render items
 	for (auto& renderItem : mRenderItems)

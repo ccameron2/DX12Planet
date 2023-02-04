@@ -105,13 +105,13 @@
       <PreprocessorDefinitions>SFML_STATIC;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <ConformanceMode>false</ConformanceMode>
-      <AdditionalIncludeDirectories>$(ProjectDir)External\ImGui\include;$(ProjectDir)External\SDL2.26\include;$(ProjectDir)External\assimp\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)External\ImGui\include;$(ProjectDir)External\SDL2.26\include;$(ProjectDir)External\assimp\include;$(ProjectDir)External\DirectXTK12\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(ProjectDir)External\SDL2.26\lib\Debug;$(ProjectDir)External\ImGui\lib\Debug;$(ProjectDir)External\assimp\lib\Debug</AdditionalLibraryDirectories>
-      <AdditionalDependencies>imguid.lib;SDL2-staticd.lib;winmm.lib;version.lib;Imm32.lib;Setupapi.lib;assimp-vc143-mtd.lib;zlibstaticd.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(ProjectDir)External\SDL2.26\lib\Debug;$(ProjectDir)External\ImGui\lib\Debug;$(ProjectDir)External\assimp\lib\Debug;$(ProjectDir)External\DirectXTK12\lib\Debug</AdditionalLibraryDirectories>
+      <AdditionalDependencies>imguid.lib;SDL2-staticd.lib;winmm.lib;version.lib;Imm32.lib;Setupapi.lib;assimp-vc143-mtd.lib;zlibstaticd.lib;DirectXTK12d.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -123,15 +123,15 @@
       <PreprocessorDefinitions>SFML_STATIC;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <ConformanceMode>false</ConformanceMode>
-      <AdditionalIncludeDirectories>$(ProjectDir)External\SDL2.26\include;$(ProjectDir)External\ImGui\include;$(ProjectDir)External\assimp\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)External\SDL2.26\include;$(ProjectDir)External\ImGui\include;$(ProjectDir)External\assimp\include;$(ProjectDir)External\DirectXTK12\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(ProjectDir)External\SDL2.26\lib\Release;$(ProjectDir)External\ImGui\lib\Release;$(ProjectDir)External\assimp\lib\Release</AdditionalLibraryDirectories>
-      <AdditionalDependencies>imgui.lib;SDL2-static.lib;winmm.lib;version.lib;Imm32.lib;Setupapi.lib;assimp-vc143-mt.lib;zlibstatic.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(ProjectDir)External\SDL2.26\lib\Release;$(ProjectDir)External\ImGui\lib\Release;$(ProjectDir)External\assimp\lib\Release;$(ProjectDir)External\DirectXTK12\lib\Release</AdditionalLibraryDirectories>
+      <AdditionalDependencies>imgui.lib;SDL2-static.lib;winmm.lib;version.lib;Imm32.lib;Setupapi.lib;assimp-vc143-mt.lib;zlibstatic.lib;DirectXTK12.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -150,6 +150,7 @@
     <ClCompile Include="ImGui\imgui_tables.cpp" />
     <ClCompile Include="ImGui\imgui_widgets.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="Model.cpp" />
     <ClCompile Include="Planet.cpp" />
     <ClCompile Include="Window.cpp" />
     <ClCompile Include="Timer.cpp" />
@@ -165,6 +166,7 @@
     <ClInclude Include="Graphics.h" />
     <ClInclude Include="GUI.h" />
     <ClInclude Include="Icosahedron.h" />
+    <ClInclude Include="Model.h" />
     <ClInclude Include="Planet.h" />
     <ClInclude Include="Window.h" />
     <ClInclude Include="UploadBuffer.h" />

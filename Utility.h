@@ -7,6 +7,7 @@
 #include "d3dx12.h"
 #include <DirectXMath.h>
 #include "FastNoiseLite.h"
+#include <assimp/scene.h>
 
 using namespace std;
 using namespace DirectX;
@@ -23,6 +24,16 @@ struct Vertex
 	XMFLOAT3 Pos = XMFLOAT3{ 0,0,0 };
 	XMFLOAT4 Colour = XMFLOAT4{ 0,0,0,0 };
 	XMFLOAT3 Normal = XMFLOAT3{ 0,0,0 };
+	XMFLOAT2 UV = XMFLOAT2{ 0,0 };
+};
+
+struct Texture
+{
+	int ID;
+	string Type;
+	aiString Path;
+	Microsoft::WRL::ComPtr<ID3D12Resource> Resource = nullptr;
+	Microsoft::WRL::ComPtr<ID3D12Resource> UploadHeap = nullptr;
 };
 
 static ComPtr<ID3D12Resource> CreateDefaultBuffer(const void* initData, UINT64 byteSize, ComPtr<ID3D12Resource>& uploadBuffer, 

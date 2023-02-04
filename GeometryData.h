@@ -37,6 +37,7 @@ public:
 
 	std::vector<Vertex> mVertices;
 	std::vector<uint32_t> mIndices;
+	std::vector<Texture*> mTextures;
 
 	D3D12_VERTEX_BUFFER_VIEW GetVertexBufferView();
 	D3D12_INDEX_BUFFER_VIEW GetIndexBufferView();

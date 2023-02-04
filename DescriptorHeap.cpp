@@ -6,6 +6,7 @@ DescriptorHeap::DescriptorHeap(ID3D12Device* device, std::vector<std::unique_ptr
 	UINT objCount = (UINT)numRenderItems;
 
 	UINT numFrameResources = frameResources.size();
+
 	// Need a CBV descriptor for each object for each frame resource,
 	UINT numDescriptors = (objCount + 1) * numFrameResources; // +1 for the perFrameCB for each frame resource.
 
