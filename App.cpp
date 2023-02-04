@@ -49,7 +49,8 @@ void App::Initialize()
 
 	BuildFrameResources();
 
-	mCBVDescriptorHeap = make_unique<CBVDescriptorHeap>(mGraphics->mD3DDevice.Get(),mFrameResources,mNumRenderItems + mModels.size(), mGraphics->mCbvSrvUavDescriptorSize);
+	mCBVDescriptorHeap = make_unique<CBVDescriptorHeap>(mGraphics->mD3DDevice.Get(),mFrameResources,
+									mNumRenderItems + mModels.size(), mGraphics->mCbvSrvUavDescriptorSize);
 
 	CreateRootSignature();
 	CreateShaders();
