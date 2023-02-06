@@ -41,7 +41,7 @@ XMVECTOR ComputeNormal(XMVECTOR p0, XMVECTOR p1, XMVECTOR p2)
 
 Icosahedron::Icosahedron(float frequency, int recursions, int octaves, XMFLOAT3 eyePos, bool tesselation)
 {
-	mGeometryData = std::make_unique<GeometryData>();
+	mGeometryData = std::make_unique<Mesh>();
 
 	ResetGeometry(eyePos,frequency,recursions, octaves, tesselation);
 

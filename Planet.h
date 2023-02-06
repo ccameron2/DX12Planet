@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Utility.h"
-#include "GeometryData.h"
+#include "Mesh.h"
 
 #include <DirectXColors.h>
 #include <vector>
@@ -49,7 +49,7 @@ public:
 	int GetVertexForEdge(int v1, int v2);
 	std::vector<Triangle> SubdivideTriangle(Triangle triangle);
 	void GetTriangles(Node* node);
-	unique_ptr<GeometryData> mGeometryData;
+	unique_ptr<Mesh> mGeometryData;
 	void ApplyNoise(float frequency, int octaves);
 	std::vector<Vertex> mVertices;
 	std::vector<uint32_t> mIndices;

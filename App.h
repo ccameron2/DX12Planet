@@ -86,14 +86,14 @@ private:
 
 	unique_ptr<Planet> mPlanet;
 
-	unique_ptr<GeometryData> mSkullGeometry;
+	unique_ptr<Mesh> mSkullGeometry;
 	unique_ptr<Icosahedron> mIcoLight;
 	struct RenderItem
 	{
 		XMFLOAT4X4 WorldMatrix = MakeIdentity4x4();
 		int NumDirtyFrames = 3;
 		UINT ObjConstantBufferIndex = -1;
-		GeometryData* Geometry = nullptr;
+		Mesh* Geometry = nullptr;
 		D3D12_PRIMITIVE_TOPOLOGY Topology = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
 		UINT IndexCount = 0;
 		UINT StartIndexLocation = 0;
@@ -102,7 +102,7 @@ private:
 
 	// If diffent PSOs needed then use different lists
 	vector<RenderItem*> mRenderItems;
-	GeometryData* modelGeometry;
+	Mesh* modelGeometry;
 	vector<Model*> mModels;
 
 	XMFLOAT3 mEyePos = { 0.0f, 0.0f, 0.0f };

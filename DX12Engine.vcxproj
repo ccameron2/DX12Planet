@@ -138,7 +138,7 @@
     <ClCompile Include="CBVDescriptorHeap.cpp" />
     <ClCompile Include="FrameResource.cpp" />
     <ClCompile Include="App.cpp" />
-    <ClCompile Include="GeometryData.cpp" />
+    <ClCompile Include="Mesh.cpp" />
     <ClCompile Include="Graphics.cpp" />
     <ClCompile Include="GUI.cpp" />
     <ClCompile Include="Icosahedron.cpp" />
@@ -162,7 +162,7 @@
     <ClInclude Include="FrameResource.h" />
     <ClInclude Include="App.h" />
     <ClInclude Include="d3dx12.h" />
-    <ClInclude Include="GeometryData.h" />
+    <ClInclude Include="Mesh.h" />
     <ClInclude Include="Graphics.h" />
     <ClInclude Include="GUI.h" />
     <ClInclude Include="Icosahedron.h" />

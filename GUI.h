@@ -27,6 +27,6 @@ public:
 	bool mWMatrixChanged = false;
 	bool mTesselation = false;
 	int mSelectedRenderItem = 0;
-	bool mVSync = false;
+	bool mVSync = true;
 };
 

@@ -3,7 +3,7 @@
 #include <vector>
 #include <DirectXColors.h>
 #include <DirectXMath.h>
-#include "GeometryData.h"
+#include "Mesh.h"
 #include <map>
 #include <utility>
 
@@ -21,7 +21,7 @@ public:
 
 	XMFLOAT3 mEyePos;
 
-	unique_ptr<GeometryData> mGeometryData;
+	unique_ptr<Mesh> mGeometryData;
 	std::vector<Vertex> mVertices;
 	std::vector<uint32_t> mIndices;
 	std::vector<Triangle> mTriangles;

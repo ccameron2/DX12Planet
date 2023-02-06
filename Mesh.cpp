@@ -1,6 +1,6 @@
-#include "GeometryData.h"
+#include "Mesh.h"
 
-D3D12_VERTEX_BUFFER_VIEW GeometryData::GetVertexBufferView()
+D3D12_VERTEX_BUFFER_VIEW Mesh::GetVertexBufferView()
 {
 	D3D12_VERTEX_BUFFER_VIEW vbv;
 	vbv.BufferLocation = mGPUVertexBuffer->GetGPUVirtualAddress();
@@ -8,7 +8,7 @@ D3D12_VERTEX_BUFFER_VIEW GeometryData::GetVertexBufferView()
 	vbv.SizeInBytes = mVertexBufferByteSize;
 	return vbv;
 }
-D3D12_INDEX_BUFFER_VIEW GeometryData::GetIndexBufferView()
+D3D12_INDEX_BUFFER_VIEW Mesh::GetIndexBufferView()
 {
 	D3D12_INDEX_BUFFER_VIEW ibv;
 	ibv.BufferLocation = mGPUIndexBuffer->GetGPUVirtualAddress();
@@ -16,13 +16,13 @@ D3D12_INDEX_BUFFER_VIEW GeometryData::GetIndexBufferView()
 	ibv.SizeInBytes = mIndexBufferByteSize;
 	return ibv;
 }
-void GeometryData::EmptyUploaders()
+void Mesh::EmptyUploaders()
 {
 	mVertexBufferUploader = nullptr;
 	mIndexBufferUploader = nullptr;
 }
 
-void GeometryData::CalculateDynamicBufferData()
+void Mesh::CalculateDynamicBufferData()
 {
 	UINT vbByteSize = mVertices.size() * sizeof(Vertex);
 	UINT ibByteSize = (UINT)mIndices.size() * sizeof(std::uint32_t);
@@ -36,7 +36,7 @@ void GeometryData::CalculateDynamicBufferData()
 
 }
 
-void GeometryData::CalculateBufferData(ID3D12Device* d3DDevice, ID3D12GraphicsCommandList* commandList)
+void Mesh::CalculateBufferData(ID3D12Device* d3DDevice, ID3D12GraphicsCommandList* commandList)
 {
 	mIndicesCount = mIndices.size();
 	const UINT vBSize = (UINT)mVertices.size() * sizeof(Vertex);

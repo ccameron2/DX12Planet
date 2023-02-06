@@ -26,12 +26,23 @@ struct Vertex
 	XMFLOAT3 Normal = XMFLOAT3{ 0,0,0 };
 	XMFLOAT2 UV = XMFLOAT2{ 0,0 };
 };
+struct Material
+{
+	string Name;
+	XMFLOAT4 DiffuseColour = XMFLOAT4{ 1, 1, 1, 1 };
+	XMFLOAT3 SpecularColour = XMFLOAT3{ 1, 1, 1 };
+	XMFLOAT3 AmbientColour = XMFLOAT3{ 0, 0, 0 };
+	XMFLOAT3 EmissiveColour = XMFLOAT3{ 0, 0, 0 };
+	XMFLOAT3 BaseColour = XMFLOAT3{ 1, 1, 1 };
+	float SpecularPower;
+	float ParallaxDepth;
+};
 
 struct Texture
 {
 	int ID;
 	string Type;
-	aiString Path;
+	aiString Path;	
 	Microsoft::WRL::ComPtr<ID3D12Resource> Resource = nullptr;
 	Microsoft::WRL::ComPtr<ID3D12Resource> UploadHeap = nullptr;
 };

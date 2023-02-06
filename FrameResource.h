@@ -16,6 +16,8 @@ public:
     const static int mMaxLights = 16;
     struct mLight
     {
+        DirectX::XMFLOAT3 Colour = { 1.0f,1.0f,1.0f };
+        float padding1 = 0.0f;
         DirectX::XMFLOAT3 Strength = { 0.5f, 0.5f, 0.5f };
         float FalloffStart = 1.0f;                          
         DirectX::XMFLOAT3 Direction = { 0.0f, -1.0f, 0.0f };

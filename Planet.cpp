@@ -26,7 +26,7 @@ void Planet::CreatePlanet(float frequency, int octaves, int lod)
 
 	CalculateNormals();
 
-	mGeometryData = make_unique<GeometryData>();
+	mGeometryData = make_unique<Mesh>();
 
 	mGeometryData->mVertices = mVertices;
 	mGeometryData->mIndices = mIndices;

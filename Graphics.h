@@ -14,7 +14,7 @@
 #include <algorithm>
 #include <memory>
 #include "Utility.h"
-#include "GeometryData.h"
+#include "Mesh.h"
 
 using namespace DirectX;
 using Microsoft::WRL::ComPtr;

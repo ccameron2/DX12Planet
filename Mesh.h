@@ -13,7 +13,8 @@
 using namespace std;
 using namespace DirectX;
 using Microsoft::WRL::ComPtr;
-class GeometryData
+
+class Mesh
 {
 public:
 	// Vertex and index buffers on CPU side
@@ -38,6 +39,7 @@ public:
 	std::vector<Vertex> mVertices;
 	std::vector<uint32_t> mIndices;
 	std::vector<Texture*> mTextures;
+	int mMaterialIndex = 0;
 
 	D3D12_VERTEX_BUFFER_VIEW GetVertexBufferView();
 	D3D12_INDEX_BUFFER_VIEW GetIndexBufferView();

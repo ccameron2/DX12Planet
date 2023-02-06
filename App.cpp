@@ -108,7 +108,7 @@ void App::BuildSkullGeometry()
 
 	const UINT ibByteSize = (UINT)indices.size() * sizeof(std::int32_t);
 
-	mSkullGeometry = make_unique<GeometryData>();
+	mSkullGeometry = make_unique<Mesh>();
 	D3DCreateBlob(vbByteSize, &mSkullGeometry->mCPUVertexBuffer);
 	CopyMemory(mSkullGeometry->mCPUVertexBuffer->GetBufferPointer(), vertices.data(), vbByteSize);
 
@@ -141,20 +141,20 @@ void App::StartFrame()
 
 void App::LoadModels()
 {
-	Model* earthModel = new Model("Models/tank.fbx", mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
-	XMStoreFloat4x4(&earthModel->mWorldMatrix, XMMatrixIdentity() 
-														* XMMatrixScaling(0.02, 0.02, 0.02)
-														* XMMatrixRotationY(90)
+	Model* foxModel = new Model("Models/fox.fbx", mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
+	XMStoreFloat4x4(&foxModel->mWorldMatrix, XMMatrixIdentity() 
+														* XMMatrixScaling(1, 1, 1)
+														* XMMatrixRotationX(90)
 														* XMMatrixTranslation(4.0f, 0.0f, 0.0f));
 														
-	mModels.push_back(earthModel);
+	mModels.push_back(foxModel);
 
-	//Model* huskyModel = new Model("Models/Fox.fbx", mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
-	//XMStoreFloat4x4(&huskyModel->mWorldMatrix, XMMatrixIdentity() *
-	//													XMMatrixScaling(1, 1, 1) * 
-	//													XMMatrixTranslation(-4.0f, 0.0f, 0.0f) * 
-	//													XMMatrixRotationX(90));
-	//mModels.push_back(huskyModel);
+	Model* wolfModel = new Model("Models/Wolf.fbx", mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
+	XMStoreFloat4x4(&wolfModel->mWorldMatrix, XMMatrixIdentity() *
+														XMMatrixScaling(1, 1, 1) * 
+														XMMatrixTranslation(-4.0f, 0.0f, 0.0f) * 
+														XMMatrixRotationX(90));
+	mModels.push_back(wolfModel);
 
 	for (int i = 0; i < mModels.size(); i++)
 	{
@@ -476,9 +476,10 @@ void App::UpdatePerFrameConstantBuffer()
 	XMVECTOR lightDir = -SphericalToCartesian(1.0f, mSunTheta, mSunPhi);
 	XMStoreFloat3(&perFrameConstantBuffer.Lights[0].Direction, lightDir);
 
-	perFrameConstantBuffer.Lights[0].Position = { 0.0f, 0.0f, 8.0f };
+	perFrameConstantBuffer.Lights[0].Colour = { 0.5f,0.5f,0.5f };
+	perFrameConstantBuffer.Lights[0].Position = { 4.0f, 4.0f, 0.0f };
 	perFrameConstantBuffer.Lights[0].Direction = { -0.57735f, -0.57735f, 0.57735f };
-	perFrameConstantBuffer.Lights[0].Strength = { 0.6f, 0.6f, 0.6f };
+	//perFrameConstantBuffer.Lights[0].Strength = { 10.0f, 10.0f, 10.0f };
 	//perFrameConstantBuffer.Lights[1].Direction = { -0.57735f, -0.57735f, 0.57735f };
 	//perFrameConstantBuffer.Lights[1].Strength = { 0.3f, 0.3f, 0.3f };
 	//perFrameConstantBuffer.Lights[2].Direction = { 0.0f, -0.707f, -0.707f };
