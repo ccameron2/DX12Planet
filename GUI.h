@@ -28,5 +28,6 @@ public:
 	bool mTesselation = false;
 	int mSelectedRenderItem = 0;
 	bool mVSync = true;
+	float mLightDir[3] = { -0.577f, -0.577f, 0.577f };
 };
 

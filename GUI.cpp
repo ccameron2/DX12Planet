@@ -92,6 +92,8 @@ void GUI::Update(int numRenderItems)
 
 	if (ImGui::Checkbox("VSync", &mVSync));
 
+	if (ImGui::SliderFloat3("Light Direction", mLightDir, -1, +1));
+
 	ImGui::Text("Average: %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 	ImGui::End();
 

@@ -149,11 +149,11 @@ void App::LoadModels()
 														
 	mModels.push_back(foxModel);
 
-	Model* wolfModel = new Model("Models/Wolf.fbx", mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
-	XMStoreFloat4x4(&wolfModel->mWorldMatrix, XMMatrixIdentity() *
-														XMMatrixScaling(1, 1, 1) * 
-														XMMatrixTranslation(-4.0f, 0.0f, 0.0f) * 
-														XMMatrixRotationX(90));
+	Model* wolfModel = new Model("Models/tank.fbx", mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
+	XMStoreFloat4x4(&wolfModel->mWorldMatrix, XMMatrixIdentity()
+														* XMMatrixScaling(0.5, 0.5, 0.51)
+														//* XMMatrixRotationX(90)
+														* XMMatrixTranslation(-4.0f, 0.0f, 0.0f));
 	mModels.push_back(wolfModel);
 
 	for (int i = 0; i < mModels.size(); i++)
@@ -478,7 +478,7 @@ void App::UpdatePerFrameConstantBuffer()
 
 	perFrameConstantBuffer.Lights[0].Colour = { 0.5f,0.5f,0.5f };
 	perFrameConstantBuffer.Lights[0].Position = { 4.0f, 4.0f, 0.0f };
-	perFrameConstantBuffer.Lights[0].Direction = { -0.57735f, -0.57735f, 0.57735f };
+	perFrameConstantBuffer.Lights[0].Direction = { mGUI->mLightDir[0], mGUI->mLightDir[1], mGUI->mLightDir[2] };
 	//perFrameConstantBuffer.Lights[0].Strength = { 10.0f, 10.0f, 10.0f };
 	//perFrameConstantBuffer.Lights[1].Direction = { -0.57735f, -0.57735f, 0.57735f };
 	//perFrameConstantBuffer.Lights[1].Strength = { 0.3f, 0.3f, 0.3f };

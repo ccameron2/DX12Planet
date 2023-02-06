@@ -24,16 +24,27 @@ Model::Model(std::string fileName, ID3D12Device* device, ID3D12GraphicsCommandLi
 	mFileName = fileName.substr(fileName.find_last_of('/') + 1, fileName.find_last_of('.') - fileName.find_last_of('/') - 1);
 	ProcessNode(scene->mRootNode, scene);
 
-	for (auto& mesh : mMeshes)
+	if (mBaseMaterials.size() > 0)
 	{
-		// temp dont do this
-		for (auto& vertex : mesh->mVertices)
+		for (auto& mesh : mMeshes)
 		{
-			vertex.Colour = mBaseMaterials[mesh->mMaterialIndex]->DiffuseColour;
-		}
+			// temp dont do this
+			for (auto& vertex : mesh->mVertices)
+			{
+				vertex.Colour = mBaseMaterials[mesh->mMaterialIndex]->DiffuseColour;
+			}
 
-		mesh->CalculateBufferData(device, commandList);
+			mesh->CalculateBufferData(device, commandList);
+		}
 	}
+	else
+	{
+		for (auto& mesh : mMeshes)
+		{
+			mesh->CalculateBufferData(device, commandList);
+		}
+	}
+	
 
 	//int numVerts = 0;
 	//for (auto& mesh : mMeshes)
