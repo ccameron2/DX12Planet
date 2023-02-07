@@ -33,6 +33,7 @@
 #include "imgui_impl_dx12.h"
 
 #include "Window.h"
+#include "Camera.h"
 
 #include "Timer.h"
 #include "Utility.h"
@@ -76,17 +77,14 @@ private:
 	void CreateShaders();
 	void CreatePSO();
 	void RecreatePlanetGeometry();
-	void MouseMoved(SDL_Event&);
 	void ProcessEvents(SDL_Event& e);
-	void Resized();
-	void UpdateCamera();
+
 	unique_ptr<Graphics> mGraphics;
 	unique_ptr<Window> mWindow;
 	SDL_Surface mScreenSurface;
 
 	unique_ptr<Planet> mPlanet;
 
-	unique_ptr<Mesh> mSkullGeometry;
 	unique_ptr<Icosahedron> mIcoLight;
 	struct RenderItem
 	{
@@ -102,28 +100,15 @@ private:
 
 	// If diffent PSOs needed then use different lists
 	vector<RenderItem*> mRenderItems;
-	Mesh* modelGeometry;
 	vector<Model*> mModels;
-
-	XMFLOAT3 mEyePos = { 0.0f, 0.0f, 0.0f };
-	XMFLOAT3 mLastEyePos = { 0.0f, 0.0f, 0.0f };
-	XMFLOAT4X4 mWorldMatrix = MakeIdentity4x4();
-	XMFLOAT4X4 mViewMatrix = MakeIdentity4x4();
-	XMFLOAT4X4 mProjectionMatrix = MakeIdentity4x4();
 	
 	XMFLOAT4X4 mGUIWorldMatrix = MakeIdentity4x4();
-	XMFLOAT4X4 mIcoTranslationMatrix = MakeIdentity4x4();
 
+	unique_ptr<Camera> mCamera;
 	unique_ptr<GUI> mGUI;
 
 	float mSunTheta = 1.25f * XM_PI;
 	float mSunPhi = XM_PIDIV4;
-
-	POINT mLastMousePos;
-
-	float mTheta = 1.5f * XM_PI;
-	float mPhi = XM_PIDIV4;
-	float mRadius = 5.0f;
 
 	bool mWireframe = false;
 	int mNumRenderItems = 0;
@@ -157,7 +142,6 @@ private:
 	void BuildFrameResources();
 
 	void DrawRenderItems(ID3D12GraphicsCommandList* commandList);
-	void BuildSkullGeometry();
 	void LoadModels();
 	void DrawModels(ID3D12GraphicsCommandList* commandList);
 	void StartFrame();

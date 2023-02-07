@@ -135,6 +135,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Camera.cpp" />
     <ClCompile Include="CBVDescriptorHeap.cpp" />
     <ClCompile Include="FrameResource.cpp" />
     <ClCompile Include="App.cpp" />
@@ -157,6 +158,7 @@
     <ClCompile Include="UploadBuffer.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Camera.h" />
     <ClInclude Include="CBVDescriptorHeap.h" />
     <ClInclude Include="FastNoiseLite.h" />
     <ClInclude Include="FrameResource.h" />

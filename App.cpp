@@ -39,18 +39,21 @@ void App::Initialize()
 ;
 	mGraphics = make_unique<Graphics>(hwnd, mWindow->mWidth, mWindow->mHeight);
 	
-	UpdateCamera();
+	mCamera = make_unique<Camera>(mWindow.get());
+
+	mCamera->Update();
 
 	mPlanet = std::make_unique<Planet>();
 
-	BuildSkullGeometry();
 	CreateRenderItems();
 	LoadModels();
 
 	BuildFrameResources();
 
+	int numModels = mNumRenderItems + mModels.size();
+
 	mCBVDescriptorHeap = make_unique<CBVDescriptorHeap>(mGraphics->mD3DDevice.Get(),mFrameResources,
-									mNumRenderItems + mModels.size(), mGraphics->mCbvSrvUavDescriptorSize);
+									numModels, mGraphics->mCbvSrvUavDescriptorSize);
 
 	CreateRootSignature();
 	CreateShaders();
@@ -61,69 +64,6 @@ void App::Initialize()
 	// Change this to pass descriptor heap class instead of half of these parameters. Save them in the descriptor when passed in above constructor.
 	mGUI = make_unique<GUI>(mCBVDescriptorHeap.get(), mWindow->mSDLWindow, mGraphics->mD3DDevice.Get(),
 								mNumFrameResources, mGraphics->mBackBufferFormat);
-
-	// Make initial projection matrix
-	Resized();
-}
-
-void App::BuildSkullGeometry()
-{
-	std::ifstream fin("skull.txt");
-
-	if (!fin)
-	{
-		MessageBox(0, L"skull.txt not found.", 0, 0);
-		return;
-	}
-
-	UINT vcount = 0;
-	UINT tcount = 0;
-	std::string ignore;
-
-	fin >> ignore >> vcount;
-	fin >> ignore >> tcount;
-	fin >> ignore >> ignore >> ignore >> ignore;
-
-	std::vector<Vertex> vertices(vcount);
-	for (UINT i = 0; i < vcount; ++i)
-	{
-		fin >> vertices[i].Pos.x >> vertices[i].Pos.y >> vertices[i].Pos.z;
-		fin >> vertices[i].Normal.x >> vertices[i].Normal.y >> vertices[i].Normal.z;
-		vertices[i].Colour = { 0.9f,0.9f,0.9f,1.0f };
-	}
-
-	fin >> ignore;
-	fin >> ignore;
-	fin >> ignore;
-
-	std::vector<std::int32_t> indices(3 * tcount);
-	for (UINT i = 0; i < tcount; ++i)
-	{
-		fin >> indices[i * 3 + 0] >> indices[i * 3 + 1] >> indices[i * 3 + 2];
-	}
-
-	fin.close();
-
-	const UINT vbByteSize = (UINT)vertices.size() * sizeof(Vertex);
-
-	const UINT ibByteSize = (UINT)indices.size() * sizeof(std::int32_t);
-
-	mSkullGeometry = make_unique<Mesh>();
-	D3DCreateBlob(vbByteSize, &mSkullGeometry->mCPUVertexBuffer);
-	CopyMemory(mSkullGeometry->mCPUVertexBuffer->GetBufferPointer(), vertices.data(), vbByteSize);
-
-	D3DCreateBlob(ibByteSize, &mSkullGeometry->mCPUIndexBuffer);
-	CopyMemory(mSkullGeometry->mCPUIndexBuffer->GetBufferPointer(), indices.data(), ibByteSize);
-
-	mSkullGeometry->mGPUVertexBuffer = CreateDefaultBuffer(vertices.data(), vbByteSize, mSkullGeometry->mVertexBufferUploader, mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
-
-	mSkullGeometry->mGPUIndexBuffer = CreateDefaultBuffer(indices.data(), ibByteSize, mSkullGeometry->mIndexBufferUploader, mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
-
-	mSkullGeometry->mVertexByteStride = sizeof(Vertex);
-	mSkullGeometry->mVertexBufferByteSize = vbByteSize;
-	mSkullGeometry->mIndexFormat = DXGI_FORMAT_R32_UINT;
-	mSkullGeometry->mIndexBufferByteSize = ibByteSize;
-	mSkullGeometry->mIndicesCount = (UINT)indices.size();
 }
 
 void App::StartFrame()
@@ -141,6 +81,14 @@ void App::StartFrame()
 
 void App::LoadModels()
 {
+
+	Model* otherModel = new Model("Models/Dragon.fbx", mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
+	XMStoreFloat4x4(&otherModel->mWorldMatrix, XMMatrixIdentity()
+		* XMMatrixScaling(1, 1, 1)
+		* XMMatrixRotationX(90)
+		* XMMatrixTranslation(8.0f, 0.0f, 0.0f));
+	mModels.push_back(otherModel);
+
 	Model* foxModel = new Model("Models/fox.fbx", mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
 	XMStoreFloat4x4(&foxModel->mWorldMatrix, XMMatrixIdentity() 
 														* XMMatrixScaling(1, 1, 1)
@@ -151,10 +99,18 @@ void App::LoadModels()
 
 	Model* wolfModel = new Model("Models/tank.fbx", mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
 	XMStoreFloat4x4(&wolfModel->mWorldMatrix, XMMatrixIdentity()
-														* XMMatrixScaling(0.5, 0.5, 0.51)
+														* XMMatrixScaling(1, 1, 1)
 														//* XMMatrixRotationX(90)
 														* XMMatrixTranslation(-4.0f, 0.0f, 0.0f));
 	mModels.push_back(wolfModel);
+
+
+	Model* anotherModel = new Model("Models/Slime.fbx", mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
+	XMStoreFloat4x4(&anotherModel->mWorldMatrix, XMMatrixIdentity()
+		* XMMatrixScaling(1, 1, 1)
+		* XMMatrixRotationX(90)
+		* XMMatrixTranslation(-8.0f, 0.0f, 0.0f));
+	mModels.push_back(anotherModel);
 
 	for (int i = 0; i < mModels.size(); i++)
 	{
@@ -182,17 +138,6 @@ void App::CreateRenderItems()
 	planetRenderItem->StartIndexLocation = 0;
 	planetRenderItem->BaseVertexLocation = 0;
 	mRenderItems.push_back(planetRenderItem);
-
-	RenderItem* skullRitem = new RenderItem();
-	skullRitem->WorldMatrix = MakeIdentity4x4();
-	skullRitem->ObjConstantBufferIndex = 1;
-	skullRitem->Geometry = mSkullGeometry.get();
-	skullRitem->Topology = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-	skullRitem->IndexCount = mSkullGeometry->mIndicesCount;
-	skullRitem->StartIndexLocation = 0;
-	skullRitem->BaseVertexLocation = 0;
-	mRenderItems.push_back(skullRitem);
-
 
 	mNumRenderItems = mRenderItems.size();
 }
@@ -344,7 +289,7 @@ void App::Update(float frameTime)
 {
 	mGUI->Update(mNumRenderItems);
 
-	UpdateCamera();
+	mCamera->Update();
 
 	// If the world matrix has changed
 	if (mGUI->mWMatrixChanged)
@@ -455,8 +400,8 @@ void App::UpdatePerFrameConstantBuffer()
 	FrameResource::mPerFrameConstants perFrameConstantBuffer;
 
 	// Create view, proj, and view proj matrices
-	XMMATRIX view = XMLoadFloat4x4(&mViewMatrix);
-	XMMATRIX proj = XMLoadFloat4x4(&mProjectionMatrix);
+	XMMATRIX view = XMLoadFloat4x4(&mCamera->mViewMatrix);
+	XMMATRIX proj = XMLoadFloat4x4(&mCamera->mProjectionMatrix);
 	XMMATRIX viewProj = XMMatrixMultiply(view, proj);
 
 	// Transpose them into the structure
@@ -465,7 +410,7 @@ void App::UpdatePerFrameConstantBuffer()
 	XMStoreFloat4x4(&perFrameConstantBuffer.ViewProjMatrix, XMMatrixTranspose(viewProj));
 
 	// Set the rest of the structure's values
-	perFrameConstantBuffer.EyePosW = mEyePos;
+	perFrameConstantBuffer.EyePosW = mCamera->mEyePos;
 	perFrameConstantBuffer.RenderTargetSize = XMFLOAT2((float)mWindow->mWidth, (float)mWindow->mHeight);
 	perFrameConstantBuffer.NearZ = 1.0f;
 	perFrameConstantBuffer.FarZ = 1000.0f;
@@ -490,21 +435,7 @@ void App::UpdatePerFrameConstantBuffer()
 	currentFrameCB->Copy(0, perFrameConstantBuffer);
 }
 
-void App::UpdateCamera()
-{
-	// Convert Spherical to Cartesian coordinates.
-	mEyePos.x = mRadius * sinf(mPhi) * cosf(mTheta);
-	mEyePos.z = mRadius * sinf(mPhi) * sinf(mTheta);
-	mEyePos.y = mRadius * cosf(mPhi);
 
-	// Build the view matrix.
-	XMVECTOR pos = XMVectorSet(mEyePos.x, mEyePos.y, mEyePos.z, 1.0f);
-	XMVECTOR target = XMVectorZero();
-	XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
-
-	XMMATRIX view = XMMatrixLookAtLH(pos, target, up);
-	XMStoreFloat4x4(&mViewMatrix, view);
-}
 
 void App::Draw(float frameTime)
 {
@@ -573,6 +504,7 @@ void App::DrawRenderItems(ID3D12GraphicsCommandList* commandList)
 
 void App::DrawModels(ID3D12GraphicsCommandList* commandList)
 {
+
 	// Get size of the per object constant buffer 
 	UINT objCBByteSize = CalculateConstantBufferSize(sizeof(FrameResource::mPerObjectConstants));
 
@@ -584,12 +516,13 @@ void App::DrawModels(ID3D12GraphicsCommandList* commandList)
 	{
 		// Set topology, vertex and index buffers
 		auto model = mModels[i];
-		
+
 		for (auto mesh : model->mMeshes)
 		{
 			commandList->IASetVertexBuffers(0, 1, &mesh->GetVertexBufferView());
 			commandList->IASetIndexBuffer(&mesh->GetIndexBufferView());
 			commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
 			// Offset to the CBV in the descriptor heap for this object and for this frame resource
 			UINT cbvIndex = mCurrentFrameResourceIndex * ((UINT)mRenderItems.size() + (UINT)mModels.size()) + model->mObjConstantBufferIndex;
 			mGraphics->SetGraphicsRootDescriptorTable(mCBVDescriptorHeap->mCBVHeap.Get(), cbvIndex, 0);
@@ -609,41 +542,6 @@ void App::EndFrame()
 	CycleFrameResources();
 }
 
-void App::MouseMoved(SDL_Event& event)
-{
-	int mouseX, mouseY;
-	mouseX = event.motion.x;
-	mouseY = event.motion.y;
-	if (mWindow->mLeftMouse)
-	{
-		// Make each pixel correspond to a quarter of a degree.
-		float dx = XMConvertToRadians(0.25f * static_cast<float>(mouseX - mLastMousePos.x));
-		float dy = XMConvertToRadians(0.25f * static_cast<float>(mouseY - mLastMousePos.y));
-
-		// Update angles based on input to orbit camera around box.
-		mTheta += dx;
-		mPhi += dy;
-
-		// Restrict the angle mPhi.
-		mPhi = std::clamp(mPhi, 0.1f, XM_PI - 0.1f);
-	}
-	else if (mWindow->mRightMouse)
-	{
-		// Make each pixel correspond to 0.005 unit in the scene.
-		float dx = 0.005f * static_cast<float>(mouseX - mLastMousePos.x);
-		float dy = 0.005f * static_cast<float>(mouseY - mLastMousePos.y);
-
-		// Update the camera radius based on input.
-		mRadius += dx - dy;
-
-		// Restrict the radius.
-		mRadius = std::clamp(mRadius, 0.1f, 30.0f);
-	}
-	mLastMousePos.x = mouseX;
-	mLastMousePos.y = mouseY;
-
-}
-
 void App::ProcessEvents(SDL_Event& event)
 {
 	if(mGUI->ProcessEvents(event)) return;
@@ -656,7 +554,7 @@ void App::ProcessEvents(SDL_Event& event)
 	if (mWindow->mResized)
 	{
 		mGraphics->Resize(mWindow->mWidth, mWindow->mHeight);
-		Resized();
+		mCamera->WindowResized(mWindow.get());
 		mWindow->mResized = false;
 	}
 
@@ -667,25 +565,16 @@ void App::ProcessEvents(SDL_Event& event)
 
 	if (mWindow->mMouseMoved)
 	{
-		MouseMoved(event);
+		mCamera->MouseMoved(event,mWindow.get());
 		mWindow->mMouseMoved = false;
 	}
 
-}
-
-void App::Resized()
-{
-	// The window resized, so update the aspect ratio and recompute projection matrix
-	XMMATRIX proj = XMMatrixPerspectiveFovLH(0.25f * XM_PI, static_cast<float>(mWindow->mWidth) / mWindow->mHeight, 1.0f, 1000.0f);
-	XMStoreFloat4x4(&mProjectionMatrix, proj);
 }
 
 App::~App()
 {
 	// Empty the command queue
 	if (mGraphics->mD3DDevice != nullptr) { mGraphics->EmptyCommandQueue(); }
-
-	delete modelGeometry;
 
 	for (auto& model : mModels)
 	{

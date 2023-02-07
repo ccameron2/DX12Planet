@@ -44,22 +44,6 @@ Model::Model(std::string fileName, ID3D12Device* device, ID3D12GraphicsCommandLi
 			mesh->CalculateBufferData(device, commandList);
 		}
 	}
-	
-
-	//int numVerts = 0;
-	//for (auto& mesh : mMeshes)
-	//{
-	//	for (auto& vertex : mesh->mVertices)
-	//	{
-	//		mMesh->mVertices.push_back(vertex);
-	//	}
-	//	for (int i = 0; i < mesh->mIndices.size(); i++)
-	//	{
-	//		if (numVerts == 0) mMesh->mIndices.push_back(mesh->mIndices[i]);
-	//		else mMesh->mIndices.push_back(mesh->mIndices[i] + numVerts - 1);
-	//	}
-	//	numVerts = mMesh->mVertices.size();
-	//}
 }
 
 Model::~Model()
