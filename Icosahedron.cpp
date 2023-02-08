@@ -41,7 +41,7 @@ XMVECTOR ComputeNormal(XMVECTOR p0, XMVECTOR p1, XMVECTOR p2)
 
 Icosahedron::Icosahedron(float frequency, int recursions, int octaves, XMFLOAT3 eyePos, bool tesselation)
 {
-	mGeometryData = std::make_unique<Mesh>();
+	mMesh = std::make_unique<Mesh>();
 
 	ResetGeometry(eyePos,frequency,recursions, octaves, tesselation);
 
@@ -114,11 +114,11 @@ void Icosahedron::CreateGeometry()
 
 	CalculateUVs();
 
-	mGeometryData->mVertices = mVertices;
-	mGeometryData->mIndices = mIndices;
+	mMesh->mVertices = mVertices;
+	mMesh->mIndices = mIndices;
 	
 	//mGeometryData->CalculateBufferData(d3DDevice,commandList);
-	mGeometryData->CalculateDynamicBufferData();
+	mMesh->CalculateDynamicBufferData();
 }
 
 void Icosahedron::CalculateUVs()

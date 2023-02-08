@@ -40,20 +40,21 @@ void Camera::MouseMoved(SDL_Event& event, Window* window)
 		mRadius += dx - dy;
 
 		// Restrict the radius.
-		mRadius = std::clamp(mRadius, 0.1f, 30.0f);
+		mRadius = std::clamp(mRadius, 0.1f, 90.0f);
 	}
 	mLastMousePos.x = mouseX;
 	mLastMousePos.y = mouseY;
 }
+
 void Camera::Update()
 {
 	// Convert Spherical to Cartesian coordinates.
-	mEyePos.x = mRadius * sinf(mPhi) * cosf(mTheta);
-	mEyePos.z = mRadius * sinf(mPhi) * sinf(mTheta);
-	mEyePos.y = mRadius * cosf(mPhi);
+	mPos.x = mRadius * sinf(mPhi) * cosf(mTheta);
+	mPos.z = mRadius * sinf(mPhi) * sinf(mTheta);
+	mPos.y = mRadius * cosf(mPhi);
 
 	// Build the view matrix.
-	XMVECTOR pos = XMVectorSet(mEyePos.x, mEyePos.y, mEyePos.z, 1.0f);
+	XMVECTOR pos = XMVectorSet(mPos.x, mPos.y, mPos.z, 1.0f);
 	XMVECTOR target = XMVectorZero();
 	XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
 

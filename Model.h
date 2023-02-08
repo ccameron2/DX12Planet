@@ -16,6 +16,7 @@ public:
 	int mObjConstantBufferIndex = 2;
 	int mNumDirtyFrames = 3;
 	XMFLOAT4X4 mWorldMatrix = MakeIdentity4x4();
+	void Draw(ID3D12GraphicsCommandList* commandList);
 private:
 	void ProcessNode(aiNode* node, const aiScene* scene);
 	Mesh* ProcessMesh(aiMesh* mesh, const aiScene* scene);

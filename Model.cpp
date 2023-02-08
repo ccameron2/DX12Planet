@@ -5,13 +5,14 @@ Model::Model(std::string fileName, ID3D12Device* device, ID3D12GraphicsCommandLi
 	Assimp::Importer importer;
 
 	const aiScene* scene = importer.ReadFile(fileName,
-		aiProcess_CalcTangentSpace |
 		aiProcess_Triangulate |
 		aiProcess_JoinIdenticalVertices |
-		aiProcess_SortByPType |
-		aiProcess_OptimizeGraph |
-		aiProcess_OptimizeMeshes |
+		aiProcess_ImproveCacheLocality |
 		aiProcess_RemoveRedundantMaterials |
+		aiProcess_SortByPType |
+		aiProcess_FindInvalidData |
+		aiProcess_OptimizeMeshes |
+		aiProcess_OptimizeGraph |
 		aiProcess_ConvertToLeftHanded);
 
 	if (!scene)
@@ -58,6 +59,18 @@ Model::~Model()
 	}
 }
 
+void Model::Draw(ID3D12GraphicsCommandList* commandList)
+{
+	for (auto mesh : mMeshes)
+	{
+		commandList->IASetVertexBuffers(0, 1, &mesh->GetVertexBufferView());
+		commandList->IASetIndexBuffer(&mesh->GetIndexBufferView());
+		commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+		commandList->DrawIndexedInstanced(mesh->mIndices.size(), 1, 0, 0, 0);
+	}
+}
+
 void Model::ProcessNode(aiNode* node, const aiScene* scene)
 {
 	// Process each mesh
@@ -67,7 +80,7 @@ void Model::ProcessNode(aiNode* node, const aiScene* scene)
 		aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
 		mMeshes.push_back(ProcessMesh(mesh, scene));
 	}
-	
+
 	// Process each child node
 	for (int i = 0; i < node->mNumChildren; i++)
 	{

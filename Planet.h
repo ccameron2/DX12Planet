@@ -16,7 +16,7 @@ private:
 public:
 	Node* mParent;
 	std::vector<Node*> mChildren;
-	Triangle mTriangle;
+	Triangle mTriangle = {0,0,0};
 	Node() : mParent{ 0 } {};
 	Node(Node* parent) : mParent{ parent } {};
 	~Node()
@@ -45,15 +45,14 @@ public:
 	void CreatePlanet(float frequency, int octaves, int lod);
 	void ResetGeometry();
 	void Update();
-	void Subdivide(Node* node, int level = 0);
-	int GetVertexForEdge(int v1, int v2);
-	std::vector<Triangle> SubdivideTriangle(Triangle triangle);
-	void GetTriangles(Node* node);
-	unique_ptr<Mesh> mGeometryData;
-	void ApplyNoise(float frequency, int octaves);
+
+	unique_ptr<Mesh> mMesh;	
 	std::vector<Vertex> mVertices;
 	std::vector<uint32_t> mIndices;
 	int mMaxLOD = 0;
+	XMFLOAT4X4 WorldMatrix = MakeIdentity4x4();
+	int NumDirtyFrames = 3;
+	UINT ObjConstantBufferIndex = -1;
 private:
 	std::vector<Triangle> mTriangles;
 	std::vector<XMFLOAT3> mNormals;
@@ -65,6 +64,10 @@ private:
 	float FractalBrownianMotion(FastNoiseLite fastNoise, XMFLOAT3 fractalInput, float octaves, float frequency);
 
 	void CalculateNormals();
-
+	void Subdivide(Node* node, int level = 0);
+	int GetVertexForEdge(int v1, int v2);
+	std::vector<Triangle> SubdivideTriangle(Triangle triangle);
+	void GetTriangles(Node* node);
+	void ApplyNoise(float frequency, int octaves);
 };
 

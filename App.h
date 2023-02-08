@@ -85,21 +85,7 @@ private:
 
 	unique_ptr<Planet> mPlanet;
 
-	unique_ptr<Icosahedron> mIcoLight;
-	struct RenderItem
-	{
-		XMFLOAT4X4 WorldMatrix = MakeIdentity4x4();
-		int NumDirtyFrames = 3;
-		UINT ObjConstantBufferIndex = -1;
-		Mesh* Geometry = nullptr;
-		D3D12_PRIMITIVE_TOPOLOGY Topology = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-		UINT IndexCount = 0;
-		UINT StartIndexLocation = 0;
-		int BaseVertexLocation = 0;
-	};
-
 	// If diffent PSOs needed then use different lists
-	vector<RenderItem*> mRenderItems;
 	vector<Model*> mModels;
 	
 	XMFLOAT4X4 mGUIWorldMatrix = MakeIdentity4x4();
@@ -110,8 +96,9 @@ private:
 	float mSunTheta = 1.25f * XM_PI;
 	float mSunPhi = XM_PIDIV4;
 
+	int mNumModels = 0;
+
 	bool mWireframe = false;
-	int mNumRenderItems = 0;
 	const static int mNumFrameResources = 3;
 	std::vector<std::unique_ptr<FrameResource>> mFrameResources;
 	FrameResource* mCurrentFrameResource = nullptr;
@@ -137,11 +124,9 @@ private:
 	void UpdatePerObjectConstantBuffers();
 	void UpdatePerFrameConstantBuffer();
 
-	void CreateRenderItems();
-
 	void BuildFrameResources();
 
-	void DrawRenderItems(ID3D12GraphicsCommandList* commandList);
+	void DrawPlanet(ID3D12GraphicsCommandList* commandList);
 	void LoadModels();
 	void DrawModels(ID3D12GraphicsCommandList* commandList);
 	void StartFrame();

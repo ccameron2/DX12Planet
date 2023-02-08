@@ -44,16 +44,17 @@ void App::Initialize()
 	mCamera->Update();
 
 	mPlanet = std::make_unique<Planet>();
+	mPlanet->ObjConstantBufferIndex = 0;
+	XMStoreFloat4x4(&mPlanet->WorldMatrix, XMMatrixIdentity() * /*XMMatrixScaling(0, 0, 0) **/ XMMatrixTranslation(0.0f, 0.0f, 0.0f));
 
-	CreateRenderItems();
 	LoadModels();
 
 	BuildFrameResources();
 
-	int numModels = mNumRenderItems + mModels.size();
+	mNumModels = 1 + mModels.size(); // +1 for planet
 
 	mCBVDescriptorHeap = make_unique<CBVDescriptorHeap>(mGraphics->mD3DDevice.Get(),mFrameResources,
-									numModels, mGraphics->mCbvSrvUavDescriptorSize);
+									mNumModels, mGraphics->mCbvSrvUavDescriptorSize);
 
 	CreateRootSignature();
 	CreateShaders();
@@ -82,6 +83,13 @@ void App::StartFrame()
 void App::LoadModels()
 {
 
+	Model* wolfModel = new Model("Models/Wolf.fbx", mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
+	XMStoreFloat4x4(&wolfModel->mWorldMatrix, XMMatrixIdentity()
+		* XMMatrixScaling(1, 1, 1)
+		* XMMatrixRotationX(90)
+		* XMMatrixTranslation(-4.0f, 0.0f, 0.0f));
+	mModels.push_back(wolfModel);
+
 	Model* otherModel = new Model("Models/Dragon.fbx", mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
 	XMStoreFloat4x4(&otherModel->mWorldMatrix, XMMatrixIdentity()
 		* XMMatrixScaling(1, 1, 1)
@@ -93,17 +101,8 @@ void App::LoadModels()
 	XMStoreFloat4x4(&foxModel->mWorldMatrix, XMMatrixIdentity() 
 														* XMMatrixScaling(1, 1, 1)
 														* XMMatrixRotationX(90)
-														* XMMatrixTranslation(4.0f, 0.0f, 0.0f));
-														
+														* XMMatrixTranslation(4.0f, 0.0f, 0.0f));														
 	mModels.push_back(foxModel);
-
-	Model* wolfModel = new Model("Models/tank.fbx", mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
-	XMStoreFloat4x4(&wolfModel->mWorldMatrix, XMMatrixIdentity()
-														* XMMatrixScaling(1, 1, 1)
-														//* XMMatrixRotationX(90)
-														* XMMatrixTranslation(-4.0f, 0.0f, 0.0f));
-	mModels.push_back(wolfModel);
-
 
 	Model* anotherModel = new Model("Models/Slime.fbx", mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
 	XMStoreFloat4x4(&anotherModel->mWorldMatrix, XMMatrixIdentity()
@@ -114,39 +113,15 @@ void App::LoadModels()
 
 	for (int i = 0; i < mModels.size(); i++)
 	{
-		mModels[i]->mObjConstantBufferIndex = mNumRenderItems + i;
+		mModels[i]->mObjConstantBufferIndex = 1 + i; // 1 for planet
 	}
-}
-
-void App::CreateRenderItems()
-{
-	if (mRenderItems.size() != 0)
-	{
-		for (auto& item : mRenderItems)
-		{
-			delete item;
-		}
-		mRenderItems.clear();
-	}
-
-	RenderItem* planetRenderItem = new RenderItem();
-	XMStoreFloat4x4(&planetRenderItem->WorldMatrix, XMMatrixIdentity() * /*XMMatrixScaling(0, 0, 0) **/ XMMatrixTranslation(0.0f, 0.0f, 0.0f));
-	planetRenderItem->ObjConstantBufferIndex = 0;
-	planetRenderItem->Geometry = mPlanet->mGeometryData.get();
-	planetRenderItem->Topology = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-	planetRenderItem->IndexCount = 0;
-	planetRenderItem->StartIndexLocation = 0;
-	planetRenderItem->BaseVertexLocation = 0;
-	mRenderItems.push_back(planetRenderItem);
-
-	mNumRenderItems = mRenderItems.size();
 }
 
 void App::BuildFrameResources()
 {
 	for (int i = 0; i < mNumFrameResources; i++)
 	{
-		mFrameResources.push_back(std::make_unique<FrameResource>(mGraphics->mD3DDevice.Get(), 1, mNumRenderItems + mModels.size(), 20000000, 80000000));
+		mFrameResources.push_back(std::make_unique<FrameResource>(mGraphics->mD3DDevice.Get(), 1, 1 + mModels.size(), 20000000, 80000000)); //1 for planet
 	}
 }
 
@@ -279,15 +254,13 @@ void App::RecreatePlanetGeometry()
 		mCurrentFrameResource->mPlanetIB->Copy(i, mPlanet->mIndices[i]);
 	}
 
-	mRenderItems[0]->Geometry = mPlanet->mGeometryData.get();
-	mRenderItems[0]->Geometry->mGPUVertexBuffer = mCurrentFrameResource->mPlanetVB->GetBuffer();
-	mRenderItems[0]->Geometry->mGPUIndexBuffer = mCurrentFrameResource->mPlanetIB->GetBuffer();
-	mRenderItems[0]->IndexCount = mPlanet->mIndices.size();
+	mPlanet->mMesh->mGPUVertexBuffer = mCurrentFrameResource->mPlanetVB->GetBuffer();
+	mPlanet->mMesh->mGPUIndexBuffer = mCurrentFrameResource->mPlanetIB->GetBuffer();
 }
 
 void App::Update(float frameTime)
 {
-	mGUI->Update(mNumRenderItems);
+	mGUI->Update(mNumModels);
 
 	mCamera->Update();
 
@@ -308,9 +281,17 @@ void App::Update(float frameTime)
 		// Set result to icosahedron's world matrix
 		XMStoreFloat4x4(&mGUIWorldMatrix, IDMatrix *= translationMatrix);
 
-		// Set first render item to icosahedrons world matrix
-		mRenderItems[mGUI->mSelectedRenderItem]->WorldMatrix = mGUIWorldMatrix;
-		mRenderItems[mGUI->mSelectedRenderItem]->NumDirtyFrames += mNumFrameResources;
+		// Set render item to gui world matrix
+		if (mGUI->mSelectedModel == 0)
+		{
+			mPlanet->WorldMatrix = mGUIWorldMatrix;
+			mPlanet->NumDirtyFrames += mNumFrameResources;
+		}
+		else
+		{
+			mModels[mGUI->mSelectedModel - 1]->mWorldMatrix = mGUIWorldMatrix;
+			mModels[mGUI->mSelectedModel - 1]->mNumDirtyFrames += mNumFrameResources;
+		}
 
 		mGUI->mWMatrixChanged = false;
 	}
@@ -351,27 +332,24 @@ void App::UpdatePerObjectConstantBuffers()
 	// Get reference to the current per object constant buffer
 	auto currentObjectConstantBuffer = mCurrentFrameResource->mPerObjectConstantBuffer.get();
 	
-	// For each render item
-	for (auto& rItem : mRenderItems)
+	// If planet's values have been changed
+	if (mPlanet->NumDirtyFrames > 0)
 	{
-		// If their values have been changed
-		if (rItem->NumDirtyFrames > 0)
-		{
-			// Get the world matrix of the item
-			XMMATRIX worldMatrix = XMLoadFloat4x4(&rItem->WorldMatrix);
+		// Get the world matrix of the item
+		XMMATRIX worldMatrix = XMLoadFloat4x4(&mPlanet->WorldMatrix);
 
-			// Create a per object constants structure
-			FrameResource::mPerObjectConstants objectConstants;
+		// Create a per object constants structure
+		FrameResource::mPerObjectConstants objectConstants;
 
-			// Transpose the world matrix into it
-			XMStoreFloat4x4(&objectConstants.WorldMatrix, XMMatrixTranspose(worldMatrix));
+		// Transpose the world matrix into it
+		XMStoreFloat4x4(&objectConstants.WorldMatrix, XMMatrixTranspose(worldMatrix));
 
-			// Copy the structure into the current buffer at the item's index
-			currentObjectConstantBuffer->Copy(rItem->ObjConstantBufferIndex, objectConstants);
-			
-			rItem->NumDirtyFrames--;
-		}
+		// Copy the structure into the current buffer at the item's index
+		currentObjectConstantBuffer->Copy(mPlanet->ObjConstantBufferIndex, objectConstants);
+		
+		mPlanet->NumDirtyFrames--;
 	}
+
 	for (auto& model : mModels)
 	{
 		// If their values have been changed
@@ -410,7 +388,7 @@ void App::UpdatePerFrameConstantBuffer()
 	XMStoreFloat4x4(&perFrameConstantBuffer.ViewProjMatrix, XMMatrixTranspose(viewProj));
 
 	// Set the rest of the structure's values
-	perFrameConstantBuffer.EyePosW = mCamera->mEyePos;
+	perFrameConstantBuffer.EyePosW = mCamera->mPos;
 	perFrameConstantBuffer.RenderTargetSize = XMFLOAT2((float)mWindow->mWidth, (float)mWindow->mHeight);
 	perFrameConstantBuffer.NearZ = 1.0f;
 	perFrameConstantBuffer.FarZ = 1000.0f;
@@ -424,18 +402,11 @@ void App::UpdatePerFrameConstantBuffer()
 	perFrameConstantBuffer.Lights[0].Colour = { 0.5f,0.5f,0.5f };
 	perFrameConstantBuffer.Lights[0].Position = { 4.0f, 4.0f, 0.0f };
 	perFrameConstantBuffer.Lights[0].Direction = { mGUI->mLightDir[0], mGUI->mLightDir[1], mGUI->mLightDir[2] };
-	//perFrameConstantBuffer.Lights[0].Strength = { 10.0f, 10.0f, 10.0f };
-	//perFrameConstantBuffer.Lights[1].Direction = { -0.57735f, -0.57735f, 0.57735f };
-	//perFrameConstantBuffer.Lights[1].Strength = { 0.3f, 0.3f, 0.3f };
-	//perFrameConstantBuffer.Lights[2].Direction = { 0.0f, -0.707f, -0.707f };
-	//perFrameConstantBuffer.Lights[2].Strength = { 0.15f, 0.15f, 0.15f };
 	 	
 	// Copy the structure into the per frame constant buffer
 	auto currentFrameCB = mCurrentFrameResource->mPerFrameConstantBuffer.get();
 	currentFrameCB->Copy(0, perFrameConstantBuffer);
 }
-
-
 
 void App::Draw(float frameTime)
 {
@@ -465,7 +436,7 @@ void App::Draw(float frameTime)
 	int frameCbvIndex = mCBVDescriptorHeap->mFrameCbvOffset + mCurrentFrameResourceIndex;
 	mGraphics->SetGraphicsRootDescriptorTable(mCBVDescriptorHeap->mCBVHeap.Get(), frameCbvIndex,1);
 
-	DrawRenderItems(commandList.Get());
+	DrawPlanet(commandList.Get());
 
 	DrawModels(commandList.Get());
 
@@ -478,7 +449,7 @@ void App::Draw(float frameTime)
 	mGraphics->SwapBackBuffers(mGUI->mVSync);
 }
 
-void App::DrawRenderItems(ID3D12GraphicsCommandList* commandList)
+void App::DrawPlanet(ID3D12GraphicsCommandList* commandList)
 {
 	// Get size of the per object constant buffer 
 	UINT objCBByteSize = CalculateConstantBufferSize(sizeof(FrameResource::mPerObjectConstants));
@@ -486,20 +457,15 @@ void App::DrawRenderItems(ID3D12GraphicsCommandList* commandList)
 	// Get reference to current per object constant buffer
 	auto objectCB = mCurrentFrameResource->mPerObjectConstantBuffer->GetBuffer();
 
-	// For each render item
-	for (size_t i = 0; i < mRenderItems.size(); ++i)
-	{
-		// Set topology, vertex and index buffers to render item's
-		auto renderItem = mRenderItems[i];
-		commandList->IASetVertexBuffers(0, 1, &renderItem->Geometry->GetVertexBufferView());
-		commandList->IASetIndexBuffer(&renderItem->Geometry->GetIndexBufferView());
-		commandList->IASetPrimitiveTopology(renderItem->Topology);
+	// Set topology, vertex and index buffers to planet's
+	commandList->IASetVertexBuffers(0, 1, &mPlanet->mMesh->GetVertexBufferView());
+	commandList->IASetIndexBuffer(&mPlanet->mMesh->GetIndexBufferView());
+	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-		// Offset to the CBV in the descriptor heap for this object and for this frame resource
-		UINT cbvIndex = mCurrentFrameResourceIndex * ((UINT)mRenderItems.size() + mModels.size()) + renderItem->ObjConstantBufferIndex;
-		mGraphics->SetGraphicsRootDescriptorTable(mCBVDescriptorHeap->mCBVHeap.Get(), cbvIndex, 0);
-		commandList->DrawIndexedInstanced(renderItem->IndexCount, 1, renderItem->StartIndexLocation, renderItem->BaseVertexLocation, 0);
-	}
+	// Offset to the CBV in the descriptor heap for this object and for this frame resource
+	UINT cbvIndex = mCurrentFrameResourceIndex * (UINT)mNumModels + mPlanet->ObjConstantBufferIndex;
+	mGraphics->SetGraphicsRootDescriptorTable(mCBVDescriptorHeap->mCBVHeap.Get(), cbvIndex, 0);
+	commandList->DrawIndexedInstanced(mPlanet->mMesh->mIndices.size(), 1, 0, 0, 0);
 }
 
 void App::DrawModels(ID3D12GraphicsCommandList* commandList)
@@ -512,22 +478,13 @@ void App::DrawModels(ID3D12GraphicsCommandList* commandList)
 	auto objectCB = mCurrentFrameResource->mPerObjectConstantBuffer->GetBuffer();
 
 	// For each model
-	for (size_t i = 0; i < mModels.size(); i++)
+	for(auto& model : mModels)
 	{
-		// Set topology, vertex and index buffers
-		auto model = mModels[i];
+		// Offset to the CBV in the descriptor heap for this object and for this frame resource
+		UINT cbvIndex = mCurrentFrameResourceIndex * (UINT)mNumModels + model->mObjConstantBufferIndex;
+		mGraphics->SetGraphicsRootDescriptorTable(mCBVDescriptorHeap->mCBVHeap.Get(), cbvIndex, 0);
 
-		for (auto mesh : model->mMeshes)
-		{
-			commandList->IASetVertexBuffers(0, 1, &mesh->GetVertexBufferView());
-			commandList->IASetIndexBuffer(&mesh->GetIndexBufferView());
-			commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
-			// Offset to the CBV in the descriptor heap for this object and for this frame resource
-			UINT cbvIndex = mCurrentFrameResourceIndex * ((UINT)mRenderItems.size() + (UINT)mModels.size()) + model->mObjConstantBufferIndex;
-			mGraphics->SetGraphicsRootDescriptorTable(mCBVDescriptorHeap->mCBVHeap.Get(), cbvIndex, 0);
-			commandList->DrawIndexedInstanced(mesh->mIndices.size(), 1, 0, 0, 0);
-		}
+		model->Draw(commandList);
 	}
 }
 
@@ -579,11 +536,5 @@ App::~App()
 	for (auto& model : mModels)
 	{
 		delete model;
-	}
-
-	// Delete render items
-	for (auto& renderItem : mRenderItems)
-	{
-		delete renderItem;
 	}
 }

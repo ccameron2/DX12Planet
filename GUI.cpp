@@ -34,7 +34,7 @@ void GUI::NewFrame()
 	ImGui::NewFrame();
 }
 
-void GUI::Update(int numRenderItems)
+void GUI::Update(int numModels)
 {
 	//static bool showDemoWindow = false;
 	//ImGui::ShowDemoWindow(&showDemoWindow);
@@ -67,7 +67,7 @@ void GUI::Update(int numRenderItems)
 
 	ImGui::Text("World Matrix");
 
-	if (ImGui::SliderInt("Render Item", &mSelectedRenderItem, 0, numRenderItems - 1))
+	if (ImGui::SliderInt("Model", &mSelectedModel, 0, numModels - 1))
 	{
 		mPos[0] = 0; mPos[1] = 0; mPos[2] = 0;
 		mRot[0] = 0; mRot[1] = 0; mRot[2] = 0;

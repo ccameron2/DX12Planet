@@ -77,10 +77,7 @@ public:
 
 	void ExecuteCommands();
 	void CreateDescriptorHeaps();
-
 	void ResolveMSAAToBackBuffer();
-
-
 	void ResetCommandAllocator(ID3D12CommandAllocator* commandAllocator);
 	void ResetCommandList(ID3D12CommandAllocator* commandAllocator, ID3D12PipelineState* pipeline);
 	void SetViewportAndScissorRects();

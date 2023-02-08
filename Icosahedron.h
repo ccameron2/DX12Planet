@@ -21,7 +21,7 @@ public:
 
 	XMFLOAT3 mEyePos;
 
-	unique_ptr<Mesh> mGeometryData;
+	unique_ptr<Mesh> mMesh;
 	std::vector<Vertex> mVertices;
 	std::vector<uint32_t> mIndices;
 	std::vector<Triangle> mTriangles;

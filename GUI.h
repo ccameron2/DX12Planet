@@ -26,7 +26,7 @@ public:
 	float mScale = 1;
 	bool mWMatrixChanged = false;
 	bool mTesselation = false;
-	int mSelectedRenderItem = 0;
+	int mSelectedModel = 0;
 	bool mVSync = true;
 	float mLightDir[3] = { -0.577f, -0.577f, 0.577f };
 };

@@ -11,7 +11,7 @@ Planet::~Planet()
 void Planet::CreatePlanet(float frequency, int octaves, int lod)
 {
 	mMaxLOD = lod;
-	if (mGeometryData) mGeometryData.reset();
+	if (mMesh) mMesh.reset();
 
 	ResetGeometry();
 
@@ -26,12 +26,12 @@ void Planet::CreatePlanet(float frequency, int octaves, int lod)
 
 	CalculateNormals();
 
-	mGeometryData = make_unique<Mesh>();
+	mMesh = make_unique<Mesh>();
 
-	mGeometryData->mVertices = mVertices;
-	mGeometryData->mIndices = mIndices;
+	mMesh->mVertices = mVertices;
+	mMesh->mIndices = mIndices;
 
-	mGeometryData->CalculateDynamicBufferData();
+	mMesh->CalculateDynamicBufferData();
 }
 
 void Planet::ResetGeometry()
