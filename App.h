@@ -41,7 +41,7 @@
 #include "Graphics.h"
 #include "UploadBuffer.h"
 #include "FrameResource.h"
-#include "CBVDescriptorHeap.h"
+#include "SRVDescriptorHeap.h"
 
 #include <fstream>
 
@@ -79,6 +79,10 @@ private:
 	void RecreatePlanetGeometry();
 	void ProcessEvents(SDL_Event& e);
 
+	ComPtr<ID3D12DescriptorHeap> mSrvDescriptorHeap = nullptr;
+	vector<Texture> mTextures;
+
+
 	unique_ptr<Graphics> mGraphics;
 	unique_ptr<Window> mWindow;
 	SDL_Surface mScreenSurface;
@@ -104,7 +108,7 @@ private:
 	FrameResource* mCurrentFrameResource = nullptr;
 	int mCurrentFrameResourceIndex = 0;
 
-	unique_ptr<CBVDescriptorHeap> mCBVDescriptorHeap;
+	unique_ptr<SRVDescriptorHeap> mSRVDescriptorHeap;
 
 	D3D_DRIVER_TYPE mD3DDriverType = D3D_DRIVER_TYPE_HARDWARE;
 

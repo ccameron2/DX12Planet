@@ -136,7 +136,8 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Camera.cpp" />
-    <ClCompile Include="CBVDescriptorHeap.cpp" />
+    <ClCompile Include="SRVDescriptorHeap.cpp" />
+    <ClCompile Include="DescriptorHeap.cpp" />
     <ClCompile Include="FrameResource.cpp" />
     <ClCompile Include="App.cpp" />
     <ClCompile Include="Mesh.cpp" />
@@ -159,7 +160,8 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Camera.h" />
-    <ClInclude Include="CBVDescriptorHeap.h" />
+    <ClInclude Include="SRVDescriptorHeap.h" />
+    <ClInclude Include="DescriptorHeap.h" />
     <ClInclude Include="FastNoiseLite.h" />
     <ClInclude Include="FrameResource.h" />
     <ClInclude Include="App.h" />

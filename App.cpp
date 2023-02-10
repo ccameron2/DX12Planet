@@ -53,17 +53,17 @@ void App::Initialize()
 
 	mNumModels = 1 + mModels.size(); // +1 for planet
 
-	mCBVDescriptorHeap = make_unique<CBVDescriptorHeap>(mGraphics->mD3DDevice.Get(),mFrameResources,
-									mNumModels, mGraphics->mCbvSrvUavDescriptorSize);
+	mSRVDescriptorHeap = make_unique<SRVDescriptorHeap>(mGraphics->mD3DDevice.Get(), mGraphics->mCbvSrvUavDescriptorSize);
 
 	CreateRootSignature();
+
 	CreateShaders();
 	CreatePSO();
 
 	mGraphics->ExecuteCommands();
 
 	// Change this to pass descriptor heap class instead of half of these parameters. Save them in the descriptor when passed in above constructor.
-	mGUI = make_unique<GUI>(mCBVDescriptorHeap.get(), mWindow->mSDLWindow, mGraphics->mD3DDevice.Get(),
+	mGUI = make_unique<GUI>(mSRVDescriptorHeap.get(), mWindow->mSDLWindow, mGraphics->mD3DDevice.Get(),
 								mNumFrameResources, mGraphics->mBackBufferFormat);
 }
 
@@ -126,21 +126,22 @@ void App::BuildFrameResources()
 
 void App::CreateRootSignature()
 {
-	CD3DX12_DESCRIPTOR_RANGE cbvTable0;
-	cbvTable0.Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 0);
 
-	CD3DX12_DESCRIPTOR_RANGE cbvTable1;
-	cbvTable1.Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 1);
+	CD3DX12_DESCRIPTOR_RANGE texTable;
+	texTable.Init(
+		D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
+		1,  // number of descriptors
+		0); // register t0
 
 	// Root parameter can be a table, root descriptor or root constants.
-	CD3DX12_ROOT_PARAMETER slotRootParameter[2];
+	CD3DX12_ROOT_PARAMETER slotRootParameter[3];
 
-	// Create root CBVs.
-	slotRootParameter[0].InitAsDescriptorTable(1, &cbvTable0);
-	slotRootParameter[1].InitAsDescriptorTable(1, &cbvTable1);
+	slotRootParameter[0].InitAsDescriptorTable(1, &texTable, D3D12_SHADER_VISIBILITY_PIXEL);
+	slotRootParameter[1].InitAsConstantBufferView(0);
+	slotRootParameter[2].InitAsConstantBufferView(1);
 
 	// A root signature is an array of root parameters.
-	CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(2, slotRootParameter, 0, nullptr,
+	CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(3, slotRootParameter, 0, nullptr,
 		D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 
 	// create a root signature with a single slot which points to a descriptor range consisting of a single constant buffer
@@ -428,12 +429,15 @@ void App::Draw(float frameTime)
 	// Select MSAA texture as render target
 	mGraphics->SetMSAARenderTarget();
 
-	mGraphics->SetDescriptorHeap(mCBVDescriptorHeap->mCBVHeap.Get());
+	mGraphics->SetDescriptorHeap(mSRVDescriptorHeap->mHeap.Get());
 
 	commandList->SetGraphicsRootSignature(mRootSignature.Get());
 
-	int frameCbvIndex = mCBVDescriptorHeap->mFrameCbvOffset + mCurrentFrameResourceIndex;
-	mGraphics->SetGraphicsRootDescriptorTable(mCBVDescriptorHeap->mCBVHeap.Get(), frameCbvIndex,1);
+	auto srvHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(mSRVDescriptorHeap->mHeap->GetGPUDescriptorHandleForHeapStart());
+	commandList->SetGraphicsRootDescriptorTable(0, srvHandle);
+
+	auto perFrameBuffer = mCurrentFrameResource->mPerFrameConstantBuffer->GetBuffer();
+	commandList->SetGraphicsRootConstantBufferView(2, perFrameBuffer->GetGPUVirtualAddress());
 
 	DrawPlanet(commandList.Get());
 
@@ -456,9 +460,8 @@ void App::DrawPlanet(ID3D12GraphicsCommandList* commandList)
 	// Get reference to current per object constant buffer
 	auto objectCB = mCurrentFrameResource->mPerObjectConstantBuffer->GetBuffer();
 
-	// Offset to the CBV in the descriptor heap for this object and for this frame resource
-	UINT cbvIndex = mCurrentFrameResourceIndex * (UINT)mNumModels + mPlanet->ObjConstantBufferIndex;
-	mGraphics->SetGraphicsRootDescriptorTable(mCBVDescriptorHeap->mCBVHeap.Get(), cbvIndex, 0);
+	auto objCBAddress = objectCB->GetGPUVirtualAddress(); // Planet is first in buffer
+	commandList->SetGraphicsRootConstantBufferView(1, objCBAddress);
 
 	mPlanet->mMesh->Draw(commandList);
 }
@@ -475,9 +478,9 @@ void App::DrawModels(ID3D12GraphicsCommandList* commandList)
 	// For each model
 	for(auto& model : mModels)
 	{
-		// Offset to the CBV in the descriptor heap for this object and for this frame resource
-		UINT cbvIndex = mCurrentFrameResourceIndex * (UINT)mNumModels + model->mObjConstantBufferIndex;
-		mGraphics->SetGraphicsRootDescriptorTable(mCBVDescriptorHeap->mCBVHeap.Get(), cbvIndex, 0);
+		// Offset to the CBV for this object
+		auto objCBAddress = objectCB->GetGPUVirtualAddress() + model->mObjConstantBufferIndex * objCBByteSize;
+		commandList->SetGraphicsRootConstantBufferView(1, objCBAddress);
 
 		model->Draw(commandList);
 	}

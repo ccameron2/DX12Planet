@@ -1,6 +1,6 @@
 #include "GUI.h"
 
-GUI::GUI(CBVDescriptorHeap* descriptorHeap, SDL_Window* window, ID3D12Device* device, UINT numFrameResources, DXGI_FORMAT backBufferFormat)
+GUI::GUI(SRVDescriptorHeap* descriptorHeap, SDL_Window* window, ID3D12Device* device, UINT numFrameResources, DXGI_FORMAT backBufferFormat)
 {
 	// Setup ImGui context
 	IMGUI_CHECKVERSION();
@@ -8,14 +8,14 @@ GUI::GUI(CBVDescriptorHeap* descriptorHeap, SDL_Window* window, ID3D12Device* de
 	ImGuiIO& io = ImGui::GetIO(); (void)io;
 	ImGui::StyleColorsDark();
 
-	auto cpuhandle = CD3DX12_CPU_DESCRIPTOR_HANDLE(descriptorHeap->mCBVHeap->GetCPUDescriptorHandleForHeapStart());
-	cpuhandle.Offset(descriptorHeap->mGuiSrvOffset, descriptorHeap->mCBVDescriptorSize);
+	auto cpuhandle = CD3DX12_CPU_DESCRIPTOR_HANDLE(descriptorHeap->mHeap->GetCPUDescriptorHandleForHeapStart());
+	cpuhandle.Offset(descriptorHeap->mGuiSrvOffset, descriptorHeap->mDescriptorSize);
 
-	auto gpuhandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(descriptorHeap->mCBVHeap->GetGPUDescriptorHandleForHeapStart());
-	gpuhandle.Offset(descriptorHeap->mGuiSrvOffset, descriptorHeap->mCBVDescriptorSize);
+	auto gpuhandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(descriptorHeap->mHeap->GetGPUDescriptorHandleForHeapStart());
+	gpuhandle.Offset(descriptorHeap->mGuiSrvOffset, descriptorHeap->mDescriptorSize);
 
 	ImGui_ImplSDL2_InitForD3D(window);
-	ImGui_ImplDX12_Init(device, numFrameResources, backBufferFormat, descriptorHeap->mCBVHeap.Get(), cpuhandle, gpuhandle);
+	ImGui_ImplDX12_Init(device, numFrameResources, backBufferFormat, descriptorHeap->mHeap.Get(), cpuhandle, gpuhandle);
 }
 
 GUI::~GUI()
