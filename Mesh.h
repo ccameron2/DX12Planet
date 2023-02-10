@@ -46,5 +46,7 @@ public:
 	void EmptyUploaders();
 	void CalculateBufferData(ID3D12Device* d3DDevice, ID3D12GraphicsCommandList* commandList);
 	void CalculateDynamicBufferData();
+	void Draw(ID3D12GraphicsCommandList* commandList);
+
 
 };

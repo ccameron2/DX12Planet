@@ -29,6 +29,10 @@ struct Vertex
 struct Material
 {
 	string Name;
+	int CBIndex = -1;
+	int DiffuseSRVIndex = -1;
+	int NormalSRVIndex = -1;
+	int NumFramesDirty = 3;
 	XMFLOAT4 DiffuseColour = XMFLOAT4{ 1, 1, 1, 1 };
 	XMFLOAT3 SpecularColour = XMFLOAT3{ 1, 1, 1 };
 	XMFLOAT3 AmbientColour = XMFLOAT3{ 0, 0, 0 };

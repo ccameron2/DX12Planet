@@ -82,33 +82,32 @@ void App::StartFrame()
 
 void App::LoadModels()
 {
+	Model* otherModel = new Model("Models/fox.fbx", mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
+	XMStoreFloat4x4(&otherModel->mWorldMatrix, XMMatrixIdentity()
+												* XMMatrixScaling(1, 1, 1)
+												* XMMatrixRotationX(90)
+												* XMMatrixTranslation(8.0f, 0.0f, 0.0f));
+	mModels.push_back(otherModel);
 
 	Model* wolfModel = new Model("Models/Wolf.fbx", mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
 	XMStoreFloat4x4(&wolfModel->mWorldMatrix, XMMatrixIdentity()
-		* XMMatrixScaling(1, 1, 1)
-		* XMMatrixRotationX(90)
-		* XMMatrixTranslation(-4.0f, 0.0f, 0.0f));
+												* XMMatrixScaling(1, 1, 1)
+												* XMMatrixRotationX(90)
+												* XMMatrixTranslation(-4.0f, 0.0f, 0.0f));
 	mModels.push_back(wolfModel);
 
-	Model* otherModel = new Model("Models/Dragon.fbx", mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
-	XMStoreFloat4x4(&otherModel->mWorldMatrix, XMMatrixIdentity()
-		* XMMatrixScaling(1, 1, 1)
-		* XMMatrixRotationX(90)
-		* XMMatrixTranslation(8.0f, 0.0f, 0.0f));
-	mModels.push_back(otherModel);
-
-	Model* foxModel = new Model("Models/fox.fbx", mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
+	Model* foxModel = new Model("Models/polyfox.fbx", mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
 	XMStoreFloat4x4(&foxModel->mWorldMatrix, XMMatrixIdentity() 
-														* XMMatrixScaling(1, 1, 1)
-														* XMMatrixRotationX(90)
-														* XMMatrixTranslation(4.0f, 0.0f, 0.0f));														
+												* XMMatrixScaling(1, 1, 1)
+												* XMMatrixRotationX(90)
+												* XMMatrixTranslation(4.0f, 0.0f, 0.0f));														
 	mModels.push_back(foxModel);
 
 	Model* anotherModel = new Model("Models/Slime.fbx", mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
 	XMStoreFloat4x4(&anotherModel->mWorldMatrix, XMMatrixIdentity()
-		* XMMatrixScaling(1, 1, 1)
-		* XMMatrixRotationX(90)
-		* XMMatrixTranslation(-8.0f, 0.0f, 0.0f));
+												* XMMatrixScaling(1, 1, 1)
+												* XMMatrixRotationX(90)
+												* XMMatrixTranslation(-8.0f, 0.0f, 0.0f));
 	mModels.push_back(anotherModel);
 
 	for (int i = 0; i < mModels.size(); i++)
@@ -457,15 +456,11 @@ void App::DrawPlanet(ID3D12GraphicsCommandList* commandList)
 	// Get reference to current per object constant buffer
 	auto objectCB = mCurrentFrameResource->mPerObjectConstantBuffer->GetBuffer();
 
-	// Set topology, vertex and index buffers to planet's
-	commandList->IASetVertexBuffers(0, 1, &mPlanet->mMesh->GetVertexBufferView());
-	commandList->IASetIndexBuffer(&mPlanet->mMesh->GetIndexBufferView());
-	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
 	// Offset to the CBV in the descriptor heap for this object and for this frame resource
 	UINT cbvIndex = mCurrentFrameResourceIndex * (UINT)mNumModels + mPlanet->ObjConstantBufferIndex;
 	mGraphics->SetGraphicsRootDescriptorTable(mCBVDescriptorHeap->mCBVHeap.Get(), cbvIndex, 0);
-	commandList->DrawIndexedInstanced(mPlanet->mMesh->mIndices.size(), 1, 0, 0, 0);
+
+	mPlanet->mMesh->Draw(commandList);
 }
 
 void App::DrawModels(ID3D12GraphicsCommandList* commandList)

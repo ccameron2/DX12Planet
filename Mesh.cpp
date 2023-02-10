@@ -36,6 +36,15 @@ void Mesh::CalculateDynamicBufferData()
 
 }
 
+void Mesh::Draw(ID3D12GraphicsCommandList* commandList)
+{
+	commandList->IASetVertexBuffers(0, 1, &GetVertexBufferView());
+	commandList->IASetIndexBuffer(&GetIndexBufferView());
+	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+	commandList->DrawIndexedInstanced(mIndices.size(), 1, 0, 0, 0);
+}
+
 void Mesh::CalculateBufferData(ID3D12Device* d3DDevice, ID3D12GraphicsCommandList* commandList)
 {
 	mIndicesCount = mIndices.size();

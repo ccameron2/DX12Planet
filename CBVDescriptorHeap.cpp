@@ -18,6 +18,10 @@ CBVDescriptorHeap::CBVDescriptorHeap(ID3D12Device* device, std::vector<std::uniq
 
 	mCBVDescriptorSize = cbvDescriptorSize;
 
+	// This is all common code between SRV and CBV except the +1.
+	// Remove the +1 and give gui new heap? There will be a better way to do it
+	// Then put switch on type of descriptor and fill with relevant code
+
 	D3D12_DESCRIPTOR_HEAP_DESC cbvHeapDesc;
 	cbvHeapDesc.NumDescriptors = numDescriptors + 1; // For GUI
 	cbvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;

@@ -63,11 +63,7 @@ void Model::Draw(ID3D12GraphicsCommandList* commandList)
 {
 	for (auto mesh : mMeshes)
 	{
-		commandList->IASetVertexBuffers(0, 1, &mesh->GetVertexBufferView());
-		commandList->IASetIndexBuffer(&mesh->GetIndexBufferView());
-		commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
-		commandList->DrawIndexedInstanced(mesh->mIndices.size(), 1, 0, 0, 0);
+		mesh->Draw(commandList);
 	}
 }
 
@@ -190,7 +186,10 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 
 				mBaseMaterials.push_back(material);
 			}
-
+			else
+			{
+				auto texture = diffuseMaps[0];
+			}
 		}
 	}
 	
