@@ -75,7 +75,7 @@ VOut VS(VIn vin)
 }
 
 Texture2D DiffuseMap : register(t0);
-SamplerState DiffuseFilter : register(s0);
+SamplerState DiffuseFilter : register(s4);
 
 float4 PS(VOut pIn) : SV_Target
 {

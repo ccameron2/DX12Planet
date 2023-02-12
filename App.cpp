@@ -70,19 +70,21 @@ void App::Initialize()
 void App::CreateTextures()
 {
 	mTextures.push_back(new Texture());
-	mTextures[0]->Path = L"Models/fox_diffuse.png";
+	mTextures[0]->Path = L"Models/fox.png";
 
 	auto device = mGraphics->mD3DDevice.Get();
 	ResourceUploadBatch upload(device);
 
 	upload.Begin();
 
-	CreateWICTextureFromFile(device,upload,mTextures[0]->Path, mTextures[0]->Resource.ReleaseAndGetAddressOf(), false);
+	CreateWICTextureFromFile(device,upload, L"Models/fox_diffuse.png", mTextures[0]->Resource.ReleaseAndGetAddressOf(), false);
 	
 	//
 	// Fill out the heap with actual descriptors.
 	//
 	CD3DX12_CPU_DESCRIPTOR_HANDLE hDescriptor(mSRVDescriptorHeap->mHeap->GetCPUDescriptorHandleForHeapStart());
+	// next descriptor
+	hDescriptor.Offset(1, mGraphics->mCbvSrvUavDescriptorSize);
 
 	auto woodCrateTex = mTextures[0]->Resource;
 
@@ -233,16 +235,17 @@ void App::CreateShaders()
 	{
 		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
 		{ "COLOUR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-		{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 24, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
+		{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 28, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
 	};
+
 	mTexVSByteCode = CompileShader(L"Shaders\\texshader.hlsl", nullptr, "VS", "vs_5_0");
 	mTexPSByteCode = CompileShader(L"Shaders\\texshader.hlsl", nullptr, "PS", "ps_5_0");
 	mTexInputLayout =
 	{
 		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
 		{ "COLOUR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-		{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 24, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-		{ "UV", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 32, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
+		{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 28, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		{ "UV", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 40, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
 	};
 }
 
@@ -551,7 +554,12 @@ void App::DrawModels(ID3D12GraphicsCommandList* commandList)
 
 		if (i == mModels.size() - 1)
 		{
+			CD3DX12_GPU_DESCRIPTOR_HANDLE tex(mSRVDescriptorHeap->mHeap->GetGPUDescriptorHandleForHeapStart());
+			tex.Offset(1, mGraphics->mCbvSrvUavDescriptorSize);
+
 			commandList->SetPipelineState(mTexPSO.Get());
+
+			commandList->SetGraphicsRootDescriptorTable(0, tex);
 		}
 		mModels[i]->Draw(commandList);
 	}
