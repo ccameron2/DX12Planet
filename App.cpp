@@ -1,5 +1,5 @@
 #include "App.h"
-
+#include <ScreenGrab.h>
 
 App::App()
 {
@@ -55,6 +55,7 @@ void App::Initialize()
 
 	mSRVDescriptorHeap = make_unique<SRVDescriptorHeap>(mGraphics->mD3DDevice.Get(), mGraphics->mCbvSrvUavDescriptorSize);
 
+	CreateTextures();
 	CreateRootSignature();
 
 	CreateShaders();
@@ -65,6 +66,41 @@ void App::Initialize()
 	// Change this to pass descriptor heap class instead of half of these parameters. Save them in the descriptor when passed in above constructor.
 	mGUI = make_unique<GUI>(mSRVDescriptorHeap.get(), mWindow->mSDLWindow, mGraphics->mD3DDevice.Get(),
 								mNumFrameResources, mGraphics->mBackBufferFormat);
+}
+void App::CreateTextures()
+{
+	mTextures.push_back(new Texture());
+	mTextures[0]->Path = L"Models/fox_diffuse.png";
+
+	auto device = mGraphics->mD3DDevice.Get();
+	ResourceUploadBatch upload(device);
+
+	upload.Begin();
+
+	CreateWICTextureFromFile(device,upload,mTextures[0]->Path, mTextures[0]->Resource.ReleaseAndGetAddressOf(), false);
+	
+	//
+	// Fill out the heap with actual descriptors.
+	//
+	CD3DX12_CPU_DESCRIPTOR_HANDLE hDescriptor(mSRVDescriptorHeap->mHeap->GetCPUDescriptorHandleForHeapStart());
+
+	auto woodCrateTex = mTextures[0]->Resource;
+
+	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	srvDesc.Format = woodCrateTex->GetDesc().Format;
+	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	srvDesc.Texture2D.MostDetailedMip = 0;
+	srvDesc.Texture2D.MipLevels = woodCrateTex->GetDesc().MipLevels;
+	srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
+
+	device->CreateShaderResourceView(woodCrateTex.Get(), &srvDesc, hDescriptor);
+
+	// Upload the resources to the GPU.
+	auto finish = upload.End(mGraphics->mCommandQueue.Get());
+
+	// Wait for the upload thread to terminate
+	finish.wait();
 }
 
 void App::StartFrame()
@@ -82,13 +118,6 @@ void App::StartFrame()
 
 void App::LoadModels()
 {
-	Model* otherModel = new Model("Models/fox.fbx", mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
-	XMStoreFloat4x4(&otherModel->mWorldMatrix, XMMatrixIdentity()
-												* XMMatrixScaling(1, 1, 1)
-												* XMMatrixRotationX(90)
-												* XMMatrixTranslation(8.0f, 0.0f, 0.0f));
-	mModels.push_back(otherModel);
-
 	Model* wolfModel = new Model("Models/Wolf.fbx", mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
 	XMStoreFloat4x4(&wolfModel->mWorldMatrix, XMMatrixIdentity()
 												* XMMatrixScaling(1, 1, 1)
@@ -109,6 +138,13 @@ void App::LoadModels()
 												* XMMatrixRotationX(90)
 												* XMMatrixTranslation(-8.0f, 0.0f, 0.0f));
 	mModels.push_back(anotherModel);
+
+	Model* otherModel = new Model("Models/fox.fbx", mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
+	XMStoreFloat4x4(&otherModel->mWorldMatrix, XMMatrixIdentity()
+		* XMMatrixScaling(1, 1, 1)
+		* XMMatrixRotationX(90)
+		* XMMatrixTranslation(8.0f, 0.0f, 0.0f));
+	mModels.push_back(otherModel);
 
 	for (int i = 0; i < mModels.size(); i++)
 	{
@@ -140,8 +176,10 @@ void App::CreateRootSignature()
 	slotRootParameter[1].InitAsConstantBufferView(0);
 	slotRootParameter[2].InitAsConstantBufferView(1);
 
+	auto staticSamplers = mGraphics->GetStaticSamplers();
+
 	// A root signature is an array of root parameters.
-	CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(3, slotRootParameter, 0, nullptr,
+	CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(3, slotRootParameter, (UINT)staticSamplers.size(), staticSamplers.data(),
 		D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 
 	// create a root signature with a single slot which points to a descriptor range consisting of a single constant buffer
@@ -189,13 +227,22 @@ ComPtr<ID3DBlob> App::CompileShader(const std::wstring& filename, const D3D_SHAD
 
 void App::CreateShaders()
 {
-	mVSByteCode = CompileShader(L"Shaders\\shader.hlsl", nullptr, "VS", "vs_5_0");
-	mPSByteCode = CompileShader(L"Shaders\\shader.hlsl", nullptr, "PS", "ps_5_0");
-	mInputLayout =
+	mColourVSByteCode = CompileShader(L"Shaders\\shader.hlsl", nullptr, "VS", "vs_5_0");
+	mColourPSByteCode = CompileShader(L"Shaders\\shader.hlsl", nullptr, "PS", "ps_5_0");
+	mColourInputLayout =
 	{
 		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
 		{ "COLOUR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
 		{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 24, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
+	};
+	mTexVSByteCode = CompileShader(L"Shaders\\texshader.hlsl", nullptr, "VS", "vs_5_0");
+	mTexPSByteCode = CompileShader(L"Shaders\\texshader.hlsl", nullptr, "PS", "ps_5_0");
+	mTexInputLayout =
+	{
+		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		{ "COLOUR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 24, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		{ "UV", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 32, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
 	};
 }
 
@@ -203,17 +250,17 @@ void App::CreatePSO()
 {
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc;
 	ZeroMemory(&psoDesc, sizeof(D3D12_GRAPHICS_PIPELINE_STATE_DESC));
-	psoDesc.InputLayout = { mInputLayout.data(), (UINT)mInputLayout.size() };
+	psoDesc.InputLayout = { mColourInputLayout.data(), (UINT)mColourInputLayout.size() };
 	psoDesc.pRootSignature = mRootSignature.Get();
 	psoDesc.VS =
 	{
-		reinterpret_cast<BYTE*>(mVSByteCode->GetBufferPointer()),
-		mVSByteCode->GetBufferSize()
+		reinterpret_cast<BYTE*>(mColourVSByteCode->GetBufferPointer()),
+		mColourVSByteCode->GetBufferSize()
 	};
 	psoDesc.PS =
 	{
-		reinterpret_cast<BYTE*>(mPSByteCode->GetBufferPointer()),
-		mPSByteCode->GetBufferSize()
+		reinterpret_cast<BYTE*>(mColourPSByteCode->GetBufferPointer()),
+		mColourPSByteCode->GetBufferSize()
 	};
 
 	psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
@@ -238,6 +285,24 @@ void App::CreatePSO()
 	if (FAILED(mGraphics->mD3DDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mWireframePSO))))
 	{
 		MessageBox(0, L"Wireframe Pipeline State Creation failed", L"Error", MB_OK);
+	}
+
+	psoDesc.VS =
+	{
+		reinterpret_cast<BYTE*>(mTexVSByteCode->GetBufferPointer()),
+		mTexVSByteCode->GetBufferSize()
+	};
+	psoDesc.PS =
+	{
+		reinterpret_cast<BYTE*>(mTexPSByteCode->GetBufferPointer()),
+		mTexPSByteCode->GetBufferSize()
+	};
+	psoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
+	psoDesc.InputLayout = { mTexInputLayout.data(), (UINT)mTexInputLayout.size() };
+
+	if (FAILED(mGraphics->mD3DDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mTexPSO))))
+	{
+		MessageBox(0, L"Texture Pipeline State Creation failed", L"Error", MB_OK);
 	}
 }
 
@@ -476,13 +541,19 @@ void App::DrawModels(ID3D12GraphicsCommandList* commandList)
 	auto objectCB = mCurrentFrameResource->mPerObjectConstantBuffer->GetBuffer();
 
 	// For each model
-	for(auto& model : mModels)
-	{
+	//for(auto& model : mModels)
+	//{
+	for(int i = 0; i < mModels.size(); i++)
+	{		
 		// Offset to the CBV for this object
-		auto objCBAddress = objectCB->GetGPUVirtualAddress() + model->mObjConstantBufferIndex * objCBByteSize;
+		auto objCBAddress = objectCB->GetGPUVirtualAddress() + mModels[i]->mObjConstantBufferIndex * objCBByteSize;
 		commandList->SetGraphicsRootConstantBufferView(1, objCBAddress);
 
-		model->Draw(commandList);
+		if (i == mModels.size() - 1)
+		{
+			commandList->SetPipelineState(mTexPSO.Get());
+		}
+		mModels[i]->Draw(commandList);
 	}
 }
 
@@ -530,6 +601,11 @@ App::~App()
 {
 	// Empty the command queue
 	if (mGraphics->mD3DDevice != nullptr) { mGraphics->EmptyCommandQueue(); }
+
+	for (auto& texture : mTextures)
+	{
+		delete texture;
+	}
 
 	for (auto& model : mModels)
 	{

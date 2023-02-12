@@ -42,6 +42,8 @@
 #include "UploadBuffer.h"
 #include "FrameResource.h"
 #include "SRVDescriptorHeap.h"
+#include <WICTextureLoader.h>
+#include <ResourceUploadBatch.h>
 
 #include <fstream>
 
@@ -65,6 +67,8 @@ public:
 
 	void Initialize();
 
+	void CreateTextures();
+
 private:
 	Timer mTimer;
 
@@ -79,9 +83,7 @@ private:
 	void RecreatePlanetGeometry();
 	void ProcessEvents(SDL_Event& e);
 
-	ComPtr<ID3D12DescriptorHeap> mSrvDescriptorHeap = nullptr;
-	vector<Texture> mTextures;
-
+	vector<Texture*> mTextures;
 
 	unique_ptr<Graphics> mGraphics;
 	unique_ptr<Window> mWindow;
@@ -113,16 +115,20 @@ private:
 	D3D_DRIVER_TYPE mD3DDriverType = D3D_DRIVER_TYPE_HARDWARE;
 
 	// Compiled shader variables
-	ComPtr<ID3DBlob> mVSByteCode = nullptr;
-	ComPtr<ID3DBlob> mPSByteCode = nullptr;
+	ComPtr<ID3DBlob> mColourVSByteCode = nullptr;
+	ComPtr<ID3DBlob> mColourPSByteCode = nullptr;
+	ComPtr<ID3DBlob> mTexVSByteCode = nullptr;
+	ComPtr<ID3DBlob> mTexPSByteCode = nullptr;
 
 	ComPtr<ID3D12RootSignature> mRootSignature;
 
 	// Input layout
-	std::vector<D3D12_INPUT_ELEMENT_DESC> mInputLayout;
+	std::vector<D3D12_INPUT_ELEMENT_DESC> mColourInputLayout;
+	std::vector<D3D12_INPUT_ELEMENT_DESC> mTexInputLayout;
 
 	ComPtr<ID3D12PipelineState> mSolidPSO = nullptr;
 	ComPtr<ID3D12PipelineState> mWireframePSO = nullptr;
+	ComPtr<ID3D12PipelineState> mTexPSO = nullptr;
 	ID3D12PipelineState* mCurrentPSO = nullptr;
 
 	void UpdatePerObjectConstantBuffers();

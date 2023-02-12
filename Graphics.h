@@ -75,6 +75,8 @@ public:
 	D3D12_CPU_DESCRIPTOR_HANDLE CurrentBackBufferView(); // Returns Render Target View to current back buffer
 	D3D12_CPU_DESCRIPTOR_HANDLE DepthStencilView(); // Returns Depth / Stencil View  to main depth buffer
 
+	std::array<const CD3DX12_STATIC_SAMPLER_DESC, 6> GetStaticSamplers();
+
 	void ExecuteCommands();
 	void CreateDescriptorHeaps();
 	void ResolveMSAAToBackBuffer();

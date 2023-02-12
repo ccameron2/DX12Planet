@@ -209,7 +209,7 @@ vector<Texture*> Model::LoadMaterialTextures(aiMaterial* mat, aiTextureType type
 			bool skip = false;
 			for (int j = 0; j < mLoadedTextures.size(); j++)
 			{
-				if (mLoadedTextures[j]->Path == str)
+				if (mLoadedTextures[j]->AIPath == str)
 				{
 					textures.push_back(mLoadedTextures[j]);
 					skip = true; // Texture has already been laoded
@@ -229,7 +229,7 @@ vector<Texture*> Model::LoadMaterialTextures(aiMaterial* mat, aiTextureType type
 					texture->ID = LoadTextureFromFile(str.C_Str(), mDirectory);
 				}
 				texture->Type = typeName;
-				texture->Path = str;
+				texture->AIPath = str;
 				textures.push_back(texture);
 				mLoadedTextures.push_back(texture);
 			}

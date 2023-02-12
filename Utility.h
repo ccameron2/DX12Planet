@@ -46,7 +46,8 @@ struct Texture
 {
 	int ID;
 	string Type;
-	aiString Path;	
+	aiString AIPath;
+	const wchar_t* Path;
 	Microsoft::WRL::ComPtr<ID3D12Resource> Resource = nullptr;
 	Microsoft::WRL::ComPtr<ID3D12Resource> UploadHeap = nullptr;
 };
@@ -192,3 +193,4 @@ static bool Float3IsSame(XMFLOAT3 a, XMFLOAT3 b)
 		return false;
 	}
 }
+

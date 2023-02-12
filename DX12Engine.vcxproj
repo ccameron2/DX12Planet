@@ -137,7 +137,6 @@
   <ItemGroup>
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="SRVDescriptorHeap.cpp" />
-    <ClCompile Include="DescriptorHeap.cpp" />
     <ClCompile Include="FrameResource.cpp" />
     <ClCompile Include="App.cpp" />
     <ClCompile Include="Mesh.cpp" />
@@ -161,7 +160,6 @@
   <ItemGroup>
     <ClInclude Include="Camera.h" />
     <ClInclude Include="SRVDescriptorHeap.h" />
-    <ClInclude Include="DescriptorHeap.h" />
     <ClInclude Include="FastNoiseLite.h" />
     <ClInclude Include="FrameResource.h" />
     <ClInclude Include="App.h" />
@@ -181,6 +179,9 @@
     <FxCompile Include="Shaders\shader.hlsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </FxCompile>
+    <FxCompile Include="Shaders\texshader.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
     </FxCompile>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
