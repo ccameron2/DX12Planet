@@ -70,7 +70,7 @@ void App::Initialize()
 void App::CreateTextures()
 {
 	mTextures.push_back(new Texture());
-	mTextures[0]->Path = L"Models/fox.png";
+	mTextures[0]->Path = L"Models/fox_diffuse.png";
 
 	auto device = mGraphics->mD3DDevice.Get();
 	ResourceUploadBatch upload(device);
@@ -86,23 +86,57 @@ void App::CreateTextures()
 	// next descriptor
 	hDescriptor.Offset(1, mGraphics->mCbvSrvUavDescriptorSize);
 
-	auto woodCrateTex = mTextures[0]->Resource;
+	auto foxTex = mTextures[0]->Resource;
 
 	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
 	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-	srvDesc.Format = woodCrateTex->GetDesc().Format;
+	srvDesc.Format = foxTex->GetDesc().Format;
 	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
 	srvDesc.Texture2D.MostDetailedMip = 0;
-	srvDesc.Texture2D.MipLevels = woodCrateTex->GetDesc().MipLevels;
+	srvDesc.Texture2D.MipLevels = foxTex->GetDesc().MipLevels;
 	srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
 
-	device->CreateShaderResourceView(woodCrateTex.Get(), &srvDesc, hDescriptor);
+	device->CreateShaderResourceView(foxTex.Get(), &srvDesc, hDescriptor);
 
 	// Upload the resources to the GPU.
 	auto finish = upload.End(mGraphics->mCommandQueue.Get());
 
 	// Wait for the upload thread to terminate
 	finish.wait();
+
+	mTextures.push_back(new Texture());
+	mTextures[1]->Path = L"Models/fox_normal.png";
+
+	ResourceUploadBatch upload2(device);
+
+	upload2.Begin();
+
+	CreateWICTextureFromFile(device, upload2, L"Models/fox_normal.png", mTextures[1]->Resource.ReleaseAndGetAddressOf(), false);
+
+	//
+	// Fill out the heap with actual descriptors.
+	//
+	CD3DX12_CPU_DESCRIPTOR_HANDLE hDescriptor2(mSRVDescriptorHeap->mHeap->GetCPUDescriptorHandleForHeapStart());
+	// next descriptor
+	hDescriptor2.Offset(2, mGraphics->mCbvSrvUavDescriptorSize);
+
+	auto foxNorm = mTextures[1]->Resource;
+
+	//D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	srvDesc.Format = foxNorm->GetDesc().Format;
+	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	srvDesc.Texture2D.MostDetailedMip = 0;
+	srvDesc.Texture2D.MipLevels = foxNorm->GetDesc().MipLevels;
+	srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
+
+	device->CreateShaderResourceView(foxNorm.Get(), &srvDesc, hDescriptor2);
+
+	// Upload the resources to the GPU.
+	auto finish2 = upload2.End(mGraphics->mCommandQueue.Get());
+
+	// Wait for the upload thread to terminate
+	finish2.wait();
 }
 
 void App::StartFrame()
@@ -164,11 +198,10 @@ void App::BuildFrameResources()
 
 void App::CreateRootSignature()
 {
-
 	CD3DX12_DESCRIPTOR_RANGE texTable;
 	texTable.Init(
 		D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
-		1,  // number of descriptors
+		4,  // number of descriptors
 		0); // register t0
 
 	// Root parameter can be a table, root descriptor or root constants.
@@ -245,7 +278,8 @@ void App::CreateShaders()
 		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
 		{ "COLOUR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
 		{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 28, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-		{ "UV", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 40, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
+		{ "UV", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 40, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		{ "TANGENT", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 48, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
 	};
 }
 

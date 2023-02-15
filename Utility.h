@@ -25,6 +25,7 @@ struct Vertex
 	XMFLOAT4 Colour = XMFLOAT4{ 0,0,0,0 };
 	XMFLOAT3 Normal = XMFLOAT3{ 0,0,0 };
 	XMFLOAT2 UV = XMFLOAT2{ 0,0 };
+	XMFLOAT3 Tangent = XMFLOAT3{ 0,0,0 };
 };
 struct Material
 {

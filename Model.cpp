@@ -13,6 +13,7 @@ Model::Model(std::string fileName, ID3D12Device* device, ID3D12GraphicsCommandLi
 		aiProcess_FindInvalidData |
 		aiProcess_OptimizeMeshes |
 		aiProcess_OptimizeGraph |
+		aiProcess_CalcTangentSpace |
 		aiProcess_ConvertToLeftHanded);
 
 	if (!scene)
@@ -128,6 +129,14 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 		{
 			vertex.UV = XMFLOAT2(0.0f, 0.0f);
 		}
+
+		if (mesh->HasTangentsAndBitangents())
+		{
+			vertex.Tangent.x = mesh->mTangents[i].x;
+			vertex.Tangent.y = mesh->mTangents[i].y;
+			vertex.Tangent.z = mesh->mTangents[i].z;
+		}
+
 		modelGeometry->mVertices.push_back(vertex);
 	}
 
