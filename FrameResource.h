@@ -9,7 +9,7 @@
 class FrameResource
 {
 public:
-    FrameResource(ID3D12Device* device, UINT passCount, UINT objectCount, UINT planetMaxVertexCount, UINT planetMaxIndexCount);
+    FrameResource(ID3D12Device* device, UINT passCount, UINT objectCount, UINT planetMaxVertexCount, UINT planetMaxIndexCount, UINT materialCount);
 
 	ComPtr<ID3D12CommandAllocator> mCommandAllocator;
 
@@ -50,6 +50,7 @@ public:
         mLight Lights[mMaxLights];
     };
     std::unique_ptr <UploadBuffer<mPerFrameConstants>> mPerFrameConstantBuffer;
+    std::unique_ptr <UploadBuffer<MaterialConstants>> mPerMaterialConstantBuffer;
 
     std::unique_ptr <UploadBuffer<Vertex>> mPlanetVB;
     std::unique_ptr <UploadBuffer<uint32_t>> mPlanetIB;

@@ -1,5 +1,6 @@
 #include "Model.h"
 #include <regex>
+
 Model::Model(std::string fileName, ID3D12Device* device, ID3D12GraphicsCommandList* commandList)
 {
 	Assimp::Importer importer;
@@ -26,26 +27,11 @@ Model::Model(std::string fileName, ID3D12Device* device, ID3D12GraphicsCommandLi
 	mFileName = fileName.substr(fileName.find_last_of('/') + 1, fileName.find_last_of('.') - fileName.find_last_of('/') - 1);
 	ProcessNode(scene->mRootNode, scene);
 
-	if (mBaseMaterials.size() > 0)
+	for (auto& mesh : mMeshes)
 	{
-		for (auto& mesh : mMeshes)
-		{
-			// temp dont do this
-			for (auto& vertex : mesh->mVertices)
-			{
-				vertex.Colour = mBaseMaterials[mesh->mMaterialIndex]->DiffuseColour;
-			}
+		mesh->CalculateBufferData(device, commandList);
+	}
 
-			mesh->CalculateBufferData(device, commandList);
-		}
-	}
-	else
-	{
-		for (auto& mesh : mMeshes)
-		{
-			mesh->CalculateBufferData(device, commandList);
-		}
-	}
 }
 
 Model::~Model()
@@ -58,12 +44,20 @@ Model::~Model()
 	{
 		delete material;
 	}
+	for (auto& texture : mLoadedTextures)
+	{
+		delete texture;
+	}
 }
 
-void Model::Draw(ID3D12GraphicsCommandList* commandList)
+void Model::Draw(ID3D12GraphicsCommandList* commandList, ID3D12Resource* matCB)
 {
+	UINT matCBByteSize = CalculateConstantBufferSize(sizeof(MaterialConstants));
+
 	for (auto mesh : mMeshes)
 	{
+		D3D12_GPU_VIRTUAL_ADDRESS matCBAddress = matCB->GetGPUVirtualAddress() + mBaseMaterials[mesh->mMaterialIndex]->CBIndex * matCBByteSize;
+		commandList->SetGraphicsRootConstantBufferView(3, matCBAddress);
 		mesh->Draw(commandList);
 	}
 }
@@ -165,40 +159,16 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 			vector<Texture*> baseColourMaps = LoadMaterialTextures(assimpMaterial, aiTextureType_BASE_COLOR, "texture_base_colour", scene);
 			modelGeometry->mTextures.insert(modelGeometry->mTextures.end(), baseColourMaps.begin(), baseColourMaps.end());
 
-			if (baseColourMaps.size() == 0 && diffuseMaps.size() == 0)
-			{
-				// No textures
-				Material* material = new Material;
-				aiString materialName;
-				assimpMaterial->Get(AI_MATKEY_NAME, materialName);
-				material->Name = materialName.C_Str();
+			Material* material = new Material;
+			aiString materialName;
+			assimpMaterial->Get(AI_MATKEY_NAME, materialName);
+			material->AiName = materialName;
 
-				aiColor4D diffuseColour;
-				assimpMaterial->Get(AI_MATKEY_COLOR_DIFFUSE, diffuseColour);
-				material->DiffuseColour = XMFLOAT4{ diffuseColour.r,diffuseColour.g,diffuseColour.b,diffuseColour.a };
+			aiColor4D diffuseColour;
+			assimpMaterial->Get(AI_MATKEY_COLOR_DIFFUSE, diffuseColour);
+			material->DiffuseAlbedo = XMFLOAT4{ diffuseColour.r,diffuseColour.g,diffuseColour.b,diffuseColour.a };
 
-				aiColor3D specularColour;
-				assimpMaterial->Get(AI_MATKEY_COLOR_SPECULAR, specularColour);
-				material->SpecularColour = XMFLOAT3{ specularColour.r,specularColour.g,specularColour.b };
-
-				aiColor3D ambientColour;
-				assimpMaterial->Get(AI_MATKEY_COLOR_AMBIENT, ambientColour);
-				material->AmbientColour = XMFLOAT3{ ambientColour.r,ambientColour.g,ambientColour.b };
-
-				aiColor3D emmissiveColour;
-				assimpMaterial->Get(AI_MATKEY_COLOR_EMISSIVE, emmissiveColour);
-				material->EmissiveColour = XMFLOAT3{ emmissiveColour.r,emmissiveColour.g,emmissiveColour.b };
-
-				aiColor3D baseColour;
-				assimpMaterial->Get(AI_MATKEY_BASE_COLOR, baseColour);
-				material->BaseColour = XMFLOAT3{ baseColour.r,baseColour.g,baseColour.b };
-
-				mBaseMaterials.push_back(material);
-			}
-			else
-			{
-				auto texture = diffuseMaps[0];
-			}
+			mBaseMaterials.push_back(material);
 		}
 	}
 	

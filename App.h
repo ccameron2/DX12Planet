@@ -82,8 +82,10 @@ private:
 	void CreatePSO();
 	void RecreatePlanetGeometry();
 	void ProcessEvents(SDL_Event& e);
+	void CreateMaterials();
 
 	vector<Texture*> mTextures;
+	vector<Material*> mMaterials;
 
 	unique_ptr<Graphics> mGraphics;
 	unique_ptr<Window> mWindow;
@@ -129,10 +131,19 @@ private:
 	ComPtr<ID3D12PipelineState> mSolidPSO = nullptr;
 	ComPtr<ID3D12PipelineState> mWireframePSO = nullptr;
 	ComPtr<ID3D12PipelineState> mTexPSO = nullptr;
+	ComPtr<ID3D12PipelineState> mPlanetPSO = nullptr;
+	ComPtr<ID3D12PipelineState> mWirePlanetPSO = nullptr;
+
+
 	ID3D12PipelineState* mCurrentPSO = nullptr;
+
+	ComPtr<ID3DBlob> mPlanetVSByteCode = nullptr;
+	ComPtr<ID3DBlob> mPlanetPSByteCode = nullptr;
+
 
 	void UpdatePerObjectConstantBuffers();
 	void UpdatePerFrameConstantBuffer();
+	void UpdatePerMaterialConstantBuffers();
 
 	void BuildFrameResources();
 

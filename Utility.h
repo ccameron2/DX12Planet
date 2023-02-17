@@ -13,6 +13,16 @@ using namespace std;
 using namespace DirectX;
 using Microsoft::WRL::ComPtr;
 
+static XMFLOAT4X4 MakeIdentity4x4()
+{
+	XMFLOAT4X4 I(
+		1.0f, 0.0f, 0.0f, 0.0f,
+		0.0f, 1.0f, 0.0f, 0.0f,
+		0.0f, 0.0f, 1.0f, 0.0f,
+		0.0f, 0.0f, 0.0f, 1.0f);
+	return I;
+}
+
 struct Triangle
 {
 	std::uint32_t Point[3];
@@ -27,20 +37,35 @@ struct Vertex
 	XMFLOAT2 UV = XMFLOAT2{ 0,0 };
 	XMFLOAT3 Tangent = XMFLOAT3{ 0,0,0 };
 };
+
+struct MaterialConstants
+{
+	DirectX::XMFLOAT4 DiffuseAlbedo = { 1.0f, 1.0f, 1.0f, 1.0f };
+	DirectX::XMFLOAT3 FresnelR0 = { 0.01f, 0.01f, 0.01f };
+	float Roughness = 0.25f;
+
+	// Used in texture mapping.
+	DirectX::XMFLOAT4X4 MatTransform = MakeIdentity4x4();
+};
+
 struct Material
 {
-	string Name;
+	aiString AiName;
+	wstring Name;
+
 	int CBIndex = -1;
 	int DiffuseSRVIndex = -1;
+	int RoughnessSRVIndex = -1;
+	int MetalnessSRVIndex = -1;
 	int NormalSRVIndex = -1;
+	int DisplacementSRVIndex = -1;
 	int NumFramesDirty = 3;
-	XMFLOAT4 DiffuseColour = XMFLOAT4{ 1, 1, 1, 1 };
-	XMFLOAT3 SpecularColour = XMFLOAT3{ 1, 1, 1 };
-	XMFLOAT3 AmbientColour = XMFLOAT3{ 0, 0, 0 };
-	XMFLOAT3 EmissiveColour = XMFLOAT3{ 0, 0, 0 };
-	XMFLOAT3 BaseColour = XMFLOAT3{ 1, 1, 1 };
-	float SpecularPower;
-	float ParallaxDepth;
+
+	// Material constant buffer data used for shading.
+	DirectX::XMFLOAT4 DiffuseAlbedo = { 1.0f, 1.0f, 1.0f, 1.0f };
+	DirectX::XMFLOAT3 FresnelR0 = { 0.01f, 0.01f, 0.01f };
+	float Roughness = .25f;
+	DirectX::XMFLOAT4X4 MatTransform = MakeIdentity4x4();
 };
 
 struct Texture
@@ -48,7 +73,7 @@ struct Texture
 	int ID;
 	string Type;
 	aiString AIPath;
-	const wchar_t* Path;
+	wstring Path;
 	Microsoft::WRL::ComPtr<ID3D12Resource> Resource = nullptr;
 	Microsoft::WRL::ComPtr<ID3D12Resource> UploadHeap = nullptr;
 };
@@ -105,17 +130,6 @@ static UINT CalculateConstantBufferSize(UINT size)
 	// We do this by adding 255 and then masking off
 	// the lower 2 bytes which store all bits < 256.
 	return (size + 255) & ~255;
-}
-
-
-static XMFLOAT4X4 MakeIdentity4x4()
-{
-	XMFLOAT4X4 I(
-		1.0f, 0.0f, 0.0f, 0.0f,
-		0.0f, 1.0f, 0.0f, 0.0f,
-		0.0f, 0.0f, 1.0f, 0.0f,
-		0.0f, 0.0f, 0.0f, 1.0f);
-	return I;
 }
 
 static DirectX::XMVECTOR SphericalToCartesian(float radius, float theta, float phi)

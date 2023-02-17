@@ -1,5 +1,5 @@
 #include "App.h"
-#include <ScreenGrab.h>
+#include "DDSTextureLoader.h"
 
 App::App()
 {
@@ -48,13 +48,14 @@ void App::Initialize()
 	XMStoreFloat4x4(&mPlanet->WorldMatrix, XMMatrixIdentity() * /*XMMatrixScaling(0, 0, 0) **/ XMMatrixTranslation(0.0f, 0.0f, 0.0f));
 
 	LoadModels();
+	CreateMaterials();
 
 	BuildFrameResources();
 
 	mNumModels = 1 + mModels.size(); // +1 for planet
 
 	mSRVDescriptorHeap = make_unique<SRVDescriptorHeap>(mGraphics->mD3DDevice.Get(), mGraphics->mCbvSrvUavDescriptorSize);
-
+	
 	CreateTextures();
 	CreateRootSignature();
 
@@ -63,25 +64,30 @@ void App::Initialize()
 
 	mGraphics->ExecuteCommands();
 
-	// Change this to pass descriptor heap class instead of half of these parameters. Save them in the descriptor when passed in above constructor.
 	mGUI = make_unique<GUI>(mSRVDescriptorHeap.get(), mWindow->mSDLWindow, mGraphics->mD3DDevice.Get(),
 								mNumFrameResources, mGraphics->mBackBufferFormat);
 }
 void App::CreateTextures()
 {
+	//mMaterials.push_back(new Material());
+	//mMaterials[0]->Name = L"Models/blocksrough";
+	
+	vector<Material*> materials;
+
+	materials.push_back(new Material());
+	materials[0]->Name = L"Models/blocksrough";
+
 	mTextures.push_back(new Texture());
-	mTextures[0]->Path = L"Models/fox_diffuse.png";
+	mTextures[0]->Path = materials[0]->Name + L"-albedo.dds";
 
 	auto device = mGraphics->mD3DDevice.Get();
 	ResourceUploadBatch upload(device);
 
 	upload.Begin();
 
-	CreateWICTextureFromFile(device,upload, L"Models/fox_diffuse.png", mTextures[0]->Resource.ReleaseAndGetAddressOf(), false);
+	CreateDDSTextureFromFile(device,upload, mTextures[0]->Path.c_str(), mTextures[0]->Resource.ReleaseAndGetAddressOf(), false);
 	
-	//
 	// Fill out the heap with actual descriptors.
-	//
 	CD3DX12_CPU_DESCRIPTOR_HANDLE hDescriptor(mSRVDescriptorHeap->mHeap->GetCPUDescriptorHandleForHeapStart());
 	// next descriptor
 	hDescriptor.Offset(1, mGraphics->mCbvSrvUavDescriptorSize);
@@ -98,29 +104,53 @@ void App::CreateTextures()
 
 	device->CreateShaderResourceView(foxTex.Get(), &srvDesc, hDescriptor);
 
-	// Upload the resources to the GPU.
-	auto finish = upload.End(mGraphics->mCommandQueue.Get());
+	mTextures.push_back(new Texture());
+	mTextures[1]->Path = materials[0]->Name + L"-roughness.dds";
 
-	// Wait for the upload thread to terminate
-	finish.wait();
+	CreateDDSTextureFromFile(device, upload, mTextures[1]->Path.c_str(), mTextures[1]->Resource.ReleaseAndGetAddressOf(), false);
+
+	hDescriptor.Offset(1, mGraphics->mCbvSrvUavDescriptorSize);
+
+	auto foxRough = mTextures[1]->Resource;
+
+	//D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	srvDesc.Format = foxRough->GetDesc().Format;
+	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	srvDesc.Texture2D.MostDetailedMip = 0;
+	srvDesc.Texture2D.MipLevels = foxRough->GetDesc().MipLevels;
+	srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
+
+	device->CreateShaderResourceView(foxRough.Get(), &srvDesc, hDescriptor);
 
 	mTextures.push_back(new Texture());
-	mTextures[1]->Path = L"Models/fox_normal.png";
+	mTextures[2]->Path = materials[0]->Name + L"-metalness.dds";
 
-	ResourceUploadBatch upload2(device);
+	CreateDDSTextureFromFile(device, upload, mTextures[2]->Path.c_str(), mTextures[2]->Resource.ReleaseAndGetAddressOf(), false);
 
-	upload2.Begin();
+	hDescriptor.Offset(1, mGraphics->mCbvSrvUavDescriptorSize);
 
-	CreateWICTextureFromFile(device, upload2, L"Models/fox_normal.png", mTextures[1]->Resource.ReleaseAndGetAddressOf(), false);
+	auto foxMetal = mTextures[2]->Resource;
 
-	//
-	// Fill out the heap with actual descriptors.
-	//
-	CD3DX12_CPU_DESCRIPTOR_HANDLE hDescriptor2(mSRVDescriptorHeap->mHeap->GetCPUDescriptorHandleForHeapStart());
-	// next descriptor
-	hDescriptor2.Offset(2, mGraphics->mCbvSrvUavDescriptorSize);
+	//D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	srvDesc.Format = foxMetal->GetDesc().Format;
+	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	srvDesc.Texture2D.MostDetailedMip = 0;
+	srvDesc.Texture2D.MipLevels = foxMetal->GetDesc().MipLevels;
+	srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
 
-	auto foxNorm = mTextures[1]->Resource;
+	device->CreateShaderResourceView(foxMetal.Get(), &srvDesc, hDescriptor);
+
+	mTextures.push_back(new Texture());
+	mTextures[3]->Path = materials[0]->Name + L"-normal.dds";
+
+	//CreateWICTextureFromFile(device, upload, L"Models/subway-floor-normal.jpg", mTextures[1]->Resource.ReleaseAndGetAddressOf(), false);
+	CreateDDSTextureFromFile(device, upload, mTextures[3]->Path.c_str(), mTextures[3]->Resource.ReleaseAndGetAddressOf(), false);
+
+	hDescriptor.Offset(1, mGraphics->mCbvSrvUavDescriptorSize);
+
+	auto foxNorm = mTextures[3]->Resource;
 
 	//D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
 	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
@@ -130,13 +160,51 @@ void App::CreateTextures()
 	srvDesc.Texture2D.MipLevels = foxNorm->GetDesc().MipLevels;
 	srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
 
-	device->CreateShaderResourceView(foxNorm.Get(), &srvDesc, hDescriptor2);
+	device->CreateShaderResourceView(foxNorm.Get(), &srvDesc, hDescriptor);
+
+	mTextures.push_back(new Texture());
+	mTextures[4]->Path = materials[0]->Name + L"-height.dds";
+
+	CreateDDSTextureFromFile(device, upload, mTextures[4]->Path.c_str(), mTextures[4]->Resource.ReleaseAndGetAddressOf(), false);
+
+	hDescriptor.Offset(1, mGraphics->mCbvSrvUavDescriptorSize);
+
+	auto foxDisplacement = mTextures[4]->Resource;
+
+	//D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	srvDesc.Format = foxDisplacement->GetDesc().Format;
+	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	srvDesc.Texture2D.MostDetailedMip = 0;
+	srvDesc.Texture2D.MipLevels = foxDisplacement->GetDesc().MipLevels;
+	srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
+
+	device->CreateShaderResourceView(foxDisplacement.Get(), &srvDesc, hDescriptor);
+
+	mTextures.push_back(new Texture());
+	mTextures[5]->Path = materials[0]->Name + L"-ao.dds";
+
+	CreateDDSTextureFromFile(device, upload, mTextures[5]->Path.c_str(), mTextures[5]->Resource.ReleaseAndGetAddressOf(), false);
+
+	hDescriptor.Offset(1, mGraphics->mCbvSrvUavDescriptorSize);
+
+	auto foxAO = mTextures[5]->Resource;
+
+	//D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	srvDesc.Format = foxAO->GetDesc().Format;
+	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	srvDesc.Texture2D.MostDetailedMip = 0;
+	srvDesc.Texture2D.MipLevels = foxAO->GetDesc().MipLevels;
+	srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
+
+	device->CreateShaderResourceView(foxAO.Get(), &srvDesc, hDescriptor);
 
 	// Upload the resources to the GPU.
-	auto finish2 = upload2.End(mGraphics->mCommandQueue.Get());
+	auto finish = upload.End(mGraphics->mCommandQueue.Get());
 
 	// Wait for the upload thread to terminate
-	finish2.wait();
+	finish.wait();
 }
 
 void App::StartFrame()
@@ -158,7 +226,7 @@ void App::LoadModels()
 	XMStoreFloat4x4(&wolfModel->mWorldMatrix, XMMatrixIdentity()
 												* XMMatrixScaling(1, 1, 1)
 												* XMMatrixRotationX(90)
-												* XMMatrixTranslation(-4.0f, 0.0f, 0.0f));
+												* XMMatrixTranslation(8.0f, 0.0f, 0.0f));
 	mModels.push_back(wolfModel);
 
 	Model* foxModel = new Model("Models/polyfox.fbx", mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
@@ -175,11 +243,11 @@ void App::LoadModels()
 												* XMMatrixTranslation(-8.0f, 0.0f, 0.0f));
 	mModels.push_back(anotherModel);
 
-	Model* otherModel = new Model("Models/fox.fbx", mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
+	Model* otherModel = new Model("Models/octopus.x", mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
 	XMStoreFloat4x4(&otherModel->mWorldMatrix, XMMatrixIdentity()
-		* XMMatrixScaling(1, 1, 1)
-		* XMMatrixRotationX(90)
-		* XMMatrixTranslation(8.0f, 0.0f, 0.0f));
+		* XMMatrixScaling(0.5, 0.5, 0.5)
+		//* XMMatrixRotationX(90)
+		* XMMatrixTranslation(-4.0f, 0.0f, 0.0f));
 	mModels.push_back(otherModel);
 
 	for (int i = 0; i < mModels.size(); i++)
@@ -192,7 +260,7 @@ void App::BuildFrameResources()
 {
 	for (int i = 0; i < mNumFrameResources; i++)
 	{
-		mFrameResources.push_back(std::make_unique<FrameResource>(mGraphics->mD3DDevice.Get(), 1, 1 + mModels.size(), 20000000, 80000000)); //1 for planet
+		mFrameResources.push_back(std::make_unique<FrameResource>(mGraphics->mD3DDevice.Get(), 1, 1 + mModels.size(), 11000000, 65000000, mMaterials.size())); //1 for planet
 	}
 }
 
@@ -201,26 +269,26 @@ void App::CreateRootSignature()
 	CD3DX12_DESCRIPTOR_RANGE texTable;
 	texTable.Init(
 		D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
-		4,  // number of descriptors
+		6,  // number of descriptors
 		0); // register t0
 
 	// Root parameter can be a table, root descriptor or root constants.
-	CD3DX12_ROOT_PARAMETER slotRootParameter[3];
+	CD3DX12_ROOT_PARAMETER slotRootParameter[4];
 
 	slotRootParameter[0].InitAsDescriptorTable(1, &texTable, D3D12_SHADER_VISIBILITY_PIXEL);
 	slotRootParameter[1].InitAsConstantBufferView(0);
 	slotRootParameter[2].InitAsConstantBufferView(1);
+	slotRootParameter[3].InitAsConstantBufferView(2);
 
 	auto staticSamplers = mGraphics->GetStaticSamplers();
 
 	// A root signature is an array of root parameters.
-	CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(3, slotRootParameter, (UINT)staticSamplers.size(), staticSamplers.data(),
+	CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(4, slotRootParameter, (UINT)staticSamplers.size(), staticSamplers.data(),
 		D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 
-	// create a root signature with a single slot which points to a descriptor range consisting of a single constant buffer
+	// create a root signature
 	ComPtr<ID3DBlob> serializedRootSignature = nullptr;
 	ComPtr<ID3DBlob> errorBlob = nullptr;
-
 
 	if (FAILED(D3D12SerializeRootSignature(&rootSigDesc, D3D_ROOT_SIGNATURE_VERSION_1, serializedRootSignature.GetAddressOf(), errorBlob.GetAddressOf())))
 	{
@@ -281,6 +349,9 @@ void App::CreateShaders()
 		{ "UV", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 40, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
 		{ "TANGENT", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 48, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
 	};
+
+	mPlanetVSByteCode = CompileShader(L"Shaders\\planetshader.hlsl", nullptr, "VS", "vs_5_0");
+	mPlanetPSByteCode = CompileShader(L"Shaders\\planetshader.hlsl", nullptr, "PS", "ps_5_0");
 }
 
 void App::CreatePSO()
@@ -323,7 +394,25 @@ void App::CreatePSO()
 	{
 		MessageBox(0, L"Wireframe Pipeline State Creation failed", L"Error", MB_OK);
 	}
-
+	psoDesc.VS =
+	{
+		reinterpret_cast<BYTE*>(mPlanetVSByteCode->GetBufferPointer()),
+		mPlanetVSByteCode->GetBufferSize()
+	};
+	psoDesc.PS =
+	{
+		reinterpret_cast<BYTE*>(mPlanetPSByteCode->GetBufferPointer()),
+		mPlanetPSByteCode->GetBufferSize()
+	};
+	if (FAILED(mGraphics->mD3DDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mWirePlanetPSO))))
+	{
+		MessageBox(0, L"Texture Pipeline State Creation failed", L"Error", MB_OK);
+	}
+	psoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
+	if (FAILED(mGraphics->mD3DDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mPlanetPSO))))
+	{
+		MessageBox(0, L"Texture Pipeline State Creation failed", L"Error", MB_OK);
+	}
 	psoDesc.VS =
 	{
 		reinterpret_cast<BYTE*>(mTexVSByteCode->GetBufferPointer()),
@@ -334,7 +423,6 @@ void App::CreatePSO()
 		reinterpret_cast<BYTE*>(mTexPSByteCode->GetBufferPointer()),
 		mTexPSByteCode->GetBufferSize()
 	};
-	psoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
 	psoDesc.InputLayout = { mTexInputLayout.data(), (UINT)mTexInputLayout.size() };
 
 	if (FAILED(mGraphics->mD3DDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mTexPSO))))
@@ -406,6 +494,7 @@ void App::Update(float frameTime)
 
 	UpdatePerObjectConstantBuffers();
 	UpdatePerFrameConstantBuffer();
+	UpdatePerMaterialConstantBuffers();
 }
 
 void App::CycleFrameResources()
@@ -504,10 +593,37 @@ void App::UpdatePerFrameConstantBuffer()
 	perFrameConstantBuffer.Lights[0].Colour = { 0.5f,0.5f,0.5f };
 	perFrameConstantBuffer.Lights[0].Position = { 4.0f, 4.0f, 0.0f };
 	perFrameConstantBuffer.Lights[0].Direction = { mGUI->mLightDir[0], mGUI->mLightDir[1], mGUI->mLightDir[2] };
-	 	
+	perFrameConstantBuffer.Lights[0].Strength = { 0.5,0.5,0.5 };
+
 	// Copy the structure into the per frame constant buffer
 	auto currentFrameCB = mCurrentFrameResource->mPerFrameConstantBuffer.get();
 	currentFrameCB->Copy(0, perFrameConstantBuffer);
+}
+
+void App::UpdatePerMaterialConstantBuffers()
+{
+	auto currMaterialCB = mCurrentFrameResource->mPerMaterialConstantBuffer.get();
+
+	for (auto& mat : mMaterials)
+	{
+		// Only update the cbuffer data if the constants have changed.  If the cbuffer
+		// data changes, it needs to be updated for each FrameResource.
+		if (mat->NumFramesDirty > 0)
+		{
+			XMMATRIX matTransform = XMLoadFloat4x4(&mat->MatTransform);
+
+			MaterialConstants matConstants;
+			matConstants.DiffuseAlbedo = mat->DiffuseAlbedo;
+			matConstants.FresnelR0 = mat->FresnelR0;
+			matConstants.Roughness = mat->Roughness;
+			XMStoreFloat4x4(&matConstants.MatTransform, XMMatrixTranspose(matTransform));
+
+			currMaterialCB->Copy(mat->CBIndex, matConstants);
+
+			// Next FrameResource need to be updated too.
+			mat->NumFramesDirty--;
+		}
+	}
 }
 
 void App::Draw(float frameTime)
@@ -516,9 +632,6 @@ void App::Draw(float frameTime)
 	auto commandList = mGraphics->mCommandList;
 
 	mGraphics->ResetCommandAllocator(commandAllocator);
-
-	if (mWireframe) { mCurrentPSO = mSolidPSO.Get(); }
-	else { mCurrentPSO = mWireframePSO.Get(); }
 
 	mGraphics->ResetCommandList(commandAllocator, mCurrentPSO);
 
@@ -556,6 +669,8 @@ void App::Draw(float frameTime)
 
 void App::DrawPlanet(ID3D12GraphicsCommandList* commandList)
 {
+	if (mWireframe) { commandList->SetPipelineState(mWirePlanetPSO.Get()); }
+	else { commandList->SetPipelineState(mPlanetPSO.Get()); }
 	// Get size of the per object constant buffer 
 	UINT objCBByteSize = CalculateConstantBufferSize(sizeof(FrameResource::mPerObjectConstants));
 
@@ -570,32 +685,33 @@ void App::DrawPlanet(ID3D12GraphicsCommandList* commandList)
 
 void App::DrawModels(ID3D12GraphicsCommandList* commandList)
 {
-
+	if (mWireframe) { commandList->SetPipelineState(mWireframePSO.Get()); }
+	else { commandList->SetPipelineState(mSolidPSO.Get()); }
 	// Get size of the per object constant buffer 
 	UINT objCBByteSize = CalculateConstantBufferSize(sizeof(FrameResource::mPerObjectConstants));
 
 	// Get reference to current per object constant buffer
 	auto objectCB = mCurrentFrameResource->mPerObjectConstantBuffer->GetBuffer();
+	auto matCB = mCurrentFrameResource->mPerMaterialConstantBuffer->GetBuffer();
 
-	// For each model
-	//for(auto& model : mModels)
-	//{
 	for(int i = 0; i < mModels.size(); i++)
 	{		
 		// Offset to the CBV for this object
 		auto objCBAddress = objectCB->GetGPUVirtualAddress() + mModels[i]->mObjConstantBufferIndex * objCBByteSize;
 		commandList->SetGraphicsRootConstantBufferView(1, objCBAddress);
 
+		// last model has textures
 		if (i == mModels.size() - 1)
 		{
 			CD3DX12_GPU_DESCRIPTOR_HANDLE tex(mSRVDescriptorHeap->mHeap->GetGPUDescriptorHandleForHeapStart());
 			tex.Offset(1, mGraphics->mCbvSrvUavDescriptorSize);
 
-			commandList->SetPipelineState(mTexPSO.Get());
+			if(!mWireframe){ commandList->SetPipelineState(mTexPSO.Get()); }
+			else{ commandList->SetPipelineState(mWireframePSO.Get()); }
 
 			commandList->SetGraphicsRootDescriptorTable(0, tex);
 		}
-		mModels[i]->Draw(commandList);
+		mModels[i]->Draw(commandList,matCB);
 	}
 }
 
@@ -639,10 +755,30 @@ void App::ProcessEvents(SDL_Event& event)
 
 }
 
+void App::CreateMaterials()
+{
+	int index = 0;
+	for (auto& model : mModels)
+	{
+		for (auto& material : model->mBaseMaterials)
+		{
+			material->CBIndex = index;
+			mMaterials.push_back(material);
+			index++;
+		}
+	}
+
+}
+
 App::~App()
 {
 	// Empty the command queue
 	if (mGraphics->mD3DDevice != nullptr) { mGraphics->EmptyCommandQueue(); }
+
+	//for (auto& material : mMaterials)
+	//{
+	//	delete material;
+	//}
 
 	for (auto& texture : mTextures)
 	{
