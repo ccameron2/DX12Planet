@@ -52,7 +52,7 @@ Model::~Model()
 
 void Model::Draw(ID3D12GraphicsCommandList* commandList, ID3D12Resource* matCB)
 {
-	UINT matCBByteSize = CalculateConstantBufferSize(sizeof(MaterialConstants));
+	UINT matCBByteSize = CalculateConstantBufferSize(sizeof(PerMaterialConstants));
 
 	for (auto mesh : mMeshes)
 	{

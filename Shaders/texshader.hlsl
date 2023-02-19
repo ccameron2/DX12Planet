@@ -40,10 +40,10 @@ cbuffer cbPerPassConstants : register(b1)
 
 cbuffer cbMaterial : register(b2)
 {
-	float4 gDiffuseAlbedo;
-	float3 gFresnelR0;
-	float gRoughness;
-	float4x4 gMatTransform;
+	float4 DiffuseAlbedo;
+	float3 FresnelR0;
+	float Roughness;
+	float4x4 MatTransform;
 };
 
 struct VIn
@@ -88,8 +88,8 @@ Texture2D Textures[6] : register(t0);
 
 //Texture2D AlbedoMap	
 //Texture2D RoughnessMap
+//Texture2D NormalMap
 //Texture2D MetalnessMap
-//Texture2D NormalMap	
 //Texture2D DisplacementMap	
 //Texture2D AOMap
 
@@ -98,63 +98,38 @@ SamplerState Sampler : register(s4);
 static const float PI = 3.1415f;
 static const float GAMMA = 2.2f;
 
-float4 PS(VOut pIn) : SV_Target
+float4 CalculateLighting(float3 albedo, float roughness, float metalness, float2 uv, float ao, float3 n, float3 v, bool direction = true, float3 posW = {0,0,0})
 {
-	// Parallax mapping
-
-	// Renormalise pixel normal and tangent because interpolation from the vertex shader can introduce scaling (refer to Graphics module lecture notes)
-	float3 worldNormal = normalize(pIn.NormalW);
-	float3 worldTangent = normalize(pIn.Tangent);
-
-	// Create the bitangent - at right angles to normal and tangent. Then with these three axes, form the tangent matrix - the local axes for the current pixel
-	float3 worldBitangent = cross(worldNormal, worldTangent);
-	float3x3 tangentMatrix = float3x3(worldTangent, worldBitangent, worldNormal);
-
-	// Get displacement at current pixel, convert 0->1 range to -0.5 -> 0.5 range
-	float displacement = Textures[4].Sample(Sampler, pIn.UV).r - 0.5f;
-
-	// Parallax mapping
-	float3 v = normalize(EyePosW - pIn.PosW); // Get normal to camera, called v for view vector in PBR equations
-	float3 parallaxOffset = mul(tangentMatrix, v); // Transform camera normal into tangent space (so it is local to texture)
-	float2 uv = pIn.UV + gParallaxDepth * displacement * parallaxOffset.xy; // Offset texture uv in camera's view direction based on displacement. You can divide 
-	                                                                          // this by parallaxOffset.z to remove limiting (stronger effect, prone to artefacts)
-
-	// Sample the normal map - including conversion from 0->1 RGB values to -1 -> 1 XYZ values
-	float3 tangentNormal = normalize(Textures[3].Sample(Sampler, uv).xyz * 2.0f - 1.0f);
-
-	// Convert the sampled normal from tangent space (as it was stored) into world space. This becomes the n, the world normal for the PBR equations below
-	float3 n = mul(tangentNormal, tangentMatrix);
-
-	// Sample PBR textures
-
-	float3 albedo = Textures[0].Sample(Sampler, uv).rgb;
-	float roughness = Textures[1].Sample(Sampler, uv).r;
-	float metalness = Textures[2].Sample(Sampler, uv).r;
-	float ao = Textures[5].Sample(Sampler, uv).r;
-	
 	// Diffuse colour from material/mesh
-	//float4 baseDiffuse = gMaterialDiffuseColour * gMeshColour;
-	float4 baseDiffuse = 0.05f;
+	float4 baseDiffuse = DiffuseAlbedo;
 
 	// Sum lighting from each light
 	float3 colour = albedo * AmbientLight.xyz * ao;
-
+	
+	float3 lightVector = 0;
+	float3 l = 0;
+	float3 lc = 0;
+	
 	// Calculate Physically based Rendering BRDF
-	float3 lightVector = Lights[0].Position - pIn.PosW; // Vector to light
-	float lightDistance = length(lightVector); // Distance to light
-	float3 l = lightVector / lightDistance; // Normal to light
-	
-	// Set to direction light
-	lightVector = normalize(-Lights[0].Direction);
-	l = lightVector;
-	
-	float3 h = normalize(l + v); // Halfway normal is halfway between camera and light normals
+	if (direction)
+	{
+		// Set to direction light
+		lightVector = normalize(-Lights[0].Direction);
+		l = lightVector;
+		
+		lc = Lights[0].Colour.rgb;
+	}
+	else
+	{		
+		lightVector = Lights[0].Position - posW; // Vector to light
+		float lightDistance = length(lightVector); // Distance to light
+		l = lightVector / lightDistance; // Normal to light
+		
+		// Attenuate light colour
+		lc = Lights[0].Colour.rgb / lightDistance;
+	}
 
-	// Attenuate light colour (reduce strength based on its distance)
-	float3 lc = Lights[0].Colour.rgb / lightDistance;
-	
-	lc = Lights[0].Colour.rgb;
-	
+	float3 h = normalize(l + v); // Halfway normal is halfway between camera and light normals	
 	// Various dot products used throughout
 	float nDotL = max(dot(n, l), 0.001f);
 	float nDotH = max(dot(n, h), 0.001f);
@@ -195,3 +170,143 @@ float4 PS(VOut pIn) : SV_Target
 	
 	return float4(colour, baseDiffuse.a);
 }
+
+float4 AOPBRPS(VOut pIn) : SV_Target
+{
+	// Parallax mapping
+
+	// Renormalise pixel normal and tangent because interpolation from the vertex shader can introduce scaling (refer to Graphics module lecture notes)
+	float3 worldNormal = normalize(pIn.NormalW);
+	float3 worldTangent = normalize(pIn.Tangent);
+
+	// Create the bitangent - at right angles to normal and tangent. Then with these three axes, form the tangent matrix - the local axes for the current pixel
+	float3 worldBitangent = cross(worldNormal, worldTangent);
+	float3x3 tangentMatrix = float3x3(worldTangent, worldBitangent, worldNormal);
+
+	// Get displacement at current pixel, convert 0->1 range to -0.5 -> 0.5 range
+	float displacement = Textures[4].Sample(Sampler, pIn.UV).r - 0.5f;
+
+	// Parallax mapping
+	float3 v = normalize(EyePosW - pIn.PosW); // Get normal to camera, called v for view vector in PBR equations
+	float3 parallaxOffset = mul(tangentMatrix, v); // Transform camera normal into tangent space (so it is local to texture)
+	float2 uv = pIn.UV + (gParallaxDepth * displacement * parallaxOffset.xy); // Offset texture uv in camera's view direction based on displacement. You can divide 
+	                                                                          // this by parallaxOffset.z to remove limiting (stronger effect, prone to artefacts)
+	
+	// Sample the normal map - including conversion from 0->1 RGB values to -1 -> 1 XYZ values
+	float3 tangentNormal = normalize(Textures[2].Sample(Sampler, uv).xyz * 2.0f - 1.0f);
+
+	// Convert the sampled normal from tangent space (as it was stored) into world space. This becomes the n, the world normal for the PBR equations below
+	float3 n = mul(tangentNormal, tangentMatrix);
+
+	// Sample PBR textures
+
+	float3 albedo = Textures[0].Sample(Sampler, uv).rgb;
+	float roughness = Textures[1].Sample(Sampler, uv).r;
+	float metalness = Textures[3].Sample(Sampler, uv).r;
+	float ao = Textures[5].Sample(Sampler, uv).r;
+	
+	return CalculateLighting(albedo,roughness,metalness,uv,ao,n,v);	
+}
+
+float4 ParallaxPBRPS(VOut pIn) : SV_Target
+{
+	// Parallax mapping
+
+	// Renormalise pixel normal and tangent because interpolation from the vertex shader can introduce scaling (refer to Graphics module lecture notes)
+	float3 worldNormal = normalize(pIn.NormalW);
+	float3 worldTangent = normalize(pIn.Tangent);
+
+	// Create the bitangent - at right angles to normal and tangent. Then with these three axes, form the tangent matrix - the local axes for the current pixel
+	float3 worldBitangent = cross(worldNormal, worldTangent);
+	float3x3 tangentMatrix = float3x3(worldTangent, worldBitangent, worldNormal);
+
+	// Get displacement at current pixel, convert 0->1 range to -0.5 -> 0.5 range
+	float displacement = Textures[4].Sample(Sampler, pIn.UV).r - 0.5f;
+
+	// Parallax mapping
+	float3 v = normalize(EyePosW - pIn.PosW); // Get normal to camera, called v for view vector in PBR equations
+	float3 parallaxOffset = mul(tangentMatrix, v); // Transform camera normal into tangent space (so it is local to texture)
+	float2 uv = pIn.UV + (gParallaxDepth * displacement * parallaxOffset.xy); // Offset texture uv in camera's view direction based on displacement. You can divide 
+	                                                                          // this by parallaxOffset.z to remove limiting (stronger effect, prone to artefacts)
+	
+	// Sample the normal map - including conversion from 0->1 RGB values to -1 -> 1 XYZ values
+	float3 tangentNormal = normalize(Textures[2].Sample(Sampler, uv).xyz * 2.0f - 1.0f);
+
+	// Convert the sampled normal from tangent space (as it was stored) into world space. This becomes the n, the world normal for the PBR equations below
+	float3 n = mul(tangentNormal, tangentMatrix);
+
+	// Sample PBR textures
+
+	float3 albedo = Textures[0].Sample(Sampler, uv).rgb;
+	float roughness = Textures[1].Sample(Sampler, uv).r;
+	float metalness = Textures[3].Sample(Sampler, uv).r;
+	float ao = 1.0f;
+
+	return CalculateLighting(albedo, roughness, metalness, uv, ao, n,v);
+}
+
+float4 NormalPBRPS(VOut pIn) : SV_Target
+{
+	// Parallax mapping
+
+	// Renormalise pixel normal and tangent because interpolation from the vertex shader can introduce scaling (refer to Graphics module lecture notes)
+	float3 worldNormal = normalize(pIn.NormalW);
+	float3 worldTangent = normalize(pIn.Tangent);
+
+	// Create the bitangent - at right angles to normal and tangent. Then with these three axes, form the tangent matrix - the local axes for the current pixel
+	float3 worldBitangent = cross(worldNormal, worldTangent);
+	float3x3 tangentMatrix = float3x3(worldTangent, worldBitangent, worldNormal);
+		
+	float3 v = normalize(EyePosW - pIn.PosW); // Get normal to camera, called v for view vector in PBR equations
+	
+	// Use normal UVs
+	float2 uv = pIn.UV;
+	
+	// Sample the normal map - including conversion from 0->1 RGB values to -1 -> 1 XYZ values
+	float3 tangentNormal = normalize(Textures[2].Sample(Sampler, uv).xyz * 2.0f - 1.0f);
+
+	// Convert the sampled normal from tangent space (as it was stored) into world space. This becomes the n, the world normal for the PBR equations below
+	float3 n = mul(tangentNormal, tangentMatrix);
+
+	// Sample PBR textures
+
+	float3 albedo = Textures[0].Sample(Sampler, uv).rgb;
+	float roughness = Textures[1].Sample(Sampler, uv).r;
+	float metalness = Textures[3].Sample(Sampler, uv).r;
+	float ao = 1.0f;
+
+	return CalculateLighting(albedo, roughness, metalness, uv, ao, n, v);
+}
+
+//float4 NormalPBRPS(VOut pIn) : SV_Target
+//{
+//	// Parallax mapping
+
+//	// Renormalise pixel normal and tangent because interpolation from the vertex shader can introduce scaling (refer to Graphics module lecture notes)
+//	float3 worldNormal = normalize(pIn.NormalW);
+//	float3 worldTangent = normalize(pIn.Tangent);
+
+//	// Create the bitangent - at right angles to normal and tangent. Then with these three axes, form the tangent matrix - the local axes for the current pixel
+//	float3 worldBitangent = cross(worldNormal, worldTangent);
+//	float3x3 tangentMatrix = float3x3(worldTangent, worldBitangent, worldNormal);
+	
+//	// Get normal to camera, called v for view vector in PBR equations
+//	float3 v = normalize(EyePosW - pIn.PosW); 
+	
+//	// Use normal UVs
+//	float2 uv = pIn.UV;
+	
+//	// Sample the normal map - including conversion from 0->1 RGB values to -1 -> 1 XYZ values
+//	float3 tangentNormal = normalize(Textures[2].Sample(Sampler, uv).xyz * 2.0f - 1.0f);
+
+//	// Convert the sampled normal from tangent space (as it was stored) into world space. This becomes the n, the world normal for the PBR equations below
+//	float3 n = mul(tangentNormal, tangentMatrix);
+
+//	// Sample PBR textures
+//	float3 albedo = Textures[0].Sample(Sampler, uv).rgb;
+//	float roughness = Textures[1].Sample(Sampler, uv).r;
+//	float metalness = 1.0f;
+//	float ao = 1.0f;
+	
+//	return CalculateLighting(albedo, roughness, metalness, uv, ao, n, v);
+//}

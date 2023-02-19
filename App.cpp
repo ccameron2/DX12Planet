@@ -67,23 +67,25 @@ void App::Initialize()
 	mGUI = make_unique<GUI>(mSRVDescriptorHeap.get(), mWindow->mSDLWindow, mGraphics->mD3DDevice.Get(),
 								mNumFrameResources, mGraphics->mBackBufferFormat);
 }
+
 void App::CreateTextures()
 {
 	//mMaterials.push_back(new Material());
 	//mMaterials[0]->Name = L"Models/blocksrough";
 	
+	// Create material
 	vector<Material*> materials;
-
 	materials.push_back(new Material());
 	materials[0]->Name = L"Models/blocksrough";
-
-	mTextures.push_back(new Texture());
-	mTextures[0]->Path = materials[0]->Name + L"-albedo.dds";
 
 	auto device = mGraphics->mD3DDevice.Get();
 	ResourceUploadBatch upload(device);
 
 	upload.Begin();
+
+	// Load albedo map
+	mTextures.push_back(new Texture());
+	mTextures[0]->Path = materials[0]->Name + L"-albedo.dds";
 
 	CreateDDSTextureFromFile(device,upload, mTextures[0]->Path.c_str(), mTextures[0]->Resource.ReleaseAndGetAddressOf(), false);
 	
@@ -123,36 +125,17 @@ void App::CreateTextures()
 
 	device->CreateShaderResourceView(foxRough.Get(), &srvDesc, hDescriptor);
 
+	// Load normal texture
 	mTextures.push_back(new Texture());
-	mTextures[2]->Path = materials[0]->Name + L"-metalness.dds";
+	mTextures[2]->Path = materials[0]->Name + L"-normal.dds";
 
+	//CreateWICTextureFromFile(device, upload, L"Models/subway-floor-normal.jpg", mTextures[1]->Resource.ReleaseAndGetAddressOf(), false);
 	CreateDDSTextureFromFile(device, upload, mTextures[2]->Path.c_str(), mTextures[2]->Resource.ReleaseAndGetAddressOf(), false);
 
 	hDescriptor.Offset(1, mGraphics->mCbvSrvUavDescriptorSize);
 
-	auto foxMetal = mTextures[2]->Resource;
+	auto foxNorm = mTextures[2]->Resource;
 
-	//D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-	srvDesc.Format = foxMetal->GetDesc().Format;
-	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-	srvDesc.Texture2D.MostDetailedMip = 0;
-	srvDesc.Texture2D.MipLevels = foxMetal->GetDesc().MipLevels;
-	srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
-
-	device->CreateShaderResourceView(foxMetal.Get(), &srvDesc, hDescriptor);
-
-	mTextures.push_back(new Texture());
-	mTextures[3]->Path = materials[0]->Name + L"-normal.dds";
-
-	//CreateWICTextureFromFile(device, upload, L"Models/subway-floor-normal.jpg", mTextures[1]->Resource.ReleaseAndGetAddressOf(), false);
-	CreateDDSTextureFromFile(device, upload, mTextures[3]->Path.c_str(), mTextures[3]->Resource.ReleaseAndGetAddressOf(), false);
-
-	hDescriptor.Offset(1, mGraphics->mCbvSrvUavDescriptorSize);
-
-	auto foxNorm = mTextures[3]->Resource;
-
-	//D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
 	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 	srvDesc.Format = foxNorm->GetDesc().Format;
 	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
@@ -162,6 +145,26 @@ void App::CreateTextures()
 
 	device->CreateShaderResourceView(foxNorm.Get(), &srvDesc, hDescriptor);
 
+	// Load metalness texture
+	mTextures.push_back(new Texture());
+	mTextures[3]->Path = materials[0]->Name + L"-metalness.dds";
+
+	CreateDDSTextureFromFile(device, upload, mTextures[3]->Path.c_str(), mTextures[3]->Resource.ReleaseAndGetAddressOf(), false);
+
+	hDescriptor.Offset(1, mGraphics->mCbvSrvUavDescriptorSize);
+
+	auto foxMetal = mTextures[3]->Resource;
+
+	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	srvDesc.Format = foxMetal->GetDesc().Format;
+	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	srvDesc.Texture2D.MostDetailedMip = 0;
+	srvDesc.Texture2D.MipLevels = foxMetal->GetDesc().MipLevels;
+	srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
+
+	device->CreateShaderResourceView(foxMetal.Get(), &srvDesc, hDescriptor);
+
+	// Load height texture
 	mTextures.push_back(new Texture());
 	mTextures[4]->Path = materials[0]->Name + L"-height.dds";
 
@@ -171,7 +174,6 @@ void App::CreateTextures()
 
 	auto foxDisplacement = mTextures[4]->Resource;
 
-	//D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
 	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 	srvDesc.Format = foxDisplacement->GetDesc().Format;
 	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
@@ -181,6 +183,7 @@ void App::CreateTextures()
 
 	device->CreateShaderResourceView(foxDisplacement.Get(), &srvDesc, hDescriptor);
 
+	// Load ao map
 	mTextures.push_back(new Texture());
 	mTextures[5]->Path = materials[0]->Name + L"-ao.dds";
 
@@ -190,7 +193,6 @@ void App::CreateTextures()
 
 	auto foxAO = mTextures[5]->Resource;
 
-	//D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
 	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 	srvDesc.Format = foxAO->GetDesc().Format;
 	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
@@ -228,6 +230,7 @@ void App::LoadModels()
 												* XMMatrixRotationX(90)
 												* XMMatrixTranslation(8.0f, 0.0f, 0.0f));
 	mModels.push_back(wolfModel);
+	mColourModels.push_back(wolfModel);
 
 	Model* foxModel = new Model("Models/polyfox.fbx", mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
 	XMStoreFloat4x4(&foxModel->mWorldMatrix, XMMatrixIdentity() 
@@ -235,20 +238,23 @@ void App::LoadModels()
 												* XMMatrixRotationX(90)
 												* XMMatrixTranslation(4.0f, 0.0f, 0.0f));														
 	mModels.push_back(foxModel);
+	mColourModels.push_back(foxModel);
 
-	Model* anotherModel = new Model("Models/Slime.fbx", mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
-	XMStoreFloat4x4(&anotherModel->mWorldMatrix, XMMatrixIdentity()
+	Model* slimeModel = new Model("Models/Slime.fbx", mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
+	XMStoreFloat4x4(&slimeModel->mWorldMatrix, XMMatrixIdentity()
 												* XMMatrixScaling(1, 1, 1)
 												* XMMatrixRotationX(90)
 												* XMMatrixTranslation(-8.0f, 0.0f, 0.0f));
-	mModels.push_back(anotherModel);
+	mModels.push_back(slimeModel);
+	mColourModels.push_back(slimeModel);
 
-	Model* otherModel = new Model("Models/octopus.x", mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
-	XMStoreFloat4x4(&otherModel->mWorldMatrix, XMMatrixIdentity()
+	Model* octoModel = new Model("Models/octopus.x", mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
+	XMStoreFloat4x4(&octoModel->mWorldMatrix, XMMatrixIdentity()
 		* XMMatrixScaling(0.5, 0.5, 0.5)
 		//* XMMatrixRotationX(90)
 		* XMMatrixTranslation(-4.0f, 0.0f, 0.0f));
-	mModels.push_back(otherModel);
+	mModels.push_back(octoModel);
+	mAOModels.push_back(octoModel);
 
 	for (int i = 0; i < mModels.size(); i++)
 	{
@@ -340,7 +346,13 @@ void App::CreateShaders()
 	};
 
 	mTexVSByteCode = CompileShader(L"Shaders\\texshader.hlsl", nullptr, "VS", "vs_5_0");
-	mTexPSByteCode = CompileShader(L"Shaders\\texshader.hlsl", nullptr, "PS", "ps_5_0");
+	//mTexPSByteCode = CompileShader(L"Shaders\\texshader.hlsl", nullptr, "NormalPBRPS", "ps_5_0");
+
+	mAOPSByteCode		= CompileShader(L"Shaders\\texshader.hlsl", nullptr, "AOPBRPS", "ps_5_0");
+	mParallaxPSByteCode = CompileShader(L"Shaders\\texshader.hlsl", nullptr, "ParallaxPBRPS", "ps_5_0");
+	mNormalPSByteCode	= CompileShader(L"Shaders\\texshader.hlsl", nullptr, "NormalPBRPS", "ps_5_0");
+	//mMetalPSByteCode	= CompileShader(L"Shaders\\texshader.hlsl", nullptr, "MetalPBRPS", "ps_5_0");
+
 	mTexInputLayout =
 	{
 		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
@@ -406,28 +418,45 @@ void App::CreatePSO()
 	};
 	if (FAILED(mGraphics->mD3DDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mWirePlanetPSO))))
 	{
-		MessageBox(0, L"Texture Pipeline State Creation failed", L"Error", MB_OK);
+		MessageBox(0, L"WireframePlanet Pipeline State Creation failed", L"Error", MB_OK);
 	}
 	psoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
 	if (FAILED(mGraphics->mD3DDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mPlanetPSO))))
 	{
-		MessageBox(0, L"Texture Pipeline State Creation failed", L"Error", MB_OK);
+		MessageBox(0, L"Planet Pipeline State Creation failed", L"Error", MB_OK);
 	}
 	psoDesc.VS =
 	{
 		reinterpret_cast<BYTE*>(mTexVSByteCode->GetBufferPointer()),
 		mTexVSByteCode->GetBufferSize()
 	};
+	psoDesc.InputLayout = { mTexInputLayout.data(), (UINT)mTexInputLayout.size() };
 	psoDesc.PS =
 	{
-		reinterpret_cast<BYTE*>(mTexPSByteCode->GetBufferPointer()),
-		mTexPSByteCode->GetBufferSize()
+		reinterpret_cast<BYTE*>(mAOPSByteCode->GetBufferPointer()),
+		mAOPSByteCode->GetBufferSize()
 	};
-	psoDesc.InputLayout = { mTexInputLayout.data(), (UINT)mTexInputLayout.size() };
-
-	if (FAILED(mGraphics->mD3DDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mTexPSO))))
+	if (FAILED(mGraphics->mD3DDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mAOPSO))))
 	{
-		MessageBox(0, L"Texture Pipeline State Creation failed", L"Error", MB_OK);
+		MessageBox(0, L"AO Pipeline State Creation failed", L"Error", MB_OK);
+	}
+	psoDesc.PS =
+	{
+		reinterpret_cast<BYTE*>(mParallaxPSByteCode->GetBufferPointer()),
+		mParallaxPSByteCode->GetBufferSize()
+	};
+	if (FAILED(mGraphics->mD3DDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mParallaxPSO))))
+	{
+		MessageBox(0, L"Parallax mapping Pipeline State Creation failed", L"Error", MB_OK);
+	}
+	psoDesc.PS =
+	{
+		reinterpret_cast<BYTE*>(mNormalPSByteCode->GetBufferPointer()),
+		mNormalPSByteCode->GetBufferSize()
+	};
+	if (FAILED(mGraphics->mD3DDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mNormalPSO))))
+	{
+		MessageBox(0, L"Normal mapping Pipeline State Creation failed", L"Error", MB_OK);
 	}
 }
 
@@ -530,7 +559,7 @@ void App::UpdatePerObjectConstantBuffers()
 		XMMATRIX worldMatrix = XMLoadFloat4x4(&mPlanet->WorldMatrix);
 
 		// Create a per object constants structure
-		FrameResource::mPerObjectConstants objectConstants;
+		PerObjectConstants objectConstants;
 
 		// Transpose the world matrix into it
 		XMStoreFloat4x4(&objectConstants.WorldMatrix, XMMatrixTranspose(worldMatrix));
@@ -550,7 +579,7 @@ void App::UpdatePerObjectConstantBuffers()
 			XMMATRIX worldMatrix = XMLoadFloat4x4(&model->mWorldMatrix);
 
 			// Create a per object constants structure
-			FrameResource::mPerObjectConstants objectConstants;
+			PerObjectConstants objectConstants;
 
 			// Transpose the world matrix into it
 			XMStoreFloat4x4(&objectConstants.WorldMatrix, XMMatrixTranspose(worldMatrix));
@@ -566,7 +595,7 @@ void App::UpdatePerObjectConstantBuffers()
 void App::UpdatePerFrameConstantBuffer()
 {
 	// Make a per frame constants structure
-	FrameResource::mPerFrameConstants perFrameConstantBuffer;
+	PerFrameConstants perFrameConstantBuffer;
 
 	// Create view, proj, and view proj matrices
 	XMMATRIX view = XMLoadFloat4x4(&mCamera->mViewMatrix);
@@ -606,13 +635,12 @@ void App::UpdatePerMaterialConstantBuffers()
 
 	for (auto& mat : mMaterials)
 	{
-		// Only update the cbuffer data if the constants have changed.  If the cbuffer
-		// data changes, it needs to be updated for each FrameResource.
+		// Only update the cbuffer data if the constants have changed. If the cbuffer data changes, it needs to be updated for each FrameResource.
 		if (mat->NumFramesDirty > 0)
 		{
 			XMMATRIX matTransform = XMLoadFloat4x4(&mat->MatTransform);
 
-			MaterialConstants matConstants;
+			PerMaterialConstants matConstants;
 			matConstants.DiffuseAlbedo = mat->DiffuseAlbedo;
 			matConstants.FresnelR0 = mat->FresnelR0;
 			matConstants.Roughness = mat->Roughness;
@@ -672,7 +700,7 @@ void App::DrawPlanet(ID3D12GraphicsCommandList* commandList)
 	if (mWireframe) { commandList->SetPipelineState(mWirePlanetPSO.Get()); }
 	else { commandList->SetPipelineState(mPlanetPSO.Get()); }
 	// Get size of the per object constant buffer 
-	UINT objCBByteSize = CalculateConstantBufferSize(sizeof(FrameResource::mPerObjectConstants));
+	UINT objCBByteSize = CalculateConstantBufferSize(sizeof(PerObjectConstants));
 
 	// Get reference to current per object constant buffer
 	auto objectCB = mCurrentFrameResource->mPerObjectConstantBuffer->GetBuffer();
@@ -688,31 +716,72 @@ void App::DrawModels(ID3D12GraphicsCommandList* commandList)
 	if (mWireframe) { commandList->SetPipelineState(mWireframePSO.Get()); }
 	else { commandList->SetPipelineState(mSolidPSO.Get()); }
 	// Get size of the per object constant buffer 
-	UINT objCBByteSize = CalculateConstantBufferSize(sizeof(FrameResource::mPerObjectConstants));
+	UINT objCBByteSize = CalculateConstantBufferSize(sizeof(PerObjectConstants));
 
 	// Get reference to current per object constant buffer
 	auto objectCB = mCurrentFrameResource->mPerObjectConstantBuffer->GetBuffer();
 	auto matCB = mCurrentFrameResource->mPerMaterialConstantBuffer->GetBuffer();
 
-	for(int i = 0; i < mModels.size(); i++)
+	for(int i = 0; i < mColourModels.size(); i++)
 	{		
 		// Offset to the CBV for this object
 		auto objCBAddress = objectCB->GetGPUVirtualAddress() + mModels[i]->mObjConstantBufferIndex * objCBByteSize;
 		commandList->SetGraphicsRootConstantBufferView(1, objCBAddress);
 
-		// last model has textures
-		if (i == mModels.size() - 1)
-		{
-			CD3DX12_GPU_DESCRIPTOR_HANDLE tex(mSRVDescriptorHeap->mHeap->GetGPUDescriptorHandleForHeapStart());
-			tex.Offset(1, mGraphics->mCbvSrvUavDescriptorSize);
-
-			if(!mWireframe){ commandList->SetPipelineState(mTexPSO.Get()); }
-			else{ commandList->SetPipelineState(mWireframePSO.Get()); }
-
-			commandList->SetGraphicsRootDescriptorTable(0, tex);
-		}
-		mModels[i]->Draw(commandList,matCB);
+		mModels[i]->Draw(commandList, matCB);
 	}
+
+	for (int i = 0; i < mAOModels.size(); i++)
+	{
+		// Offset to the CBV for this object
+		auto objCBAddress = objectCB->GetGPUVirtualAddress() + mAOModels[i]->mObjConstantBufferIndex * objCBByteSize;
+		commandList->SetGraphicsRootConstantBufferView(1, objCBAddress);
+
+		CD3DX12_GPU_DESCRIPTOR_HANDLE tex(mSRVDescriptorHeap->mHeap->GetGPUDescriptorHandleForHeapStart());
+		tex.Offset(1, mGraphics->mCbvSrvUavDescriptorSize);
+
+		if (!mWireframe) { commandList->SetPipelineState(mAOPSO.Get()); }
+		else { commandList->SetPipelineState(mWireframePSO.Get()); }
+
+		commandList->SetGraphicsRootDescriptorTable(0, tex);
+
+		mAOModels[i]->Draw(commandList, matCB);
+	}
+
+	for (int i = 0; i < mParallaxModels.size(); i++)
+	{
+		// Offset to the CBV for this object
+		auto objCBAddress = objectCB->GetGPUVirtualAddress() + mParallaxModels[i]->mObjConstantBufferIndex * objCBByteSize;
+		commandList->SetGraphicsRootConstantBufferView(1, objCBAddress);
+
+		CD3DX12_GPU_DESCRIPTOR_HANDLE tex(mSRVDescriptorHeap->mHeap->GetGPUDescriptorHandleForHeapStart());
+		tex.Offset(1, mGraphics->mCbvSrvUavDescriptorSize);
+
+		if (!mWireframe) { commandList->SetPipelineState(mAOPSO.Get()); }
+		else { commandList->SetPipelineState(mWireframePSO.Get()); }
+
+		commandList->SetGraphicsRootDescriptorTable(0, tex);
+
+		mParallaxModels[i]->Draw(commandList, matCB);
+	}
+
+	for (int i = 0; i < mNormalModels.size(); i++)
+	{
+		// Offset to the CBV for this object
+		auto objCBAddress = objectCB->GetGPUVirtualAddress() + mNormalModels[i]->mObjConstantBufferIndex * objCBByteSize;
+		commandList->SetGraphicsRootConstantBufferView(1, objCBAddress);
+
+		CD3DX12_GPU_DESCRIPTOR_HANDLE tex(mSRVDescriptorHeap->mHeap->GetGPUDescriptorHandleForHeapStart());
+		tex.Offset(1, mGraphics->mCbvSrvUavDescriptorSize);
+
+		if (!mWireframe) { commandList->SetPipelineState(mAOPSO.Get()); }
+		else { commandList->SetPipelineState(mWireframePSO.Get()); }
+
+		commandList->SetGraphicsRootDescriptorTable(0, tex);
+
+		mNormalModels[i]->Draw(commandList, matCB);
+	}
+
 }
 
 void App::EndFrame()
@@ -780,13 +849,34 @@ App::~App()
 	//	delete material;
 	//}
 
-	for (auto& texture : mTextures)
+	/*for (auto& model : mColourModels)
 	{
-		delete texture;
+		delete model;
 	}
+
+	for (auto& model : mAOModels)
+	{
+		delete model;
+	}
+
+	for (auto& model : mParallaxModels)
+	{
+		delete model;
+	}
+
+	for (auto& model : mNormalModels)
+	{
+		delete model;
+	}*/
 
 	for (auto& model : mModels)
 	{
 		delete model;
 	}
+
+	for (auto& texture : mTextures)
+	{
+		delete texture;
+	}
+
 }

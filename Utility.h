@@ -8,10 +8,13 @@
 #include <DirectXMath.h>
 #include "FastNoiseLite.h"
 #include <assimp/scene.h>
+//#include "FrameResource.h"
 
 using namespace std;
 using namespace DirectX;
 using Microsoft::WRL::ComPtr;
+
+//extern std::vector<std::unique_ptr<FrameResource>> mFrameResources;
 
 static XMFLOAT4X4 MakeIdentity4x4()
 {
@@ -28,7 +31,19 @@ struct Triangle
 	std::uint32_t Point[3];
 };
 
-// Vertex structure
+const static int mMaxLights = 16;
+struct mLight
+{
+	XMFLOAT3 Colour = { 1.0f,1.0f,1.0f };
+	float padding1 = 0.0f;
+	XMFLOAT3 Strength = { 0.5f, 0.5f, 0.5f };
+	float FalloffStart = 1.0f;
+	XMFLOAT3 Direction = { 0.0f, -1.0f, 0.0f };
+	float FalloffEnd = 10.0f;
+	XMFLOAT3 Position = { 0.0f, 0.0f, 0.0f };
+	float SpotPower = 64.0f;
+};
+
 struct Vertex
 {
 	XMFLOAT3 Pos = XMFLOAT3{ 0,0,0 };
@@ -38,14 +53,37 @@ struct Vertex
 	XMFLOAT3 Tangent = XMFLOAT3{ 0,0,0 };
 };
 
-struct MaterialConstants
+struct PerMaterialConstants
 {
-	DirectX::XMFLOAT4 DiffuseAlbedo = { 1.0f, 1.0f, 1.0f, 1.0f };
-	DirectX::XMFLOAT3 FresnelR0 = { 0.01f, 0.01f, 0.01f };
+	XMFLOAT4 DiffuseAlbedo = { 1.0f, 1.0f, 1.0f, 1.0f };
+	XMFLOAT3 FresnelR0 = { 0.01f, 0.01f, 0.01f };
 	float Roughness = 0.25f;
 
-	// Used in texture mapping.
-	DirectX::XMFLOAT4X4 MatTransform = MakeIdentity4x4();
+	XMFLOAT4X4 MatTransform = MakeIdentity4x4();
+};
+
+struct PerObjectConstants
+{
+	XMFLOAT4X4 WorldMatrix;
+};
+
+
+struct PerFrameConstants
+{
+	XMFLOAT4X4 ViewMatrix = MakeIdentity4x4();
+	XMFLOAT4X4 ProjMatrix = MakeIdentity4x4();
+	XMFLOAT4X4 ViewProjMatrix = MakeIdentity4x4();
+	XMFLOAT3 EyePosW = { 0.0f, 0.0f, 0.0f };
+	float padding1 = 0.0f;
+	XMFLOAT2 RenderTargetSize = { 0.0f, 0.0f };
+	float NearZ = 0.0f;
+	float FarZ = 0.0f;
+	float TotalTime = 0.0f;
+	float DeltaTime = 0.0f;
+	float padding2 = 0.0f;
+	float padding3 = 0.0f;
+	XMFLOAT4 AmbientLight = { 0.0f, 0.0f, 0.0f, 1.0f };
+	mLight Lights[mMaxLights];
 };
 
 struct Material
@@ -62,10 +100,10 @@ struct Material
 	int NumFramesDirty = 3;
 
 	// Material constant buffer data used for shading.
-	DirectX::XMFLOAT4 DiffuseAlbedo = { 1.0f, 1.0f, 1.0f, 1.0f };
-	DirectX::XMFLOAT3 FresnelR0 = { 0.01f, 0.01f, 0.01f };
+	XMFLOAT4 DiffuseAlbedo = { 1.0f, 1.0f, 1.0f, 1.0f };
+	XMFLOAT3 FresnelR0 = { 0.01f, 0.01f, 0.01f };
 	float Roughness = .25f;
-	DirectX::XMFLOAT4X4 MatTransform = MakeIdentity4x4();
+	XMFLOAT4X4 MatTransform = MakeIdentity4x4();
 };
 
 struct Texture
