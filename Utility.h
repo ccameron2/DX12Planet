@@ -58,15 +58,17 @@ struct PerMaterialConstants
 	XMFLOAT4 DiffuseAlbedo = { 1.0f, 1.0f, 1.0f, 1.0f };
 	XMFLOAT3 FresnelR0 = { 0.01f, 0.01f, 0.01f };
 	float Roughness = 0.25f;
-
+	float Metallic = 0.0f;
+	XMFLOAT3 padding;
 	XMFLOAT4X4 MatTransform = MakeIdentity4x4();
 };
 
 struct PerObjectConstants
 {
 	XMFLOAT4X4 WorldMatrix;
+	bool parallax;
+	XMFLOAT3 padding;
 };
-
 
 struct PerFrameConstants
 {
@@ -93,16 +95,13 @@ struct Material
 
 	int CBIndex = -1;
 	int DiffuseSRVIndex = -1;
-	int RoughnessSRVIndex = -1;
-	int MetalnessSRVIndex = -1;
-	int NormalSRVIndex = -1;
-	int DisplacementSRVIndex = -1;
 	int NumFramesDirty = 3;
 
 	// Material constant buffer data used for shading.
 	XMFLOAT4 DiffuseAlbedo = { 1.0f, 1.0f, 1.0f, 1.0f };
 	XMFLOAT3 FresnelR0 = { 0.01f, 0.01f, 0.01f };
 	float Roughness = .25f;
+	float Metalness = 0.0f;
 	XMFLOAT4X4 MatTransform = MakeIdentity4x4();
 };
 

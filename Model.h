@@ -18,6 +18,7 @@ public:
 	XMFLOAT4X4 mWorldMatrix = MakeIdentity4x4();
 	void Draw(ID3D12GraphicsCommandList* commandList, ID3D12Resource* matCB);
 	std::vector<Material*> mBaseMaterials;
+	bool mParallax = true;
 private:
 	void ProcessNode(aiNode* node, const aiScene* scene);
 	Mesh* ProcessMesh(aiMesh* mesh, const aiScene* scene);

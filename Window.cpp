@@ -95,7 +95,6 @@ void Window::ProcessEvents(SDL_Event& event)
 		if (event.button.button == 3) { mRightMouse = false; }
 		else if (event.button.button == 1) { mLeftMouse = false; }
 		else if (event.button.button == 2) { mMiddleMouse = false; }
-
 	}
 }
 

@@ -76,7 +76,7 @@ void App::CreateTextures()
 	// Create material
 	vector<Material*> materials;
 	materials.push_back(new Material());
-	materials[0]->Name = L"Models/blocksrough";
+	materials[0]->Name = L"Models/octostone";
 
 	auto device = mGraphics->mD3DDevice.Get();
 	ResourceUploadBatch upload(device);
@@ -148,8 +148,10 @@ void App::CreateTextures()
 	// Load metalness texture
 	mTextures.push_back(new Texture());
 	mTextures[3]->Path = materials[0]->Name + L"-metalness.dds";
+	//mTextures[3]->Path = L"Models/default.png";
 
 	CreateDDSTextureFromFile(device, upload, mTextures[3]->Path.c_str(), mTextures[3]->Resource.ReleaseAndGetAddressOf(), false);
+	//CreateWICTextureFromFile(device, upload, mTextures[3]->Path.c_str(), mTextures[3]->Resource.ReleaseAndGetAddressOf(), false);
 
 	hDescriptor.Offset(1, mGraphics->mCbvSrvUavDescriptorSize);
 
@@ -167,9 +169,10 @@ void App::CreateTextures()
 	// Load height texture
 	mTextures.push_back(new Texture());
 	mTextures[4]->Path = materials[0]->Name + L"-height.dds";
-
+	//mTextures[4]->Path = L"Models/default.png";
+	
 	CreateDDSTextureFromFile(device, upload, mTextures[4]->Path.c_str(), mTextures[4]->Resource.ReleaseAndGetAddressOf(), false);
-
+	//CreateWICTextureFromFile(device, upload, mTextures[4]->Path.c_str(), mTextures[4]->Resource.ReleaseAndGetAddressOf(), false);
 	hDescriptor.Offset(1, mGraphics->mCbvSrvUavDescriptorSize);
 
 	auto foxDisplacement = mTextures[4]->Resource;
@@ -186,8 +189,10 @@ void App::CreateTextures()
 	// Load ao map
 	mTextures.push_back(new Texture());
 	mTextures[5]->Path = materials[0]->Name + L"-ao.dds";
+	//mTextures[5]->Path = L"Models/default.png";
 
 	CreateDDSTextureFromFile(device, upload, mTextures[5]->Path.c_str(), mTextures[5]->Resource.ReleaseAndGetAddressOf(), false);
+	//CreateWICTextureFromFile(device, upload, mTextures[5]->Path.c_str(), mTextures[5]->Resource.ReleaseAndGetAddressOf(), false);
 
 	hDescriptor.Offset(1, mGraphics->mCbvSrvUavDescriptorSize);
 
@@ -250,11 +255,11 @@ void App::LoadModels()
 
 	Model* octoModel = new Model("Models/octopus.x", mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
 	XMStoreFloat4x4(&octoModel->mWorldMatrix, XMMatrixIdentity()
-		* XMMatrixScaling(0.5, 0.5, 0.5)
-		//* XMMatrixRotationX(90)
-		* XMMatrixTranslation(-4.0f, 0.0f, 0.0f));
+												* XMMatrixScaling(0.5, 0.5, 0.5)
+												//* XMMatrixRotationX(90)
+												* XMMatrixTranslation(-4.0f, 0.0f, 0.0f));
 	mModels.push_back(octoModel);
-	mAOModels.push_back(octoModel);
+	mTexModels.push_back(octoModel);
 
 	for (int i = 0; i < mModels.size(); i++)
 	{
@@ -346,12 +351,7 @@ void App::CreateShaders()
 	};
 
 	mTexVSByteCode = CompileShader(L"Shaders\\texshader.hlsl", nullptr, "VS", "vs_5_0");
-	//mTexPSByteCode = CompileShader(L"Shaders\\texshader.hlsl", nullptr, "NormalPBRPS", "ps_5_0");
-
-	mAOPSByteCode		= CompileShader(L"Shaders\\texshader.hlsl", nullptr, "AOPBRPS", "ps_5_0");
-	mParallaxPSByteCode = CompileShader(L"Shaders\\texshader.hlsl", nullptr, "ParallaxPBRPS", "ps_5_0");
-	mNormalPSByteCode	= CompileShader(L"Shaders\\texshader.hlsl", nullptr, "NormalPBRPS", "ps_5_0");
-	//mMetalPSByteCode	= CompileShader(L"Shaders\\texshader.hlsl", nullptr, "MetalPBRPS", "ps_5_0");
+	mTexPSByteCode	= CompileShader(L"Shaders\\texshader.hlsl", nullptr, "PS", "ps_5_0");
 
 	mTexInputLayout =
 	{
@@ -433,30 +433,12 @@ void App::CreatePSO()
 	psoDesc.InputLayout = { mTexInputLayout.data(), (UINT)mTexInputLayout.size() };
 	psoDesc.PS =
 	{
-		reinterpret_cast<BYTE*>(mAOPSByteCode->GetBufferPointer()),
-		mAOPSByteCode->GetBufferSize()
+		reinterpret_cast<BYTE*>(mTexPSByteCode->GetBufferPointer()),
+		mTexPSByteCode->GetBufferSize()
 	};
-	if (FAILED(mGraphics->mD3DDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mAOPSO))))
+	if (FAILED(mGraphics->mD3DDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mTexPSO))))
 	{
 		MessageBox(0, L"AO Pipeline State Creation failed", L"Error", MB_OK);
-	}
-	psoDesc.PS =
-	{
-		reinterpret_cast<BYTE*>(mParallaxPSByteCode->GetBufferPointer()),
-		mParallaxPSByteCode->GetBufferSize()
-	};
-	if (FAILED(mGraphics->mD3DDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mParallaxPSO))))
-	{
-		MessageBox(0, L"Parallax mapping Pipeline State Creation failed", L"Error", MB_OK);
-	}
-	psoDesc.PS =
-	{
-		reinterpret_cast<BYTE*>(mNormalPSByteCode->GetBufferPointer()),
-		mNormalPSByteCode->GetBufferSize()
-	};
-	if (FAILED(mGraphics->mD3DDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mNormalPSO))))
-	{
-		MessageBox(0, L"Normal mapping Pipeline State Creation failed", L"Error", MB_OK);
 	}
 }
 
@@ -577,12 +559,12 @@ void App::UpdatePerObjectConstantBuffers()
 		{
 			// Get the world matrix of the item
 			XMMATRIX worldMatrix = XMLoadFloat4x4(&model->mWorldMatrix);
-
-			// Create a per object constants structure
+			bool parallax = model->mParallax;
+			
+			// Transpose data
 			PerObjectConstants objectConstants;
-
-			// Transpose the world matrix into it
 			XMStoreFloat4x4(&objectConstants.WorldMatrix, XMMatrixTranspose(worldMatrix));
+			objectConstants.parallax = parallax;
 
 			// Copy the structure into the current buffer at the item's index
 			currentObjectConstantBuffer->Copy(model->mObjConstantBufferIndex, objectConstants);
@@ -614,7 +596,7 @@ void App::UpdatePerFrameConstantBuffer()
 	perFrameConstantBuffer.FarZ = 1000.0f;
 	perFrameConstantBuffer.TotalTime = mTimer.GetTime();
 	perFrameConstantBuffer.DeltaTime = mTimer.GetLapTime();
-	perFrameConstantBuffer.AmbientLight = { 0.25f, 0.25f, 0.35f, 1.0f };
+	perFrameConstantBuffer.AmbientLight = { 0.01f, 0.01f, 0.01f, 1.0f };
 
 	XMVECTOR lightDir = -SphericalToCartesian(1.0f, mSunTheta, mSunPhi);
 	XMStoreFloat3(&perFrameConstantBuffer.Lights[0].Direction, lightDir);
@@ -622,7 +604,7 @@ void App::UpdatePerFrameConstantBuffer()
 	perFrameConstantBuffer.Lights[0].Colour = { 0.5f,0.5f,0.5f };
 	perFrameConstantBuffer.Lights[0].Position = { 4.0f, 4.0f, 0.0f };
 	perFrameConstantBuffer.Lights[0].Direction = { mGUI->mLightDir[0], mGUI->mLightDir[1], mGUI->mLightDir[2] };
-	perFrameConstantBuffer.Lights[0].Strength = { 0.5,0.5,0.5 };
+	perFrameConstantBuffer.Lights[0].Strength = { 1,1,1 };
 
 	// Copy the structure into the per frame constant buffer
 	auto currentFrameCB = mCurrentFrameResource->mPerFrameConstantBuffer.get();
@@ -644,6 +626,7 @@ void App::UpdatePerMaterialConstantBuffers()
 			matConstants.DiffuseAlbedo = mat->DiffuseAlbedo;
 			matConstants.FresnelR0 = mat->FresnelR0;
 			matConstants.Roughness = mat->Roughness;
+			matConstants.Metallic = mat->Metalness;
 			XMStoreFloat4x4(&matConstants.MatTransform, XMMatrixTranspose(matTransform));
 
 			currMaterialCB->Copy(mat->CBIndex, matConstants);
@@ -713,8 +696,7 @@ void App::DrawPlanet(ID3D12GraphicsCommandList* commandList)
 
 void App::DrawModels(ID3D12GraphicsCommandList* commandList)
 {
-	if (mWireframe) { commandList->SetPipelineState(mWireframePSO.Get()); }
-	else { commandList->SetPipelineState(mSolidPSO.Get()); }
+
 	// Get size of the per object constant buffer 
 	UINT objCBByteSize = CalculateConstantBufferSize(sizeof(PerObjectConstants));
 
@@ -722,66 +704,37 @@ void App::DrawModels(ID3D12GraphicsCommandList* commandList)
 	auto objectCB = mCurrentFrameResource->mPerObjectConstantBuffer->GetBuffer();
 	auto matCB = mCurrentFrameResource->mPerMaterialConstantBuffer->GetBuffer();
 
+	if (mWireframe) { commandList->SetPipelineState(mWireframePSO.Get()); }
+	else { commandList->SetPipelineState(mSolidPSO.Get()); }
+
 	for(int i = 0; i < mColourModels.size(); i++)
 	{		
 		// Offset to the CBV for this object
-		auto objCBAddress = objectCB->GetGPUVirtualAddress() + mModels[i]->mObjConstantBufferIndex * objCBByteSize;
+		auto objCBAddress = objectCB->GetGPUVirtualAddress() + mColourModels[i]->mObjConstantBufferIndex * objCBByteSize;
 		commandList->SetGraphicsRootConstantBufferView(1, objCBAddress);
 
-		mModels[i]->Draw(commandList, matCB);
+		mColourModels[i]->Draw(commandList, matCB);
 	}
 
-	for (int i = 0; i < mAOModels.size(); i++)
+	if (mWireframe) { commandList->SetPipelineState(mWireframePSO.Get()); }
+	else { commandList->SetPipelineState(mTexPSO.Get()); }
+
+	for(int i = 0; i < mTexModels.size(); i++)
 	{
 		// Offset to the CBV for this object
-		auto objCBAddress = objectCB->GetGPUVirtualAddress() + mAOModels[i]->mObjConstantBufferIndex * objCBByteSize;
+		auto objCBAddress = objectCB->GetGPUVirtualAddress() + mTexModels[i]->mObjConstantBufferIndex * objCBByteSize;
 		commandList->SetGraphicsRootConstantBufferView(1, objCBAddress);
 
 		CD3DX12_GPU_DESCRIPTOR_HANDLE tex(mSRVDescriptorHeap->mHeap->GetGPUDescriptorHandleForHeapStart());
 		tex.Offset(1, mGraphics->mCbvSrvUavDescriptorSize);
 
-		if (!mWireframe) { commandList->SetPipelineState(mAOPSO.Get()); }
+		if (!mWireframe) { commandList->SetPipelineState(mTexPSO.Get()); }
 		else { commandList->SetPipelineState(mWireframePSO.Get()); }
 
 		commandList->SetGraphicsRootDescriptorTable(0, tex);
 
-		mAOModels[i]->Draw(commandList, matCB);
+		mTexModels[i]->Draw(commandList, matCB);
 	}
-
-	for (int i = 0; i < mParallaxModels.size(); i++)
-	{
-		// Offset to the CBV for this object
-		auto objCBAddress = objectCB->GetGPUVirtualAddress() + mParallaxModels[i]->mObjConstantBufferIndex * objCBByteSize;
-		commandList->SetGraphicsRootConstantBufferView(1, objCBAddress);
-
-		CD3DX12_GPU_DESCRIPTOR_HANDLE tex(mSRVDescriptorHeap->mHeap->GetGPUDescriptorHandleForHeapStart());
-		tex.Offset(1, mGraphics->mCbvSrvUavDescriptorSize);
-
-		if (!mWireframe) { commandList->SetPipelineState(mAOPSO.Get()); }
-		else { commandList->SetPipelineState(mWireframePSO.Get()); }
-
-		commandList->SetGraphicsRootDescriptorTable(0, tex);
-
-		mParallaxModels[i]->Draw(commandList, matCB);
-	}
-
-	for (int i = 0; i < mNormalModels.size(); i++)
-	{
-		// Offset to the CBV for this object
-		auto objCBAddress = objectCB->GetGPUVirtualAddress() + mNormalModels[i]->mObjConstantBufferIndex * objCBByteSize;
-		commandList->SetGraphicsRootConstantBufferView(1, objCBAddress);
-
-		CD3DX12_GPU_DESCRIPTOR_HANDLE tex(mSRVDescriptorHeap->mHeap->GetGPUDescriptorHandleForHeapStart());
-		tex.Offset(1, mGraphics->mCbvSrvUavDescriptorSize);
-
-		if (!mWireframe) { commandList->SetPipelineState(mAOPSO.Get()); }
-		else { commandList->SetPipelineState(mWireframePSO.Get()); }
-
-		commandList->SetGraphicsRootDescriptorTable(0, tex);
-
-		mNormalModels[i]->Draw(commandList, matCB);
-	}
-
 }
 
 void App::EndFrame()
@@ -810,6 +763,12 @@ void App::ProcessEvents(SDL_Event& event)
 		mCamera->WindowResized(mWindow.get());
 		mWindow->mResized = false;
 	}
+
+	//if (mWindow->mLeftMouse)
+	//{
+	//	mTexModels[0]->mParallax = !mTexModels[0]->mParallax;
+	//	mTexModels[0]->mNumDirtyFrames = mNumFrameResources;
+	//}
 
 	if(mWindow->mMiddleMouse)
 	{
@@ -843,31 +802,6 @@ App::~App()
 {
 	// Empty the command queue
 	if (mGraphics->mD3DDevice != nullptr) { mGraphics->EmptyCommandQueue(); }
-
-	//for (auto& material : mMaterials)
-	//{
-	//	delete material;
-	//}
-
-	/*for (auto& model : mColourModels)
-	{
-		delete model;
-	}
-
-	for (auto& model : mAOModels)
-	{
-		delete model;
-	}
-
-	for (auto& model : mParallaxModels)
-	{
-		delete model;
-	}
-
-	for (auto& model : mNormalModels)
-	{
-		delete model;
-	}*/
 
 	for (auto& model : mModels)
 	{

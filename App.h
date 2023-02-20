@@ -95,10 +95,8 @@ private:
 
 	// If diffent PSOs needed then use different lists
 	vector<Model*> mModels;
+	vector<Model*> mTexModels;
 	vector<Model*> mColourModels;
-	vector<Model*> mAOModels;
-	vector<Model*> mParallaxModels;
-	vector<Model*> mNormalModels;
 
 	XMFLOAT4X4 mGUIWorldMatrix = MakeIdentity4x4();
 
@@ -126,10 +124,7 @@ private:
 	ComPtr<ID3DBlob> mTexVSByteCode = nullptr;
 	//ComPtr<ID3DBlob> mTexPSByteCode = nullptr;
 
-	ComPtr<ID3DBlob> mAOPSByteCode = nullptr;
-	ComPtr<ID3DBlob> mParallaxPSByteCode = nullptr;
-	ComPtr<ID3DBlob> mNormalPSByteCode = nullptr;
-	ComPtr<ID3DBlob> mMetalPSByteCode = nullptr;
+	ComPtr<ID3DBlob> mTexPSByteCode = nullptr;
 
 	ComPtr<ID3D12RootSignature> mRootSignature;
 
@@ -139,10 +134,7 @@ private:
 
 	ComPtr<ID3D12PipelineState> mSolidPSO = nullptr;
 	ComPtr<ID3D12PipelineState> mWireframePSO = nullptr;
-	ComPtr<ID3D12PipelineState> mAOPSO = nullptr;
-	ComPtr<ID3D12PipelineState> mParallaxPSO = nullptr;
-	ComPtr<ID3D12PipelineState> mNormalPSO = nullptr;
-	//ComPtr<ID3D12PipelineState> mMetalPSO = nullptr;
+	ComPtr<ID3D12PipelineState> mTexPSO = nullptr;
 
 	ComPtr<ID3D12PipelineState> mPlanetPSO = nullptr;
 	ComPtr<ID3D12PipelineState> mWirePlanetPSO = nullptr;

@@ -56,6 +56,7 @@ void Model::Draw(ID3D12GraphicsCommandList* commandList, ID3D12Resource* matCB)
 
 	for (auto mesh : mMeshes)
 	{
+		// Offset to Mat CBV for this mesh
 		D3D12_GPU_VIRTUAL_ADDRESS matCBAddress = matCB->GetGPUVirtualAddress() + mBaseMaterials[mesh->mMaterialIndex]->CBIndex * matCBByteSize;
 		commandList->SetGraphicsRootConstantBufferView(3, matCBAddress);
 		mesh->Draw(commandList);
@@ -167,6 +168,14 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 			aiColor4D diffuseColour;
 			assimpMaterial->Get(AI_MATKEY_COLOR_DIFFUSE, diffuseColour);
 			material->DiffuseAlbedo = XMFLOAT4{ diffuseColour.r,diffuseColour.g,diffuseColour.b,diffuseColour.a };
+
+			float roughness = 0.0f;
+			assimpMaterial->Get(AI_MATKEY_ROUGHNESS_FACTOR, roughness);
+			material->Roughness = roughness;
+
+			float metalness = 0.0f;
+			assimpMaterial->Get(AI_MATKEY_METALLIC_FACTOR, metalness);
+			material->Metalness = metalness;
 
 			mBaseMaterials.push_back(material);
 		}
