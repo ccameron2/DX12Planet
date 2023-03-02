@@ -76,7 +76,7 @@ void App::CreateTextures()
 	// Create material
 	vector<Material*> materials;
 	materials.push_back(new Material());
-	materials[0]->Name = L"Models/octostone";
+	materials[0]->Name = L"Models/tufted-leather";
 
 	auto device = mGraphics->mD3DDevice.Get();
 	ResourceUploadBatch upload(device);
@@ -604,7 +604,7 @@ void App::UpdatePerFrameConstantBuffer()
 	perFrameConstantBuffer.Lights[0].Colour = { 0.5f,0.5f,0.5f };
 	perFrameConstantBuffer.Lights[0].Position = { 4.0f, 4.0f, 0.0f };
 	perFrameConstantBuffer.Lights[0].Direction = { mGUI->mLightDir[0], mGUI->mLightDir[1], mGUI->mLightDir[2] };
-	perFrameConstantBuffer.Lights[0].Strength = { 1,1,1 };
+	perFrameConstantBuffer.Lights[0].Strength = { 2,2,2 };
 
 	// Copy the structure into the per frame constant buffer
 	auto currentFrameCB = mCurrentFrameResource->mPerFrameConstantBuffer.get();

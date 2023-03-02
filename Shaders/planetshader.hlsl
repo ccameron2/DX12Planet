@@ -41,8 +41,12 @@ float4 PS(VOut pIn) : SV_Target
 	float3 worldNormal = normalize(pIn.NormalW);
 	
 	float3 v = normalize(EyePosW - pIn.PosW); // Get normal to camera, called v for view vector in PBR equations
-	float3 n = worldNormal;
-
+	//float3 n = worldNormal;
+	float3 dx = ddx(pIn.PosW);
+	float3 dy = ddy(pIn.PosW);
+	
+	float3 n = normalize(cross(dx, dy));
+	
 	// Sample PBR textures
 
 	float3 albedo = pIn.Colour;
