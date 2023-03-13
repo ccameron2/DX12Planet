@@ -137,8 +137,6 @@ private:
 	ComPtr<ID3D12PipelineState> mTexPSO = nullptr;
 
 	ComPtr<ID3D12PipelineState> mPlanetPSO = nullptr;
-	ComPtr<ID3D12PipelineState> mWirePlanetPSO = nullptr;
-
 
 	ID3D12PipelineState* mCurrentPSO = nullptr;
 

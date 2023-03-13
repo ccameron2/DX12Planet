@@ -76,7 +76,7 @@ void App::CreateTextures()
 	// Create material
 	vector<Material*> materials;
 	materials.push_back(new Material());
-	materials[0]->Name = L"Models/tufted-leather";
+	materials[0]->Name = L"Models/blocksrough";
 
 	auto device = mGraphics->mD3DDevice.Get();
 	ResourceUploadBatch upload(device);
@@ -416,10 +416,6 @@ void App::CreatePSO()
 		reinterpret_cast<BYTE*>(mPlanetPSByteCode->GetBufferPointer()),
 		mPlanetPSByteCode->GetBufferSize()
 	};
-	if (FAILED(mGraphics->mD3DDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mWirePlanetPSO))))
-	{
-		MessageBox(0, L"WireframePlanet Pipeline State Creation failed", L"Error", MB_OK);
-	}
 	psoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
 	if (FAILED(mGraphics->mD3DDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mPlanetPSO))))
 	{
@@ -680,7 +676,7 @@ void App::Draw(float frameTime)
 
 void App::DrawPlanet(ID3D12GraphicsCommandList* commandList)
 {
-	if (mWireframe) { commandList->SetPipelineState(mWirePlanetPSO.Get()); }
+	if (mWireframe) { commandList->SetPipelineState(mWireframePSO.Get()); }
 	else { commandList->SetPipelineState(mPlanetPSO.Get()); }
 	// Get size of the per object constant buffer 
 	UINT objCBByteSize = CalculateConstantBufferSize(sizeof(PerObjectConstants));
