@@ -229,6 +229,15 @@ void App::StartFrame()
 
 void App::LoadModels()
 {
+	Model* foxModel = new Model("Models/polyfox.fbx", mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
+	XMStoreFloat4x4(&foxModel->mWorldMatrix, XMMatrixIdentity()
+		* XMMatrixScaling(1, 1, 1)
+		* XMMatrixRotationX(90)
+		* XMMatrixTranslation(4.0f, 0.0f, 0.0f));
+	mModels.push_back(foxModel);
+	mColourModels.push_back(foxModel);
+
+
 	Model* wolfModel = new Model("Models/Wolf.fbx", mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
 	XMStoreFloat4x4(&wolfModel->mWorldMatrix, XMMatrixIdentity()
 												* XMMatrixScaling(1, 1, 1)
@@ -237,13 +246,6 @@ void App::LoadModels()
 	mModels.push_back(wolfModel);
 	mColourModels.push_back(wolfModel);
 
-	Model* foxModel = new Model("Models/polyfox.fbx", mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
-	XMStoreFloat4x4(&foxModel->mWorldMatrix, XMMatrixIdentity() 
-												* XMMatrixScaling(1, 1, 1)
-												* XMMatrixRotationX(90)
-												* XMMatrixTranslation(4.0f, 0.0f, 0.0f));														
-	mModels.push_back(foxModel);
-	mColourModels.push_back(foxModel);
 
 	Model* slimeModel = new Model("Models/Slime.fbx", mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
 	XMStoreFloat4x4(&slimeModel->mWorldMatrix, XMMatrixIdentity()
