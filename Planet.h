@@ -46,18 +46,16 @@ public:
 	void ResetGeometry();
 	void Update();
 
-	unique_ptr<Mesh> mMesh;	
-	std::vector<Vertex> mVertices;
-	std::vector<uint32_t> mIndices;
+	Mesh* mMesh;	
 	int mMaxLOD = 0;
-	XMFLOAT4X4 WorldMatrix = MakeIdentity4x4();
-	int NumDirtyFrames = 3;
-	UINT ObjConstantBufferIndex = -1;
 private:
 	std::vector<Triangle> mTriangles;
 	std::vector<XMFLOAT3> mNormals;
 	unique_ptr<Node> mTriangleTree;
 	std::map<std::pair<int, int>, int> mVertexMap;
+
+	std::vector<Vertex> mVertices;
+	std::vector<uint32_t> mIndices;
 
 	void BuildIndices();
 

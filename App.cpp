@@ -44,15 +44,21 @@ void App::Initialize()
 	mCamera->Update();
 
 	mPlanet = std::make_unique<Planet>();
-	mPlanet->ObjConstantBufferIndex = 0;
-	XMStoreFloat4x4(&mPlanet->WorldMatrix, XMMatrixIdentity() * /*XMMatrixScaling(0, 0, 0) **/ XMMatrixTranslation(0.0f, 0.0f, 0.0f));
+	mPlanet->CreatePlanet(0.1, 1, 1);
+	auto planetModel = new Model("", mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get(), mPlanet->mMesh);
+
+	planetModel->SetPosition(XMFLOAT3{ 0, 0, 0 },false);
+	planetModel->SetRotation(XMFLOAT3{ 0, 0, 0 }, false);
+	planetModel->SetScale(XMFLOAT3{ 0.5, 0.5, 0.5 }, true);
+
+	mModels.push_back(planetModel);
 
 	LoadModels();
 	CreateMaterials();
 
 	BuildFrameResources();
 
-	mNumModels = 1 + mModels.size(); // +1 for planet
+	mNumModels = mModels.size(); // +1 for planet
 
 	mSRVDescriptorHeap = make_unique<SRVDescriptorHeap>(mGraphics->mD3DDevice.Get(), mGraphics->mCbvSrvUavDescriptorSize);
 	
@@ -230,42 +236,45 @@ void App::StartFrame()
 void App::LoadModels()
 {
 	Model* foxModel = new Model("Models/polyfox.fbx", mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
-	XMStoreFloat4x4(&foxModel->mWorldMatrix, XMMatrixIdentity()
-		* XMMatrixScaling(1, 1, 1)
-		* XMMatrixRotationX(90)
-		* XMMatrixTranslation(4.0f, 0.0f, 0.0f));
+
+	foxModel->SetPosition(XMFLOAT3{ 4.0f, 0.0f, 0.0f });
+	foxModel->SetRotation(XMFLOAT3{ 90.0f, 0.0f, 0.0f });
+	foxModel->SetScale(XMFLOAT3{ 1, 1, 1 });
+
 	mModels.push_back(foxModel);
 	mColourModels.push_back(foxModel);
 
-
 	Model* wolfModel = new Model("Models/Wolf.fbx", mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
-	XMStoreFloat4x4(&wolfModel->mWorldMatrix, XMMatrixIdentity()
-												* XMMatrixScaling(1, 1, 1)
-												* XMMatrixRotationX(90)
-												* XMMatrixTranslation(8.0f, 0.0f, 0.0f));
+
+	wolfModel->SetPosition(XMFLOAT3{ 8.0f, 0.0f, 0.0f });
+	wolfModel->SetRotation(XMFLOAT3{ 90.0f, 0.0f, 0.0f });
+	wolfModel->SetScale(XMFLOAT3{ 1, 1, 1 });
+
 	mModels.push_back(wolfModel);
 	mColourModels.push_back(wolfModel);
 
 
 	Model* slimeModel = new Model("Models/Slime.fbx", mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
-	XMStoreFloat4x4(&slimeModel->mWorldMatrix, XMMatrixIdentity()
-												* XMMatrixScaling(1, 1, 1)
-												* XMMatrixRotationX(90)
-												* XMMatrixTranslation(-8.0f, 0.0f, 0.0f));
+
+	slimeModel->SetPosition(XMFLOAT3{ -8.0f, 0.0f, 0.0f });
+	slimeModel->SetRotation(XMFLOAT3{ 90.0f, 0.0f, 0.0f });
+	slimeModel->SetScale(XMFLOAT3{ 1, 1, 1 });
+
 	mModels.push_back(slimeModel);
 	mColourModels.push_back(slimeModel);
 
 	Model* octoModel = new Model("Models/octopus.x", mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
-	XMStoreFloat4x4(&octoModel->mWorldMatrix, XMMatrixIdentity()
-												* XMMatrixScaling(0.5, 0.5, 0.5)
-												//* XMMatrixRotationX(90)
-												* XMMatrixTranslation(-4.0f, 0.0f, 0.0f));
+
+	octoModel->SetPosition(XMFLOAT3{ -4.0f, 0.0f, 0.0f });
+	octoModel->SetRotation(XMFLOAT3{ 0.0f, 0.0f, 0.0f });
+	octoModel->SetScale(XMFLOAT3{ 0.5, 0.5, 0.5 });
+	octoModel->mParallax = true;
 	mModels.push_back(octoModel);
 	mTexModels.push_back(octoModel);
 
 	for (int i = 0; i < mModels.size(); i++)
 	{
-		mModels[i]->mObjConstantBufferIndex = 1 + i; // 1 for planet
+		mModels[i]->mObjConstantBufferIndex = i;
 	}
 }
 
@@ -443,64 +452,46 @@ void App::CreatePSO()
 void App::RecreatePlanetGeometry()
 {
 	mPlanet->CreatePlanet(mGUI->mFrequency, mGUI->mOctaves, mGUI->mLOD);
+	mModels[0]->mMeshes[0] = mPlanet->mMesh;
+	mModels[0]->mNumDirtyFrames += mNumFrameResources;
+}
 
-	for (int i = 0; i < mPlanet->mVertices.size(); i++)
+void App::UpdatePlanetBuffers()
+{
+	if (mModels[0]->mNumDirtyFrames > 0)
 	{
-		mCurrentFrameResource->mPlanetVB->Copy(i, mPlanet->mVertices[i]);
-	}
-	for (int i = 0; i < mPlanet->mIndices.size(); i++)
-	{
-		mCurrentFrameResource->mPlanetIB->Copy(i, mPlanet->mIndices[i]);
-	}
+		for (int i = 0; i < mPlanet->mMesh->mVertices.size(); i++)
+		{
+			mCurrentFrameResource->mPlanetVB->Copy(i, mPlanet->mMesh->mVertices[i]);
+		}
+		for (int i = 0; i < mPlanet->mMesh->mIndices.size(); i++)
+		{
+			mCurrentFrameResource->mPlanetIB->Copy(i, mPlanet->mMesh->mIndices[i]);
+		}
 
-	mPlanet->mMesh->mGPUVertexBuffer = mCurrentFrameResource->mPlanetVB->GetBuffer();
-	mPlanet->mMesh->mGPUIndexBuffer = mCurrentFrameResource->mPlanetIB->GetBuffer();
+		mModels[0]->mMeshes[0]->mGPUVertexBuffer = mCurrentFrameResource->mPlanetVB->GetBuffer();
+		mModels[0]->mMeshes[0]->mGPUIndexBuffer = mCurrentFrameResource->mPlanetIB->GetBuffer();
+		// NumDirtyFrames reduced by UpdatePerObject
+	}
 }
 
 void App::Update(float frameTime)
 {
+
+	mGUI->UpdateModelData(mModels[mGUI->mSelectedModel]);
+
 	mGUI->Update(mNumModels);
 
 	mCamera->Update();
 
-	// If the world matrix has changed
-	if (mGUI->mWMatrixChanged)
-	{
-		// Create identity matrices
-		XMMATRIX IDMatrix = XMMatrixIdentity();
-		XMMATRIX translationMatrix = XMMatrixIdentity();
+	UpdateSelectedModel();
 
-		// Apply transformations from GUI
-		translationMatrix *= XMMatrixTranslation(mGUI->mPos[0], mGUI->mPos[1], mGUI->mPos[2]);
-		
-		translationMatrix *= XMMatrixRotationX(mGUI->mRot[0]) * XMMatrixRotationY(mGUI->mRot[1]) * XMMatrixRotationZ(mGUI->mRot[2]);
-		
-		translationMatrix *= XMMatrixScaling(mGUI->mScale, mGUI->mScale, mGUI->mScale);
-
-		// Set result to icosahedron's world matrix
-		XMStoreFloat4x4(&mGUIWorldMatrix, IDMatrix *= translationMatrix);
-
-		// Set render item to gui world matrix
-		if (mGUI->mSelectedModel == 0)
-		{
-			mPlanet->WorldMatrix = mGUIWorldMatrix;
-			mPlanet->NumDirtyFrames += mNumFrameResources;
-		}
-		else
-		{
-			mModels[mGUI->mSelectedModel - 1]->mWorldMatrix = mGUIWorldMatrix;
-			mModels[mGUI->mSelectedModel - 1]->mNumDirtyFrames += mNumFrameResources;
-		}
-
-		mGUI->mWMatrixChanged = false;
-	}
-
-	if (mGUI->mUpdated)
+	if (mGUI->mPlanetUpdated)
 	{
 		RecreatePlanetGeometry();
-		mGUI->mUpdated = false;
+		mGUI->mPlanetUpdated = false;
 	}
-
+	UpdatePlanetBuffers();
 	UpdatePerObjectConstantBuffers();
 	UpdatePerFrameConstantBuffer();
 	UpdatePerMaterialConstantBuffers();
@@ -527,29 +518,25 @@ void App::CycleFrameResources()
 	}
 }
 
+void App::UpdateSelectedModel()
+{
+	// If the world matrix has changed
+	if (mGUI->mWMatrixChanged)
+	{
+		mModels[mGUI->mSelectedModel]->SetPosition(mGUI->mInPosition, false);
+		mModels[mGUI->mSelectedModel]->SetRotation(mGUI->mInRotation, false);
+		mModels[mGUI->mSelectedModel]->SetScale(mGUI->mInScale, true);
+		mModels[mGUI->mSelectedModel]->mNumDirtyFrames += mNumFrameResources;
+
+		mGUI->mWMatrixChanged = false;
+	}
+}
+
 void App::UpdatePerObjectConstantBuffers()
 {
 	// Get reference to the current per object constant buffer
 	auto currentObjectConstantBuffer = mCurrentFrameResource->mPerObjectConstantBuffer.get();
 	
-	// If planet's values have been changed
-	if (mPlanet->NumDirtyFrames > 0)
-	{
-		// Get the world matrix of the item
-		XMMATRIX worldMatrix = XMLoadFloat4x4(&mPlanet->WorldMatrix);
-
-		// Create a per object constants structure
-		PerObjectConstants objectConstants;
-
-		// Transpose the world matrix into it
-		XMStoreFloat4x4(&objectConstants.WorldMatrix, XMMatrixTranspose(worldMatrix));
-
-		// Copy the structure into the current buffer at the item's index
-		currentObjectConstantBuffer->Copy(mPlanet->ObjConstantBufferIndex, objectConstants);
-		
-		mPlanet->NumDirtyFrames--;
-	}
-
 	for (auto& model : mModels)
 	{
 		// If their values have been changed
@@ -680,6 +667,7 @@ void App::DrawPlanet(ID3D12GraphicsCommandList* commandList)
 {
 	if (mWireframe) { commandList->SetPipelineState(mWireframePSO.Get()); }
 	else { commandList->SetPipelineState(mPlanetPSO.Get()); }
+
 	// Get size of the per object constant buffer 
 	UINT objCBByteSize = CalculateConstantBufferSize(sizeof(PerObjectConstants));
 
@@ -689,7 +677,7 @@ void App::DrawPlanet(ID3D12GraphicsCommandList* commandList)
 	auto objCBAddress = objectCB->GetGPUVirtualAddress(); // Planet is first in buffer
 	commandList->SetGraphicsRootConstantBufferView(1, objCBAddress);
 
-	mPlanet->mMesh->Draw(commandList);
+	mModels[0]->mMeshes[0]->Draw(commandList);
 }
 
 void App::DrawModels(ID3D12GraphicsCommandList* commandList)
@@ -793,7 +781,6 @@ void App::CreateMaterials()
 			index++;
 		}
 	}
-
 }
 
 App::~App()

@@ -81,9 +81,10 @@ private:
 	void CreateShaders();
 	void CreatePSO();
 	void RecreatePlanetGeometry();
+	void UpdatePlanetBuffers();
 	void ProcessEvents(SDL_Event& e);
 	void CreateMaterials();
-
+	
 	vector<Texture*> mTextures;
 	vector<Material*> mMaterials;
 
@@ -97,8 +98,6 @@ private:
 	vector<Model*> mModels;
 	vector<Model*> mTexModels;
 	vector<Model*> mColourModels;
-
-	XMFLOAT4X4 mGUIWorldMatrix = MakeIdentity4x4();
 
 	unique_ptr<Camera> mCamera;
 	unique_ptr<GUI> mGUI;
@@ -143,7 +142,7 @@ private:
 	ComPtr<ID3DBlob> mPlanetVSByteCode = nullptr;
 	ComPtr<ID3DBlob> mPlanetPSByteCode = nullptr;
 
-
+	void UpdateSelectedModel();
 	void UpdatePerObjectConstantBuffers();
 	void UpdatePerFrameConstantBuffer();
 	void UpdatePerMaterialConstantBuffers();

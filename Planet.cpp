@@ -6,12 +6,13 @@ Planet::Planet()
 
 Planet::~Planet()
 {
+	delete mMesh;
 }
 
 void Planet::CreatePlanet(float frequency, int octaves, int lod)
 {
 	mMaxLOD = lod;
-	if (mMesh) mMesh.reset();
+	if (mMesh) delete mMesh;
 
 	ResetGeometry();
 
@@ -26,7 +27,7 @@ void Planet::CreatePlanet(float frequency, int octaves, int lod)
 
 	CalculateNormals();
 
-	mMesh = make_unique<Mesh>();
+	mMesh = new Mesh();
 
 	mMesh->mVertices = mVertices;
 	mMesh->mIndices = mIndices;

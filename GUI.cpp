@@ -45,7 +45,7 @@ void GUI::Update(int numModels)
 
 	if (ImGui::SliderInt("LOD", &mLOD, 0, 10))
 	{
-		mUpdated = true;
+		mPlanetUpdated = true;
 	};
 
 	//if (ImGui::Checkbox("Tesselation", &mTesselation))
@@ -57,22 +57,19 @@ void GUI::Update(int numModels)
 
 	if (ImGui::SliderFloat("Noise Freq", &mFrequency, 0.0f, 1.0f, "%.1f"))
 	{
-		mUpdated = true;
+		mPlanetUpdated = true;
 	};
 
 	if (ImGui::SliderInt("Octaves", &mOctaves, 0, 20))
 	{
-		mUpdated = true;
+		mPlanetUpdated = true;
 	};
 
 	ImGui::Text("World Matrix");
 
 	if (ImGui::SliderInt("Model", &mSelectedModel, 0, numModels - 1))
 	{
-		mPos[0] = 0; mPos[1] = 0; mPos[2] = 0;
-		mRot[0] = 0; mRot[1] = 0; mRot[2] = 0;
-		mScale = 1;
-		mWMatrixChanged = true;
+
 	};
 
 	if (ImGui::InputFloat3("Position", mPos, "%.1f"))
@@ -95,8 +92,34 @@ void GUI::Update(int numModels)
 	if (ImGui::SliderFloat3("Light Direction", mLightDir, -1, +1));
 
 	ImGui::Text("Average: %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+
+	mInPosition.x = mPos[0];
+	mInPosition.y = mPos[1];
+	mInPosition.z = mPos[2];
+
+	mInRotation.x = mRot[0];
+	mInRotation.y = mRot[1];
+	mInRotation.z = mRot[2];
+
+	mInScale.x = mScale;
+	mInScale.y = mScale;
+	mInScale.z = mScale;
+
 	ImGui::End();
 
+}
+
+void GUI::UpdateModelData(Model* model)
+{
+	mPos[0] = model->mPosition.x;
+	mPos[1] = model->mPosition.y;
+	mPos[2] = model->mPosition.z;
+
+	mRot[0] = model->mRotation.x;
+	mRot[1] = model->mRotation.y;
+	mRot[2] = model->mRotation.z;
+
+	mScale = model->mScale.x;
 }
 
 void GUI::Render(ID3D12GraphicsCommandList* commandList, ID3D12Resource* currentBackBuffer, D3D12_CPU_DESCRIPTOR_HANDLE currentBackBufferView, ID3D12DescriptorHeap* dsvHeap, UINT dsvDescriptorSize)

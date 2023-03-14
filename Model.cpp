@@ -1,31 +1,38 @@
 #include "Model.h"
 #include <regex>
 
-Model::Model(std::string fileName, ID3D12Device* device, ID3D12GraphicsCommandList* commandList)
+Model::Model(std::string fileName, ID3D12Device* device, ID3D12GraphicsCommandList* commandList, Mesh* mesh)
 {
-	Assimp::Importer importer;
-
-	const aiScene* scene = importer.ReadFile(fileName,
-		aiProcess_Triangulate |
-		aiProcess_JoinIdenticalVertices |
-		aiProcess_ImproveCacheLocality |
-		aiProcess_RemoveRedundantMaterials |
-		aiProcess_SortByPType |
-		aiProcess_FindInvalidData |
-		aiProcess_OptimizeMeshes |
-		aiProcess_OptimizeGraph |
-		aiProcess_CalcTangentSpace |
-		aiProcess_ConvertToLeftHanded);
-
-	if (!scene)
+	if (mesh == nullptr)
 	{
-		LPCWSTR str = LPCWSTR(importer.GetErrorString());
-		MessageBox(0, L"Error importing models", L"Error", MB_OK);
-	}
+		Assimp::Importer importer;
 
-	mDirectory = fileName.substr(0, fileName.find_last_of('/'));
-	mFileName = fileName.substr(fileName.find_last_of('/') + 1, fileName.find_last_of('.') - fileName.find_last_of('/') - 1);
-	ProcessNode(scene->mRootNode, scene);
+		const aiScene* scene = importer.ReadFile(fileName,
+			aiProcess_Triangulate |
+			aiProcess_JoinIdenticalVertices |
+			aiProcess_ImproveCacheLocality |
+			aiProcess_RemoveRedundantMaterials |
+			aiProcess_SortByPType |
+			aiProcess_FindInvalidData |
+			aiProcess_OptimizeMeshes |
+			aiProcess_OptimizeGraph |
+			aiProcess_CalcTangentSpace |
+			aiProcess_ConvertToLeftHanded);
+
+		if (!scene)
+		{
+			LPCWSTR str = LPCWSTR(importer.GetErrorString());
+			MessageBox(0, L"Error importing models", L"Error", MB_OK);
+		}
+
+		mDirectory = fileName.substr(0, fileName.find_last_of('/'));
+		mFileName = fileName.substr(fileName.find_last_of('/') + 1, fileName.find_last_of('.') - fileName.find_last_of('/') - 1);
+		ProcessNode(scene->mRootNode, scene);
+	}
+	else
+	{
+		mMeshes.push_back(mesh);
+	}
 
 	for (auto& mesh : mMeshes)
 	{
@@ -61,6 +68,24 @@ void Model::Draw(ID3D12GraphicsCommandList* commandList, ID3D12Resource* matCB)
 		commandList->SetGraphicsRootConstantBufferView(3, matCBAddress);
 		mesh->Draw(commandList);
 	}
+}
+
+void Model::SetPosition(XMFLOAT3 position, bool update)
+{
+	mPosition = position;
+	if(update) UpdateWorldMatrix();
+}
+
+void Model::SetRotation(XMFLOAT3 rotation, bool update)
+{
+	mRotation = rotation;
+	if (update) UpdateWorldMatrix();
+}
+
+void Model::SetScale(XMFLOAT3 scale, bool update)
+{
+	mScale = scale;
+	if (update) UpdateWorldMatrix();
 }
 
 void Model::ProcessNode(aiNode* node, const aiScene* scene)
@@ -247,4 +272,14 @@ void Model::LoadEmbeddedTexture(const aiTexture* embeddedTexture)
 	//	auto width = embeddedTexture->mWidth;
 	//	auto height = embeddedTexture->mHeight;
 	//}
+}
+
+void Model::UpdateWorldMatrix()
+{
+	XMStoreFloat4x4(&mWorldMatrix, XMMatrixIdentity()
+		* XMMatrixScaling(mScale.x,mScale.y,mScale.z)
+		* XMMatrixRotationX(mRotation.x)
+		* XMMatrixRotationY(mRotation.y)
+		* XMMatrixRotationZ(mRotation.z)
+		* XMMatrixTranslation(mPosition.x,mPosition.y,mPosition.z));
 }
