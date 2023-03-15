@@ -159,6 +159,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Camera.h" />
+    <ClInclude Include="Common.h" />
     <ClInclude Include="SRVDescriptorHeap.h" />
     <ClInclude Include="FastNoiseLite.h" />
     <ClInclude Include="FrameResource.h" />

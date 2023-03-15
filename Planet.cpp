@@ -6,7 +6,7 @@ Planet::Planet()
 
 Planet::~Planet()
 {
-	delete mMesh;
+
 }
 
 void Planet::CreatePlanet(float frequency, int octaves, int lod)

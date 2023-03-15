@@ -57,9 +57,26 @@ Model::~Model()
 	}
 }
 
-void Model::Draw(ID3D12GraphicsCommandList* commandList, ID3D12Resource* matCB)
+void Model::Draw(ID3D12GraphicsCommandList* commandList)
 {
+	// Get reference to current per object constant buffer
+	auto objectCB = FrameResources[CurrentFrameResourceIndex]->mPerObjectConstantBuffer->GetBuffer();
+
+	// Get size of the per object constant buffer 
+	UINT objCBByteSize = CalculateConstantBufferSize(sizeof(PerObjectConstants));
+
+	auto matCB = FrameResources[CurrentFrameResourceIndex]->mPerMaterialConstantBuffer->GetBuffer();
+
 	UINT matCBByteSize = CalculateConstantBufferSize(sizeof(PerMaterialConstants));
+
+	// Offset to the CBV for this object
+	auto objCBAddress = objectCB->GetGPUVirtualAddress() + mObjConstantBufferIndex * objCBByteSize;
+	commandList->SetGraphicsRootConstantBufferView(1, objCBAddress);
+
+	CD3DX12_GPU_DESCRIPTOR_HANDLE tex(SrvDescriptorHeap->mHeap->GetGPUDescriptorHandleForHeapStart());
+	tex.Offset(1, CbvSrvUavDescriptorSize);
+
+	commandList->SetGraphicsRootDescriptorTable(0, tex);
 
 	for (auto mesh : mMeshes)
 	{

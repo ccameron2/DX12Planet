@@ -21,6 +21,7 @@
 #include <array>
 #include <algorithm>
 #include <memory>
+#include "Common.h"
 
 #include "Planet.h"
 #include "Model.h"
@@ -109,11 +110,8 @@ private:
 
 	bool mWireframe = false;
 	const static int mNumFrameResources = 3;
-	std::vector<std::unique_ptr<FrameResource>> mFrameResources;
-	FrameResource* mCurrentFrameResource = nullptr;
-	int mCurrentFrameResourceIndex = 0;
 
-	unique_ptr<SRVDescriptorHeap> mSRVDescriptorHeap;
+	FrameResource* mCurrentFrameResource = nullptr;
 
 	D3D_DRIVER_TYPE mD3DDriverType = D3D_DRIVER_TYPE_HARDWARE;
 

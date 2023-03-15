@@ -1,6 +1,10 @@
 #include "App.h"
 #include "DDSTextureLoader.h"
 
+std::vector<std::unique_ptr<FrameResource>> FrameResources;
+int CurrentFrameResourceIndex = 0;
+unique_ptr<SRVDescriptorHeap> SrvDescriptorHeap;
+
 App::App()
 {
 	Initialize();
@@ -20,9 +24,9 @@ void App::Run()
 
 	while (!mWindow->mQuit)
 	{
-		StartFrame();
 		if (!mWindow->mMinimized)
 		{
+			StartFrame();
 			float frameTime = mTimer.GetLapTime();
 			Update(frameTime);
 			Draw(frameTime);
@@ -46,10 +50,9 @@ void App::Initialize()
 	mPlanet = std::make_unique<Planet>();
 	mPlanet->CreatePlanet(0.1, 1, 1);
 	auto planetModel = new Model("", mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get(), mPlanet->mMesh);
-
 	planetModel->SetPosition(XMFLOAT3{ 0, 0, 0 },false);
 	planetModel->SetRotation(XMFLOAT3{ 0, 0, 0 }, false);
-	planetModel->SetScale(XMFLOAT3{ 0.5, 0.5, 0.5 }, true);
+	planetModel->SetScale(XMFLOAT3{ 1, 1, 1 }, true);
 
 	mModels.push_back(planetModel);
 
@@ -58,9 +61,9 @@ void App::Initialize()
 
 	BuildFrameResources();
 
-	mNumModels = mModels.size(); // +1 for planet
+	mNumModels = mModels.size();
 
-	mSRVDescriptorHeap = make_unique<SRVDescriptorHeap>(mGraphics->mD3DDevice.Get(), mGraphics->mCbvSrvUavDescriptorSize);
+	SrvDescriptorHeap = make_unique<SRVDescriptorHeap>(mGraphics->mD3DDevice.Get(), CbvSrvUavDescriptorSize);
 	
 	CreateTextures();
 	CreateRootSignature();
@@ -70,7 +73,7 @@ void App::Initialize()
 
 	mGraphics->ExecuteCommands();
 
-	mGUI = make_unique<GUI>(mSRVDescriptorHeap.get(), mWindow->mSDLWindow, mGraphics->mD3DDevice.Get(),
+	mGUI = make_unique<GUI>(SrvDescriptorHeap.get(), mWindow->mSDLWindow, mGraphics->mD3DDevice.Get(),
 								mNumFrameResources, mGraphics->mBackBufferFormat);
 }
 
@@ -96,9 +99,9 @@ void App::CreateTextures()
 	CreateDDSTextureFromFile(device,upload, mTextures[0]->Path.c_str(), mTextures[0]->Resource.ReleaseAndGetAddressOf(), false);
 	
 	// Fill out the heap with actual descriptors.
-	CD3DX12_CPU_DESCRIPTOR_HANDLE hDescriptor(mSRVDescriptorHeap->mHeap->GetCPUDescriptorHandleForHeapStart());
+	CD3DX12_CPU_DESCRIPTOR_HANDLE hDescriptor(SrvDescriptorHeap->mHeap->GetCPUDescriptorHandleForHeapStart());
 	// next descriptor
-	hDescriptor.Offset(1, mGraphics->mCbvSrvUavDescriptorSize);
+	hDescriptor.Offset(1, CbvSrvUavDescriptorSize);
 
 	auto foxTex = mTextures[0]->Resource;
 
@@ -117,7 +120,7 @@ void App::CreateTextures()
 
 	CreateDDSTextureFromFile(device, upload, mTextures[1]->Path.c_str(), mTextures[1]->Resource.ReleaseAndGetAddressOf(), false);
 
-	hDescriptor.Offset(1, mGraphics->mCbvSrvUavDescriptorSize);
+	hDescriptor.Offset(1, CbvSrvUavDescriptorSize);
 
 	auto foxRough = mTextures[1]->Resource;
 
@@ -138,7 +141,7 @@ void App::CreateTextures()
 	//CreateWICTextureFromFile(device, upload, L"Models/subway-floor-normal.jpg", mTextures[1]->Resource.ReleaseAndGetAddressOf(), false);
 	CreateDDSTextureFromFile(device, upload, mTextures[2]->Path.c_str(), mTextures[2]->Resource.ReleaseAndGetAddressOf(), false);
 
-	hDescriptor.Offset(1, mGraphics->mCbvSrvUavDescriptorSize);
+	hDescriptor.Offset(1, CbvSrvUavDescriptorSize);
 
 	auto foxNorm = mTextures[2]->Resource;
 
@@ -159,7 +162,7 @@ void App::CreateTextures()
 	CreateDDSTextureFromFile(device, upload, mTextures[3]->Path.c_str(), mTextures[3]->Resource.ReleaseAndGetAddressOf(), false);
 	//CreateWICTextureFromFile(device, upload, mTextures[3]->Path.c_str(), mTextures[3]->Resource.ReleaseAndGetAddressOf(), false);
 
-	hDescriptor.Offset(1, mGraphics->mCbvSrvUavDescriptorSize);
+	hDescriptor.Offset(1, CbvSrvUavDescriptorSize);
 
 	auto foxMetal = mTextures[3]->Resource;
 
@@ -179,7 +182,7 @@ void App::CreateTextures()
 	
 	CreateDDSTextureFromFile(device, upload, mTextures[4]->Path.c_str(), mTextures[4]->Resource.ReleaseAndGetAddressOf(), false);
 	//CreateWICTextureFromFile(device, upload, mTextures[4]->Path.c_str(), mTextures[4]->Resource.ReleaseAndGetAddressOf(), false);
-	hDescriptor.Offset(1, mGraphics->mCbvSrvUavDescriptorSize);
+	hDescriptor.Offset(1, CbvSrvUavDescriptorSize);
 
 	auto foxDisplacement = mTextures[4]->Resource;
 
@@ -200,7 +203,7 @@ void App::CreateTextures()
 	CreateDDSTextureFromFile(device, upload, mTextures[5]->Path.c_str(), mTextures[5]->Resource.ReleaseAndGetAddressOf(), false);
 	//CreateWICTextureFromFile(device, upload, mTextures[5]->Path.c_str(), mTextures[5]->Resource.ReleaseAndGetAddressOf(), false);
 
-	hDescriptor.Offset(1, mGraphics->mCbvSrvUavDescriptorSize);
+	hDescriptor.Offset(1, CbvSrvUavDescriptorSize);
 
 	auto foxAO = mTextures[5]->Resource;
 
@@ -282,7 +285,7 @@ void App::BuildFrameResources()
 {
 	for (int i = 0; i < mNumFrameResources; i++)
 	{
-		mFrameResources.push_back(std::make_unique<FrameResource>(mGraphics->mD3DDevice.Get(), 1, 1 + mModels.size(), 11000000, 65000000, mMaterials.size())); //1 for planet
+		FrameResources.push_back(std::make_unique<FrameResource>(mGraphics->mD3DDevice.Get(), 1, mModels.size(), 11000000, 65000000, mMaterials.size())); //1 for planet
 	}
 }
 
@@ -500,8 +503,8 @@ void App::Update(float frameTime)
 void App::CycleFrameResources()
 {
 	// Cycle frame resources
-	mCurrentFrameResourceIndex = (mCurrentFrameResourceIndex + 1) % mNumFrameResources;
-	mCurrentFrameResource = mFrameResources[mCurrentFrameResourceIndex].get();
+	CurrentFrameResourceIndex = (CurrentFrameResourceIndex + 1) % mNumFrameResources;
+	mCurrentFrameResource = FrameResources[CurrentFrameResourceIndex].get();
 
 	UINT64 completedFence = mGraphics->mFence->GetCompletedValue();
 
@@ -640,11 +643,11 @@ void App::Draw(float frameTime)
 	// Select MSAA texture as render target
 	mGraphics->SetMSAARenderTarget();
 
-	mGraphics->SetDescriptorHeap(mSRVDescriptorHeap->mHeap.Get());
+	mGraphics->SetDescriptorHeap(SrvDescriptorHeap->mHeap.Get());
 
 	commandList->SetGraphicsRootSignature(mRootSignature.Get());
 
-	auto srvHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(mSRVDescriptorHeap->mHeap->GetGPUDescriptorHandleForHeapStart());
+	auto srvHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(SrvDescriptorHeap->mHeap->GetGPUDescriptorHandleForHeapStart());
 	commandList->SetGraphicsRootDescriptorTable(0, srvHandle);
 
 	auto perFrameBuffer = mCurrentFrameResource->mPerFrameConstantBuffer->GetBuffer();
@@ -683,23 +686,12 @@ void App::DrawPlanet(ID3D12GraphicsCommandList* commandList)
 void App::DrawModels(ID3D12GraphicsCommandList* commandList)
 {
 
-	// Get size of the per object constant buffer 
-	UINT objCBByteSize = CalculateConstantBufferSize(sizeof(PerObjectConstants));
-
-	// Get reference to current per object constant buffer
-	auto objectCB = mCurrentFrameResource->mPerObjectConstantBuffer->GetBuffer();
-	auto matCB = mCurrentFrameResource->mPerMaterialConstantBuffer->GetBuffer();
-
 	if (mWireframe) { commandList->SetPipelineState(mWireframePSO.Get()); }
 	else { commandList->SetPipelineState(mSolidPSO.Get()); }
 
 	for(int i = 0; i < mColourModels.size(); i++)
 	{		
-		// Offset to the CBV for this object
-		auto objCBAddress = objectCB->GetGPUVirtualAddress() + mColourModels[i]->mObjConstantBufferIndex * objCBByteSize;
-		commandList->SetGraphicsRootConstantBufferView(1, objCBAddress);
-
-		mColourModels[i]->Draw(commandList, matCB);
+		mColourModels[i]->Draw(commandList);
 	}
 
 	if (mWireframe) { commandList->SetPipelineState(mWireframePSO.Get()); }
@@ -707,19 +699,7 @@ void App::DrawModels(ID3D12GraphicsCommandList* commandList)
 
 	for(int i = 0; i < mTexModels.size(); i++)
 	{
-		// Offset to the CBV for this object
-		auto objCBAddress = objectCB->GetGPUVirtualAddress() + mTexModels[i]->mObjConstantBufferIndex * objCBByteSize;
-		commandList->SetGraphicsRootConstantBufferView(1, objCBAddress);
-
-		CD3DX12_GPU_DESCRIPTOR_HANDLE tex(mSRVDescriptorHeap->mHeap->GetGPUDescriptorHandleForHeapStart());
-		tex.Offset(1, mGraphics->mCbvSrvUavDescriptorSize);
-
-		if (!mWireframe) { commandList->SetPipelineState(mTexPSO.Get()); }
-		else { commandList->SetPipelineState(mWireframePSO.Get()); }
-
-		commandList->SetGraphicsRootDescriptorTable(0, tex);
-
-		mTexModels[i]->Draw(commandList, matCB);
+		mTexModels[i]->Draw(commandList);
 	}
 }
 

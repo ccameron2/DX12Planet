@@ -6,7 +6,7 @@
 #include <assimp/postprocess.h>
 #include "Mesh.h"
 #include "DDSTextureLoader.h"
-
+#include "Common.h"
 class Model
 {
 public:
@@ -22,7 +22,7 @@ public:
 	XMFLOAT3 mRotation = XMFLOAT3{ 0,0,0 };
 	XMFLOAT3 mScale = XMFLOAT3{ 0,0,0 };
 
-	void Draw(ID3D12GraphicsCommandList* commandList, ID3D12Resource* matCB);
+	void Draw(ID3D12GraphicsCommandList* commandList);
 
 	void SetPosition(XMFLOAT3 position, bool update = true);
 	void SetRotation(XMFLOAT3 rotation, bool update = true);

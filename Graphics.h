@@ -49,7 +49,6 @@ public:
 
 	UINT mRtvDescriptorSize = 0;
 	UINT mDsvDescriptorSize = 0;
-	UINT mCbvSrvUavDescriptorSize = 0;
 
 	int mCurrentBackBuffer = 0;
 	ComPtr<ID3D12Resource> mSwapChainBuffer[mSwapChainBufferCount];

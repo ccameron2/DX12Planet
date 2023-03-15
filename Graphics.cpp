@@ -2,6 +2,7 @@
 #include "Utility.h"
 #include <DirectXMath.h>
 
+UINT CbvSrvUavDescriptorSize = 0;
 
 Graphics::Graphics(HWND hWND, int width, int height)
 {
@@ -116,7 +117,7 @@ void Graphics::SwapBackBuffers(bool vSync)
 void Graphics::SetGraphicsRootDescriptorTable(ID3D12DescriptorHeap* descriptorHeap, int cbvIndex, int rootParameterIndex)
 {
 	auto cbvHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(descriptorHeap->GetGPUDescriptorHandleForHeapStart());
-	cbvHandle.Offset(cbvIndex, mCbvSrvUavDescriptorSize);
+	cbvHandle.Offset(cbvIndex, CbvSrvUavDescriptorSize);
 	mCommandList->SetGraphicsRootDescriptorTable(rootParameterIndex, cbvHandle);
 }
 
@@ -172,7 +173,7 @@ bool Graphics::CreateDeviceAndFence()
 	// Get descriptor sizes
 	mRtvDescriptorSize = mD3DDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 	mDsvDescriptorSize = mD3DDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
-	mCbvSrvUavDescriptorSize = mD3DDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	CbvSrvUavDescriptorSize = mD3DDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
 	// Check MSAA quality support
 	D3D12_FEATURE_DATA_MULTISAMPLE_QUALITY_LEVELS msQualityLevels;
