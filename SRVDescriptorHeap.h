@@ -18,5 +18,7 @@ public:
 	ComPtr<ID3D12DescriptorHeap> mHeap;
 	UINT mGuiSrvOffset = 0;
 	UINT mDescriptorSize = 0;
+	int mMaxTextures = 60;
+	int mCurrentIndex = 0;
 };
 

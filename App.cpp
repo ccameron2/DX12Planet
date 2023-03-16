@@ -62,8 +62,6 @@ void App::Initialize()
 
 	mNumModels = mModels.size();
 
-	SrvDescriptorHeap = make_unique<SRVDescriptorHeap>(mGraphics->mD3DDevice.Get(), CbvSrvUavDescriptorSize);
-	
 	CreateTextures();
 	mGraphics->CreateRootSignature();
 

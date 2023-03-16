@@ -24,6 +24,9 @@ Graphics::Graphics(HWND hWND, int width, int height)
 	CreateCommandObjects();
 	CreateSwapChain(hWND, width, height);
 	CreateDescriptorHeaps();
+
+	SrvDescriptorHeap = make_unique<SRVDescriptorHeap>(mD3DDevice.Get(), CbvSrvUavDescriptorSize);
+
 	Resize(width, height);
 
 	if (FAILED(mCommandList->Reset(mCommandAllocator.Get(), nullptr)))
