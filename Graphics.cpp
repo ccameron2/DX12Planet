@@ -3,6 +3,7 @@
 #include <DirectXMath.h>
 
 UINT CbvSrvUavDescriptorSize = 0;
+int CurrentFrameResourceIndex = 0;
 
 Graphics::Graphics(HWND hWND, int width, int height)
 {
@@ -185,6 +186,169 @@ bool Graphics::CreateDeviceAndFence()
 	mMSAAQuality = msQualityLevels.NumQualityLevels;
 
 	return true;
+}
+
+void Graphics::CreateRootSignature()
+{
+	CD3DX12_DESCRIPTOR_RANGE texTable;
+	texTable.Init(
+		D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
+		6,  // number of descriptors
+		0); // register t0
+
+	// Root parameter can be a table, root descriptor or root constants.
+	CD3DX12_ROOT_PARAMETER slotRootParameter[4];
+
+	slotRootParameter[0].InitAsDescriptorTable(1, &texTable, D3D12_SHADER_VISIBILITY_PIXEL);
+	slotRootParameter[1].InitAsConstantBufferView(0);
+	slotRootParameter[2].InitAsConstantBufferView(1);
+	slotRootParameter[3].InitAsConstantBufferView(2);
+
+	auto staticSamplers = GetStaticSamplers();
+
+	// A root signature is an array of root parameters.
+	CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(4, slotRootParameter, (UINT)staticSamplers.size(), staticSamplers.data(),
+		D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+
+	// create a root signature
+	ComPtr<ID3DBlob> serializedRootSignature = nullptr;
+	ComPtr<ID3DBlob> errorBlob = nullptr;
+
+	if (FAILED(D3D12SerializeRootSignature(&rootSigDesc, D3D_ROOT_SIGNATURE_VERSION_1, serializedRootSignature.GetAddressOf(), errorBlob.GetAddressOf())))
+	{
+		MessageBox(0, L"Serialize Root Signature failed", L"Error", MB_OK);
+	}
+
+	if (errorBlob != nullptr)
+	{
+		OutputDebugStringA((char*)errorBlob->GetBufferPointer());
+	}
+
+	if (FAILED(mD3DDevice->CreateRootSignature(0, serializedRootSignature->GetBufferPointer(), serializedRootSignature->GetBufferSize(), IID_PPV_ARGS(mRootSignature.GetAddressOf()))))
+	{
+		MessageBox(0, L"Root Signature creation failed", L"Error", MB_OK);
+	}
+}
+
+void Graphics::CreatePSO()
+{
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc;
+	ZeroMemory(&psoDesc, sizeof(D3D12_GRAPHICS_PIPELINE_STATE_DESC));
+	psoDesc.InputLayout = { mColourInputLayout.data(), (UINT)mColourInputLayout.size() };
+	psoDesc.pRootSignature = mRootSignature.Get();
+	psoDesc.VS =
+	{
+		reinterpret_cast<BYTE*>(mColourVSByteCode->GetBufferPointer()),
+		mColourVSByteCode->GetBufferSize()
+	};
+	psoDesc.PS =
+	{
+		reinterpret_cast<BYTE*>(mColourPSByteCode->GetBufferPointer()),
+		mColourPSByteCode->GetBufferSize()
+	};
+
+	psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+
+	psoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
+	psoDesc.RasterizerState.MultisampleEnable = true;
+	psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+	psoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
+	psoDesc.SampleMask = UINT_MAX;
+	psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+	psoDesc.NumRenderTargets = 1;
+	psoDesc.RTVFormats[0] = mBackBufferFormat;
+	psoDesc.SampleDesc.Count = mMSAASampleCount;
+	psoDesc.SampleDesc.Quality = mMSAAQuality - 1;
+	psoDesc.DSVFormat = mDepthStencilFormat;
+	if (FAILED(mD3DDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mSolidPSO))))
+	{
+		MessageBox(0, L"Solid Pipeline State Creation failed", L"Error", MB_OK);
+	}
+
+	psoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_WIREFRAME;
+	if (FAILED(mD3DDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mWireframePSO))))
+	{
+		MessageBox(0, L"Wireframe Pipeline State Creation failed", L"Error", MB_OK);
+	}
+	psoDesc.VS =
+	{
+		reinterpret_cast<BYTE*>(mPlanetVSByteCode->GetBufferPointer()),
+		mPlanetVSByteCode->GetBufferSize()
+	};
+	psoDesc.PS =
+	{
+		reinterpret_cast<BYTE*>(mPlanetPSByteCode->GetBufferPointer()),
+		mPlanetPSByteCode->GetBufferSize()
+	};
+	psoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
+	if (FAILED(mD3DDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mPlanetPSO))))
+	{
+		MessageBox(0, L"Planet Pipeline State Creation failed", L"Error", MB_OK);
+	}
+	psoDesc.VS =
+	{
+		reinterpret_cast<BYTE*>(mTexVSByteCode->GetBufferPointer()),
+		mTexVSByteCode->GetBufferSize()
+	};
+	psoDesc.InputLayout = { mTexInputLayout.data(), (UINT)mTexInputLayout.size() };
+	psoDesc.PS =
+	{
+		reinterpret_cast<BYTE*>(mTexPSByteCode->GetBufferPointer()),
+		mTexPSByteCode->GetBufferSize()
+	};
+	if (FAILED(mD3DDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mTexPSO))))
+	{
+		MessageBox(0, L"AO Pipeline State Creation failed", L"Error", MB_OK);
+	}
+}
+
+void Graphics::CreateShaders()
+{
+	mColourVSByteCode = CompileShader(L"Shaders\\shader.hlsl", nullptr, "VS", "vs_5_0");
+	mColourPSByteCode = CompileShader(L"Shaders\\shader.hlsl", nullptr, "PS", "ps_5_0");
+	mColourInputLayout =
+	{
+		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		{ "COLOUR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 28, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
+	};
+
+	mTexVSByteCode = CompileShader(L"Shaders\\texshader.hlsl", nullptr, "VS", "vs_5_0");
+	mTexPSByteCode = CompileShader(L"Shaders\\texshader.hlsl", nullptr, "PS", "ps_5_0");
+
+	mTexInputLayout =
+	{
+		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		{ "COLOUR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 28, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		{ "UV", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 40, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		{ "TANGENT", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 48, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
+	};
+
+	mPlanetVSByteCode = CompileShader(L"Shaders\\planetshader.hlsl", nullptr, "VS", "vs_5_0");
+	mPlanetPSByteCode = CompileShader(L"Shaders\\planetshader.hlsl", nullptr, "PS", "ps_5_0");
+}
+
+ComPtr<ID3DBlob> Graphics::CompileShader(const std::wstring& filename, const D3D_SHADER_MACRO* defines, const std::string& entrypoint, const std::string& target)
+{
+	UINT compileFlags = 0;
+
+#if defined(DEBUG) || defined(_DEBUG)  
+	compileFlags = D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
+#endif`
+
+	ComPtr<ID3DBlob> byteCode = nullptr;
+	ComPtr<ID3DBlob> errors;
+
+	if (FAILED(D3DCompileFromFile(filename.c_str(), defines, D3D_COMPILE_STANDARD_FILE_INCLUDE,
+		entrypoint.c_str(), target.c_str(), compileFlags, 0, &byteCode, &errors)))
+	{
+		MessageBox(0, L"Shader compile failed", L"Error", MB_OK);
+	}
+
+	if (errors != nullptr) OutputDebugStringA((char*)errors->GetBufferPointer());
+
+	return byteCode;
 }
 
 void Graphics::CreateCommandObjects()
@@ -432,6 +596,27 @@ void Graphics::ExecuteCommands()
 
 	// Wait for work to be complete
 	EmptyCommandQueue();
+}
+
+void Graphics::CycleFrameResources()
+{
+	// Cycle frame resources
+	CurrentFrameResourceIndex = (CurrentFrameResourceIndex + 1) % mNumFrameResources;
+	mCurrentFrameResource = FrameResources[CurrentFrameResourceIndex].get();
+
+	UINT64 completedFence = mFence->GetCompletedValue();
+
+	// Wait for GPU to finish current frame resource commands
+	if (mCurrentFrameResource->Fence != 0 && completedFence < mCurrentFrameResource->Fence)
+	{
+		HANDLE eventHandle = CreateEventEx(nullptr, false, false, EVENT_ALL_ACCESS);
+		if (FAILED(mFence->SetEventOnCompletion(mCurrentFrameResource->Fence, eventHandle)))
+		{
+			MessageBox(0, L"Fence completion event set failed", L"Error", MB_OK);
+		}
+		WaitForSingleObject(eventHandle, INFINITE);
+		CloseHandle(eventHandle);
+	}
 }
 
 // Empty the command queue

@@ -74,13 +74,8 @@ private:
 	Timer mTimer;
 
 	void Update(float frameTime);
-	void CycleFrameResources();
 	void Draw(float frameTime);
-	
-	void CreateRootSignature();
-	ComPtr<ID3DBlob> CompileShader(const std::wstring& filename, const D3D_SHADER_MACRO* defines, const std::string& entrypoint, const std::string& target);
-	void CreateShaders();
-	void CreatePSO();
+
 	void RecreatePlanetGeometry();
 	void UpdatePlanetBuffers();
 	void ProcessEvents(SDL_Event& e);
@@ -109,36 +104,10 @@ private:
 	int mNumModels = 0;
 
 	bool mWireframe = false;
-	const static int mNumFrameResources = 3;
-
-	FrameResource* mCurrentFrameResource = nullptr;
-
-	D3D_DRIVER_TYPE mD3DDriverType = D3D_DRIVER_TYPE_HARDWARE;
-
-	// Compiled shader variables
-	ComPtr<ID3DBlob> mColourVSByteCode = nullptr;
-	ComPtr<ID3DBlob> mColourPSByteCode = nullptr;
-	ComPtr<ID3DBlob> mTexVSByteCode = nullptr;
-	//ComPtr<ID3DBlob> mTexPSByteCode = nullptr;
-
-	ComPtr<ID3DBlob> mTexPSByteCode = nullptr;
-
-	ComPtr<ID3D12RootSignature> mRootSignature;
 
 	// Input layout
-	std::vector<D3D12_INPUT_ELEMENT_DESC> mColourInputLayout;
-	std::vector<D3D12_INPUT_ELEMENT_DESC> mTexInputLayout;
-
-	ComPtr<ID3D12PipelineState> mSolidPSO = nullptr;
-	ComPtr<ID3D12PipelineState> mWireframePSO = nullptr;
-	ComPtr<ID3D12PipelineState> mTexPSO = nullptr;
-
-	ComPtr<ID3D12PipelineState> mPlanetPSO = nullptr;
 
 	ID3D12PipelineState* mCurrentPSO = nullptr;
-
-	ComPtr<ID3DBlob> mPlanetVSByteCode = nullptr;
-	ComPtr<ID3DBlob> mPlanetPSByteCode = nullptr;
 
 	void UpdateSelectedModel();
 	void UpdatePerObjectConstantBuffers();

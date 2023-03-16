@@ -1,5 +1,5 @@
 #pragma once
-
+#include "Common.h"
 #include <windows.h>
 #include <wrl.h>
 #include <d3d12.h>
@@ -60,10 +60,17 @@ public:
 
 	ComPtr<ID3D12DescriptorHeap> mRTVHeap;
 	ComPtr<ID3D12DescriptorHeap> mDSVHeap;
+	ComPtr<ID3D12RootSignature> mRootSignature;
+	FrameResource* mCurrentFrameResource = nullptr;
+	const static int mNumFrameResources = 3;
 
 	XMVECTORF32 mBackgroundColour = DirectX::Colors::Purple;
 
 	bool CreateDeviceAndFence();
+	void CreateRootSignature();
+	void CreatePSO();
+	void CreateShaders();
+	ComPtr<ID3DBlob> CompileShader(const std::wstring& filename, const D3D_SHADER_MACRO* defines, const std::string& entrypoint, const std::string& target);
 	void CreateCommandObjects();
 	void CreateSwapChain(HWND hWND, int width, int height);
 
@@ -76,7 +83,25 @@ public:
 
 	std::array<const CD3DX12_STATIC_SAMPLER_DESC, 6> GetStaticSamplers();
 
+	ComPtr<ID3D12PipelineState> mSolidPSO = nullptr;
+	ComPtr<ID3D12PipelineState> mWireframePSO = nullptr;
+	ComPtr<ID3D12PipelineState> mTexPSO = nullptr;
+
+	ComPtr<ID3D12PipelineState> mPlanetPSO = nullptr;
+
+
+	ComPtr<ID3DBlob> mColourVSByteCode = nullptr;
+	ComPtr<ID3DBlob> mColourPSByteCode = nullptr;
+	ComPtr<ID3DBlob> mTexVSByteCode = nullptr;
+	ComPtr<ID3DBlob> mTexPSByteCode = nullptr;
+	ComPtr<ID3DBlob> mPlanetVSByteCode = nullptr;
+	ComPtr<ID3DBlob> mPlanetPSByteCode = nullptr;
+
+	std::vector<D3D12_INPUT_ELEMENT_DESC> mColourInputLayout;
+	std::vector<D3D12_INPUT_ELEMENT_DESC> mTexInputLayout;
+
 	void ExecuteCommands();
+	void CycleFrameResources();
 	void CreateDescriptorHeaps();
 	void ResolveMSAAToBackBuffer();
 	void ResetCommandAllocator(ID3D12CommandAllocator* commandAllocator);

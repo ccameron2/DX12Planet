@@ -2,7 +2,6 @@
 #include "DDSTextureLoader.h"
 
 std::vector<std::unique_ptr<FrameResource>> FrameResources;
-int CurrentFrameResourceIndex = 0;
 unique_ptr<SRVDescriptorHeap> SrvDescriptorHeap;
 
 App::App()
@@ -18,7 +17,7 @@ void App::Run()
 	mTimer.Start();
 
 	// Set initial frame resources
-	CycleFrameResources();
+	mGraphics->CycleFrameResources();
 
 	RecreatePlanetGeometry();
 
@@ -66,15 +65,15 @@ void App::Initialize()
 	SrvDescriptorHeap = make_unique<SRVDescriptorHeap>(mGraphics->mD3DDevice.Get(), CbvSrvUavDescriptorSize);
 	
 	CreateTextures();
-	CreateRootSignature();
+	mGraphics->CreateRootSignature();
 
-	CreateShaders();
-	CreatePSO();
+	mGraphics->CreateShaders();
+	mGraphics->CreatePSO();
 
 	mGraphics->ExecuteCommands();
 
 	mGUI = make_unique<GUI>(SrvDescriptorHeap.get(), mWindow->mSDLWindow, mGraphics->mD3DDevice.Get(),
-								mNumFrameResources, mGraphics->mBackBufferFormat);
+		mGraphics->mNumFrameResources, mGraphics->mBackBufferFormat);
 }
 
 void App::CreateTextures()
@@ -283,172 +282,9 @@ void App::LoadModels()
 
 void App::BuildFrameResources()
 {
-	for (int i = 0; i < mNumFrameResources; i++)
+	for (int i = 0; i < mGraphics->mNumFrameResources; i++)
 	{
 		FrameResources.push_back(std::make_unique<FrameResource>(mGraphics->mD3DDevice.Get(), 1, mModels.size(), 11000000, 65000000, mMaterials.size())); //1 for planet
-	}
-}
-
-void App::CreateRootSignature()
-{
-	CD3DX12_DESCRIPTOR_RANGE texTable;
-	texTable.Init(
-		D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
-		6,  // number of descriptors
-		0); // register t0
-
-	// Root parameter can be a table, root descriptor or root constants.
-	CD3DX12_ROOT_PARAMETER slotRootParameter[4];
-
-	slotRootParameter[0].InitAsDescriptorTable(1, &texTable, D3D12_SHADER_VISIBILITY_PIXEL);
-	slotRootParameter[1].InitAsConstantBufferView(0);
-	slotRootParameter[2].InitAsConstantBufferView(1);
-	slotRootParameter[3].InitAsConstantBufferView(2);
-
-	auto staticSamplers = mGraphics->GetStaticSamplers();
-
-	// A root signature is an array of root parameters.
-	CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(4, slotRootParameter, (UINT)staticSamplers.size(), staticSamplers.data(),
-		D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
-
-	// create a root signature
-	ComPtr<ID3DBlob> serializedRootSignature = nullptr;
-	ComPtr<ID3DBlob> errorBlob = nullptr;
-
-	if (FAILED(D3D12SerializeRootSignature(&rootSigDesc, D3D_ROOT_SIGNATURE_VERSION_1, serializedRootSignature.GetAddressOf(), errorBlob.GetAddressOf())))
-	{
-		MessageBox(0, L"Serialize Root Signature failed", L"Error", MB_OK);
-	}
-
-	if (errorBlob != nullptr)
-	{
-		OutputDebugStringA((char*)errorBlob->GetBufferPointer());
-	}
-
-	if (FAILED(mGraphics->mD3DDevice->CreateRootSignature(0, serializedRootSignature->GetBufferPointer(), serializedRootSignature->GetBufferSize(), IID_PPV_ARGS(mRootSignature.GetAddressOf()))))
-	{
-		MessageBox(0, L"Root Signature creation failed", L"Error", MB_OK);
-	}
-}
-
-ComPtr<ID3DBlob> App::CompileShader(const std::wstring& filename, const D3D_SHADER_MACRO* defines, const std::string& entrypoint, const std::string& target)
-{
-	UINT compileFlags = 0;
-
-#if defined(DEBUG) || defined(_DEBUG)  
-	compileFlags = D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
-#endif`
-
-	ComPtr<ID3DBlob> byteCode = nullptr;
-	ComPtr<ID3DBlob> errors;
-
-	if (FAILED(D3DCompileFromFile(filename.c_str(), defines, D3D_COMPILE_STANDARD_FILE_INCLUDE,
-		entrypoint.c_str(), target.c_str(), compileFlags, 0, &byteCode, &errors)))
-	{
-		MessageBox(0, L"Shader compile failed", L"Error", MB_OK);
-	}
-
-	if (errors != nullptr) OutputDebugStringA((char*)errors->GetBufferPointer());
-
-	return byteCode;
-}
-
-void App::CreateShaders()
-{
-	mColourVSByteCode = CompileShader(L"Shaders\\shader.hlsl", nullptr, "VS", "vs_5_0");
-	mColourPSByteCode = CompileShader(L"Shaders\\shader.hlsl", nullptr, "PS", "ps_5_0");
-	mColourInputLayout =
-	{
-		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-		{ "COLOUR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-		{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 28, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
-	};
-
-	mTexVSByteCode = CompileShader(L"Shaders\\texshader.hlsl", nullptr, "VS", "vs_5_0");
-	mTexPSByteCode	= CompileShader(L"Shaders\\texshader.hlsl", nullptr, "PS", "ps_5_0");
-
-	mTexInputLayout =
-	{
-		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-		{ "COLOUR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-		{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 28, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-		{ "UV", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 40, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-		{ "TANGENT", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 48, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
-	};
-
-	mPlanetVSByteCode = CompileShader(L"Shaders\\planetshader.hlsl", nullptr, "VS", "vs_5_0");
-	mPlanetPSByteCode = CompileShader(L"Shaders\\planetshader.hlsl", nullptr, "PS", "ps_5_0");
-}
-
-void App::CreatePSO()
-{
-	D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc;
-	ZeroMemory(&psoDesc, sizeof(D3D12_GRAPHICS_PIPELINE_STATE_DESC));
-	psoDesc.InputLayout = { mColourInputLayout.data(), (UINT)mColourInputLayout.size() };
-	psoDesc.pRootSignature = mRootSignature.Get();
-	psoDesc.VS =
-	{
-		reinterpret_cast<BYTE*>(mColourVSByteCode->GetBufferPointer()),
-		mColourVSByteCode->GetBufferSize()
-	};
-	psoDesc.PS =
-	{
-		reinterpret_cast<BYTE*>(mColourPSByteCode->GetBufferPointer()),
-		mColourPSByteCode->GetBufferSize()
-	};
-
-	psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
-
-	psoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
-	psoDesc.RasterizerState.MultisampleEnable = true;
-	psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
-	psoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
-	psoDesc.SampleMask = UINT_MAX;
-	psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-	psoDesc.NumRenderTargets = 1;
-	psoDesc.RTVFormats[0] = mGraphics->mBackBufferFormat;
-	psoDesc.SampleDesc.Count = mGraphics->mMSAASampleCount;
-	psoDesc.SampleDesc.Quality = mGraphics->mMSAAQuality - 1;
-	psoDesc.DSVFormat = mGraphics->mDepthStencilFormat;
-	if (FAILED(mGraphics->mD3DDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mSolidPSO))))
-	{
-		MessageBox(0, L"Solid Pipeline State Creation failed", L"Error", MB_OK);
-	}
-
-	psoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_WIREFRAME;
-	if (FAILED(mGraphics->mD3DDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mWireframePSO))))
-	{
-		MessageBox(0, L"Wireframe Pipeline State Creation failed", L"Error", MB_OK);
-	}
-	psoDesc.VS =
-	{
-		reinterpret_cast<BYTE*>(mPlanetVSByteCode->GetBufferPointer()),
-		mPlanetVSByteCode->GetBufferSize()
-	};
-	psoDesc.PS =
-	{
-		reinterpret_cast<BYTE*>(mPlanetPSByteCode->GetBufferPointer()),
-		mPlanetPSByteCode->GetBufferSize()
-	};
-	psoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
-	if (FAILED(mGraphics->mD3DDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mPlanetPSO))))
-	{
-		MessageBox(0, L"Planet Pipeline State Creation failed", L"Error", MB_OK);
-	}
-	psoDesc.VS =
-	{
-		reinterpret_cast<BYTE*>(mTexVSByteCode->GetBufferPointer()),
-		mTexVSByteCode->GetBufferSize()
-	};
-	psoDesc.InputLayout = { mTexInputLayout.data(), (UINT)mTexInputLayout.size() };
-	psoDesc.PS =
-	{
-		reinterpret_cast<BYTE*>(mTexPSByteCode->GetBufferPointer()),
-		mTexPSByteCode->GetBufferSize()
-	};
-	if (FAILED(mGraphics->mD3DDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mTexPSO))))
-	{
-		MessageBox(0, L"AO Pipeline State Creation failed", L"Error", MB_OK);
 	}
 }
 
@@ -456,7 +292,7 @@ void App::RecreatePlanetGeometry()
 {
 	mPlanet->CreatePlanet(mGUI->mFrequency, mGUI->mOctaves, mGUI->mLOD);
 	mModels[0]->mMeshes[0] = mPlanet->mMesh;
-	mModels[0]->mNumDirtyFrames += mNumFrameResources;
+	mModels[0]->mNumDirtyFrames += mGraphics->mNumFrameResources;
 }
 
 void App::UpdatePlanetBuffers()
@@ -465,22 +301,21 @@ void App::UpdatePlanetBuffers()
 	{
 		for (int i = 0; i < mPlanet->mMesh->mVertices.size(); i++)
 		{
-			mCurrentFrameResource->mPlanetVB->Copy(i, mPlanet->mMesh->mVertices[i]);
+			mGraphics->mCurrentFrameResource->mPlanetVB->Copy(i, mPlanet->mMesh->mVertices[i]);
 		}
 		for (int i = 0; i < mPlanet->mMesh->mIndices.size(); i++)
 		{
-			mCurrentFrameResource->mPlanetIB->Copy(i, mPlanet->mMesh->mIndices[i]);
+			mGraphics->mCurrentFrameResource->mPlanetIB->Copy(i, mPlanet->mMesh->mIndices[i]);
 		}
 
-		mModels[0]->mMeshes[0]->mGPUVertexBuffer = mCurrentFrameResource->mPlanetVB->GetBuffer();
-		mModels[0]->mMeshes[0]->mGPUIndexBuffer = mCurrentFrameResource->mPlanetIB->GetBuffer();
+		mModels[0]->mMeshes[0]->mGPUVertexBuffer = mGraphics->mCurrentFrameResource->mPlanetVB->GetBuffer();
+		mModels[0]->mMeshes[0]->mGPUIndexBuffer = mGraphics->mCurrentFrameResource->mPlanetIB->GetBuffer();
 		// NumDirtyFrames reduced by UpdatePerObject
 	}
 }
 
 void App::Update(float frameTime)
 {
-
 	mGUI->UpdateModelData(mModels[mGUI->mSelectedModel]);
 
 	mGUI->Update(mNumModels);
@@ -500,27 +335,6 @@ void App::Update(float frameTime)
 	UpdatePerMaterialConstantBuffers();
 }
 
-void App::CycleFrameResources()
-{
-	// Cycle frame resources
-	CurrentFrameResourceIndex = (CurrentFrameResourceIndex + 1) % mNumFrameResources;
-	mCurrentFrameResource = FrameResources[CurrentFrameResourceIndex].get();
-
-	UINT64 completedFence = mGraphics->mFence->GetCompletedValue();
-
-	// Wait for GPU to finish current frame resource commands
-	if (mCurrentFrameResource->Fence != 0 && completedFence < mCurrentFrameResource->Fence)
-	{
-		HANDLE eventHandle = CreateEventEx(nullptr, false, false, EVENT_ALL_ACCESS);
-		if (FAILED(mGraphics->mFence->SetEventOnCompletion(mCurrentFrameResource->Fence, eventHandle)))
-		{
-			MessageBox(0, L"Fence completion event set failed", L"Error", MB_OK);
-		}
-		WaitForSingleObject(eventHandle, INFINITE);
-		CloseHandle(eventHandle);
-	}
-}
-
 void App::UpdateSelectedModel()
 {
 	// If the world matrix has changed
@@ -529,7 +343,7 @@ void App::UpdateSelectedModel()
 		mModels[mGUI->mSelectedModel]->SetPosition(mGUI->mInPosition, false);
 		mModels[mGUI->mSelectedModel]->SetRotation(mGUI->mInRotation, false);
 		mModels[mGUI->mSelectedModel]->SetScale(mGUI->mInScale, true);
-		mModels[mGUI->mSelectedModel]->mNumDirtyFrames += mNumFrameResources;
+		mModels[mGUI->mSelectedModel]->mNumDirtyFrames += mGraphics->mNumFrameResources;
 
 		mGUI->mWMatrixChanged = false;
 	}
@@ -538,7 +352,7 @@ void App::UpdateSelectedModel()
 void App::UpdatePerObjectConstantBuffers()
 {
 	// Get reference to the current per object constant buffer
-	auto currentObjectConstantBuffer = mCurrentFrameResource->mPerObjectConstantBuffer.get();
+	auto currentObjectConstantBuffer = mGraphics->mCurrentFrameResource->mPerObjectConstantBuffer.get();
 	
 	for (auto& model : mModels)
 	{
@@ -595,13 +409,13 @@ void App::UpdatePerFrameConstantBuffer()
 	perFrameConstantBuffer.Lights[0].Strength = { 2,2,2 };
 
 	// Copy the structure into the per frame constant buffer
-	auto currentFrameCB = mCurrentFrameResource->mPerFrameConstantBuffer.get();
+	auto currentFrameCB = mGraphics->mCurrentFrameResource->mPerFrameConstantBuffer.get();
 	currentFrameCB->Copy(0, perFrameConstantBuffer);
 }
 
 void App::UpdatePerMaterialConstantBuffers()
 {
-	auto currMaterialCB = mCurrentFrameResource->mPerMaterialConstantBuffer.get();
+	auto currMaterialCB = mGraphics->mCurrentFrameResource->mPerMaterialConstantBuffer.get();
 
 	for (auto& mat : mMaterials)
 	{
@@ -619,7 +433,7 @@ void App::UpdatePerMaterialConstantBuffers()
 
 			currMaterialCB->Copy(mat->CBIndex, matConstants);
 
-			// Next FrameResource need to be updated too.
+			// Next FrameResource needs to be updated too.
 			mat->NumFramesDirty--;
 		}
 	}
@@ -627,7 +441,7 @@ void App::UpdatePerMaterialConstantBuffers()
 
 void App::Draw(float frameTime)
 {
-	auto commandAllocator = mCurrentFrameResource->mCommandAllocator.Get();
+	auto commandAllocator = mGraphics->mCurrentFrameResource->mCommandAllocator.Get();
 	auto commandList = mGraphics->mCommandList;
 
 	mGraphics->ResetCommandAllocator(commandAllocator);
@@ -645,12 +459,12 @@ void App::Draw(float frameTime)
 
 	mGraphics->SetDescriptorHeap(SrvDescriptorHeap->mHeap.Get());
 
-	commandList->SetGraphicsRootSignature(mRootSignature.Get());
+	commandList->SetGraphicsRootSignature(mGraphics->mRootSignature.Get());
 
 	auto srvHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(SrvDescriptorHeap->mHeap->GetGPUDescriptorHandleForHeapStart());
 	commandList->SetGraphicsRootDescriptorTable(0, srvHandle);
 
-	auto perFrameBuffer = mCurrentFrameResource->mPerFrameConstantBuffer->GetBuffer();
+	auto perFrameBuffer = mGraphics->mCurrentFrameResource->mPerFrameConstantBuffer->GetBuffer();
 	commandList->SetGraphicsRootConstantBufferView(2, perFrameBuffer->GetGPUVirtualAddress());
 
 	DrawPlanet(commandList.Get());
@@ -668,14 +482,14 @@ void App::Draw(float frameTime)
 
 void App::DrawPlanet(ID3D12GraphicsCommandList* commandList)
 {
-	if (mWireframe) { commandList->SetPipelineState(mWireframePSO.Get()); }
-	else { commandList->SetPipelineState(mPlanetPSO.Get()); }
+	if (mWireframe) { commandList->SetPipelineState(mGraphics->mWireframePSO.Get()); }
+	else { commandList->SetPipelineState(mGraphics->mPlanetPSO.Get()); }
 
 	// Get size of the per object constant buffer 
 	UINT objCBByteSize = CalculateConstantBufferSize(sizeof(PerObjectConstants));
 
 	// Get reference to current per object constant buffer
-	auto objectCB = mCurrentFrameResource->mPerObjectConstantBuffer->GetBuffer();
+	auto objectCB = mGraphics->mCurrentFrameResource->mPerObjectConstantBuffer->GetBuffer();
 
 	auto objCBAddress = objectCB->GetGPUVirtualAddress(); // Planet is first in buffer
 	commandList->SetGraphicsRootConstantBufferView(1, objCBAddress);
@@ -686,16 +500,16 @@ void App::DrawPlanet(ID3D12GraphicsCommandList* commandList)
 void App::DrawModels(ID3D12GraphicsCommandList* commandList)
 {
 
-	if (mWireframe) { commandList->SetPipelineState(mWireframePSO.Get()); }
-	else { commandList->SetPipelineState(mSolidPSO.Get()); }
+	if (mWireframe) { commandList->SetPipelineState(mGraphics->mWireframePSO.Get()); }
+	else { commandList->SetPipelineState(mGraphics->mSolidPSO.Get()); }
 
 	for(int i = 0; i < mColourModels.size(); i++)
 	{		
 		mColourModels[i]->Draw(commandList);
 	}
 
-	if (mWireframe) { commandList->SetPipelineState(mWireframePSO.Get()); }
-	else { commandList->SetPipelineState(mTexPSO.Get()); }
+	if (mWireframe) { commandList->SetPipelineState(mGraphics->mWireframePSO.Get()); }
+	else { commandList->SetPipelineState(mGraphics->mTexPSO.Get()); }
 
 	for(int i = 0; i < mTexModels.size(); i++)
 	{
@@ -706,12 +520,12 @@ void App::DrawModels(ID3D12GraphicsCommandList* commandList)
 void App::EndFrame()
 {
 	// Advance fence value
-	mCurrentFrameResource->Fence = ++mGraphics->mCurrentFence;
+	mGraphics->mCurrentFrameResource->Fence = ++mGraphics->mCurrentFence;
 
 	// Tell command queue to set new fence point, will only be set when the GPU gets to new fence value.
 	mGraphics->mCommandQueue->Signal(mGraphics->mFence.Get(), mGraphics->mCurrentFence);
 
-	CycleFrameResources();
+	mGraphics->CycleFrameResources();
 }
 
 void App::ProcessEvents(SDL_Event& event)
