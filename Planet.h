@@ -17,6 +17,8 @@ public:
 	Node* mParent;
 	std::vector<Node*> mChildren;
 	Triangle mTriangle = {0,0,0};
+	float mDistance = 0;
+	int mLevel = 0;
 	Node() : mParent{ 0 } {};
 	Node(Node* parent) : mParent{ parent } {};
 	~Node()
@@ -44,10 +46,11 @@ public:
 	~Planet();
 	void CreatePlanet(float frequency, int octaves, int lod);
 	void ResetGeometry();
-	void Update();
+	void Update(XMFLOAT3 cameraPos);
 
 	Mesh* mMesh;	
 	int mMaxLOD = 0;
+	int mStartLOD = 2;
 private:
 	std::vector<Triangle> mTriangles;
 	std::vector<XMFLOAT3> mNormals;
@@ -57,6 +60,8 @@ private:
 	std::vector<Vertex> mVertices;
 	std::vector<uint32_t> mIndices;
 
+	float mRadius = 1.0f;
+	bool mFirstGen = true;
 	void BuildIndices();
 
 	float FractalBrownianMotion(FastNoiseLite fastNoise, XMFLOAT3 fractalInput, float octaves, float frequency);
@@ -66,6 +71,7 @@ private:
 	int GetVertexForEdge(int v1, int v2);
 	std::vector<Triangle> SubdivideTriangle(Triangle triangle);
 	void GetTriangles(Node* node);
+	bool CheckNodes(XMFLOAT3 cameraPos, Node* parentNode);
 	void ApplyNoise(float frequency, int octaves);
 };
 

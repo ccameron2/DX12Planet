@@ -289,7 +289,7 @@ void App::BuildFrameResources()
 void App::RecreatePlanetGeometry()
 {
 	mPlanet->CreatePlanet(mGUI->mFrequency, mGUI->mOctaves, mGUI->mLOD);
-	mModels[0]->mMeshes[0] = mPlanet->mMesh;
+	mModels[0]->mConstructorMesh = mPlanet->mMesh;
 	mModels[0]->mNumDirtyFrames += mGraphics->mNumFrameResources;
 }
 
@@ -306,8 +306,8 @@ void App::UpdatePlanetBuffers()
 			mGraphics->mCurrentFrameResource->mPlanetIB->Copy(i, mPlanet->mMesh->mIndices[i]);
 		}
 
-		mModels[0]->mMeshes[0]->mGPUVertexBuffer = mGraphics->mCurrentFrameResource->mPlanetVB->GetBuffer();
-		mModels[0]->mMeshes[0]->mGPUIndexBuffer = mGraphics->mCurrentFrameResource->mPlanetIB->GetBuffer();
+		mModels[0]->mConstructorMesh->mGPUVertexBuffer = mGraphics->mCurrentFrameResource->mPlanetVB->GetBuffer();
+		mModels[0]->mConstructorMesh->mGPUIndexBuffer = mGraphics->mCurrentFrameResource->mPlanetIB->GetBuffer();
 		// NumDirtyFrames reduced by UpdatePerObject
 	}
 }
@@ -319,6 +319,8 @@ void App::Update(float frameTime)
 	mGUI->Update(mNumModels);
 
 	mCamera->Update();
+
+	//mPlanet->Update(mCamera->mPos);
 
 	UpdateSelectedModel();
 
@@ -492,7 +494,7 @@ void App::DrawPlanet(ID3D12GraphicsCommandList* commandList)
 	auto objCBAddress = objectCB->GetGPUVirtualAddress(); // Planet is first in buffer
 	commandList->SetGraphicsRootConstantBufferView(1, objCBAddress);
 
-	mModels[0]->mMeshes[0]->Draw(commandList);
+	mModels[0]->mConstructorMesh->Draw(commandList);
 }
 
 void App::DrawModels(ID3D12GraphicsCommandList* commandList)
@@ -566,10 +568,10 @@ void App::CreateMaterials()
 	int index = 0;
 	for (auto& model : mModels)
 	{
-		for (auto& material : model->mBaseMaterials)
+		for (auto& mesh : model->mMeshes)
 		{
-			material->CBIndex = index;
-			mMaterials.push_back(material);
+			mesh->mMaterial->CBIndex = index;
+			mMaterials.push_back(mesh->mMaterial);
 			index++;
 		}
 	}

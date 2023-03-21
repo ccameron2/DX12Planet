@@ -28,8 +28,8 @@ public:
 	void SetRotation(XMFLOAT3 rotation, bool update = true);
 	void SetScale(XMFLOAT3 scale, bool update = true);
 
-	std::vector<Material*> mBaseMaterials;
 	bool mParallax = false;
+	Mesh* mConstructorMesh;
 private:
 	void ProcessNode(aiNode* node, const aiScene* scene);
 	Mesh* ProcessMesh(aiMesh* mesh, const aiScene* scene);

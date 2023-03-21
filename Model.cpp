@@ -28,17 +28,16 @@ Model::Model(std::string fileName, ID3D12Device* device, ID3D12GraphicsCommandLi
 		mDirectory = fileName.substr(0, fileName.find_last_of('/'));
 		mFileName = fileName.substr(fileName.find_last_of('/') + 1, fileName.find_last_of('.') - fileName.find_last_of('/') - 1);
 		ProcessNode(scene->mRootNode, scene);
+
+		for (auto& mesh : mMeshes)
+		{
+			mesh->CalculateBufferData(device, commandList);
+		}
 	}
 	else
 	{
-		mMeshes.push_back(mesh);
+		mConstructorMesh = mesh;
 	}
-
-	for (auto& mesh : mMeshes)
-	{
-		mesh->CalculateBufferData(device, commandList);
-	}
-
 }
 
 Model::~Model()
@@ -46,10 +45,6 @@ Model::~Model()
 	for (auto& mesh : mMeshes)
 	{
 		delete mesh;
-	}
-	for (auto& material : mBaseMaterials)
-	{
-		delete material;
 	}
 	for (auto& texture : mLoadedTextures)
 	{
@@ -78,10 +73,17 @@ void Model::Draw(ID3D12GraphicsCommandList* commandList)
 
 	commandList->SetGraphicsRootDescriptorTable(0, tex);
 
+	if (mConstructorMesh)
+	{
+		D3D12_GPU_VIRTUAL_ADDRESS matCBAddress = matCB->GetGPUVirtualAddress() + mConstructorMesh->mMaterial->CBIndex * matCBByteSize;
+		commandList->SetGraphicsRootConstantBufferView(3, matCBAddress);
+		mConstructorMesh->Draw(commandList);
+	}
+
 	for (auto mesh : mMeshes)
 	{
 		// Offset to Mat CBV for this mesh
-		D3D12_GPU_VIRTUAL_ADDRESS matCBAddress = matCB->GetGPUVirtualAddress() + mBaseMaterials[mesh->mMaterialIndex]->CBIndex * matCBByteSize;
+		D3D12_GPU_VIRTUAL_ADDRESS matCBAddress = matCB->GetGPUVirtualAddress() + mesh->mMaterial->CBIndex * matCBByteSize;
 		commandList->SetGraphicsRootConstantBufferView(3, matCBAddress);
 		mesh->Draw(commandList);
 	}
@@ -191,7 +193,6 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 	{
 		if (mesh->mMaterialIndex >= 0)
 		{
-			modelGeometry->mMaterialIndex = mesh->mMaterialIndex;
 			aiMaterial* assimpMaterial = scene->mMaterials[mesh->mMaterialIndex];
 
 			// Diffuse maps
@@ -219,7 +220,7 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 			assimpMaterial->Get(AI_MATKEY_METALLIC_FACTOR, metalness);
 			material->Metalness = metalness;
 
-			mBaseMaterials.push_back(material);
+			modelGeometry->mMaterial = material;
 		}
 	}
 	

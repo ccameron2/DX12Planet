@@ -64,7 +64,7 @@ public:
 	FrameResource* mCurrentFrameResource = nullptr;
 	const static int mNumFrameResources = 3;
 
-	XMVECTORF32 mBackgroundColour = DirectX::Colors::Purple;
+	XMVECTORF32 mBackgroundColour = XMVECTORF32{ 30,30,30 };// DirectX::Colors::Purple;
 
 	bool CreateDeviceAndFence();
 	void CreateRootSignature();
