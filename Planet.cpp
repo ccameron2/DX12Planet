@@ -16,14 +16,14 @@ void Planet::CreatePlanet(float frequency, int octaves, int lod)
 
 	ResetGeometry();
 
-	for (auto& node : mTriangleTree->mChildren)
-	{
-		Subdivide(node);
-	}
+	//for (auto& node : mTriangleTree->mSubnodes)
+	//{
+	//	Subdivide(node);
+	//}
 
 	BuildIndices();
 
-	ApplyNoise(frequency, octaves);
+	//ApplyNoise(frequency, octaves);
 
 	CalculateNormals();
 
@@ -33,8 +33,6 @@ void Planet::CreatePlanet(float frequency, int octaves, int lod)
 	mMesh->mIndices = mIndices;
 
 	mMesh->CalculateDynamicBufferData();
-
-	mFirstGen = false;
 }
 
 void Planet::ResetGeometry()
@@ -86,7 +84,12 @@ void Planet::ResetGeometry()
 	mTriangleTree = make_unique<Node>();
 	for (auto& triangle : mTriangles)
 	{
-		mTriangleTree->AddChild(triangle);
+		mTriangleTree->AddSub(triangle);
+	}
+
+	for (auto& sub : mTriangleTree->mSubnodes)
+	{
+		sub->mDistance = (mMaxDistance);
 	}
 
 	mTriangles.clear();
@@ -95,9 +98,9 @@ void Planet::ResetGeometry()
 
 void Planet::GetTriangles(Node* node)
 {
-	if (node->mChildren.size() > 0)
+	if (node->mSubnodes.size() > 0)
 	{
-		for (auto& subNode : node->mChildren)
+		for (auto& subNode : node->mSubnodes)
 		{
 			GetTriangles(subNode);
 		}
@@ -111,46 +114,55 @@ void Planet::GetTriangles(Node* node)
 bool Planet::CheckNodes(XMFLOAT3 cameraPos, Node* parentNode)
 {
 	bool ret = false;
-	for (auto node : parentNode->mChildren)
+	for (auto node : parentNode->mSubnodes)
 	{
-		if (Distance(cameraPos, XMFLOAT3{ 0,0,0 }) < node->mDistance)
+		if (node->mSubnodes.size() == 0)
 		{
-			Subdivide(node, node->mLevel);
-			ret = true;
+			auto checkPoint = mVertices[node->mTriangle.Point[0]];
+			auto checkVector = XMFLOAT3{ checkPoint.Pos.x,checkPoint.Pos.y, checkPoint.Pos.z };
+			auto distance = Distance(cameraPos, checkVector);
+			if (distance < node->mDistance)
+			{
+				Subdivide(node, node->mLevel);	
+				ret = true;
+			}
 		}
 		else
 		{
-			ret = false;
 			CheckNodes(cameraPos, node);
 		}
 	}
 	return ret;
 }
 
-void Planet::Update(XMFLOAT3 cameraPos)
+bool Planet::Update(XMFLOAT3 cameraPos)
 {
 	if (CheckNodes(cameraPos, mTriangleTree.get()))
 	{
 		BuildIndices();
+		mMesh->mVertices = mVertices;
+		mMesh->mIndices = mIndices;
+		mMesh->CalculateDynamicBufferData();
+		return true;
 	}
+	return false;
 }
 
 void Planet::Subdivide(Node* node, int level)
 {
-	if (level >= mMaxLOD) return;
-	if (mFirstGen)
-	{
-		if (level >= mStartLOD) return;
-	}
-	node->mLevel = level;
-	node->mDistance = (mRadius * mMaxLOD) / level;
-
-	level++;
-
+	auto divLevel = level;
+	divLevel++;
+	if (divLevel > mMaxLOD) return;
+	
 	std::vector<Triangle> newTriangles = SubdivideTriangle(node->mTriangle);
 	for (auto& triangle : newTriangles)
 	{
-		Subdivide(node->AddChild(triangle),level);
+		/*Subdivide(*/node->AddSub(triangle), divLevel/*)*/;
+	}
+	for (auto& sub : node->mSubnodes)
+	{
+		sub->mLevel = divLevel;
+		sub->mDistance = mMaxDistance / divLevel;
 	}
 }
 
@@ -187,9 +199,9 @@ std::vector<Triangle> Planet::SubdivideTriangle(Triangle triangle)
 
 	// For each edge
 	std::uint32_t mid[3];
-	for (int e = 0; e < 3; e++)
+	for (int i = 0; i < 3; i++)
 	{
-		mid[e] = GetVertexForEdge(triangle.Point[e], triangle.Point[(e + 1) % 3]);
+		mid[i] = GetVertexForEdge(triangle.Point[i], triangle.Point[(i + 1) % 3]);
 	}
 
 	// Add triangles to new array
@@ -205,7 +217,7 @@ void Planet::BuildIndices()
 {
 	mTriangles.clear();
 
-	for (auto& node : mTriangleTree->mChildren)
+	for (auto& node : mTriangleTree->mSubnodes)
 	{
 		GetTriangles(node);
 	}

@@ -15,7 +15,7 @@ class Node
 private:
 public:
 	Node* mParent;
-	std::vector<Node*> mChildren;
+	std::vector<Node*> mSubnodes;
 	Triangle mTriangle = {0,0,0};
 	float mDistance = 0;
 	int mLevel = 0;
@@ -23,17 +23,17 @@ public:
 	Node(Node* parent) : mParent{ parent } {};
 	~Node()
 	{
-		for (auto& node : mChildren)
+		for (auto& node : mSubnodes)
 		{
 			mParent = nullptr;
 			delete node;
 		}
 	}
-	Node* AddChild(Triangle triangle)
+	Node* AddSub(Triangle triangle)
 	{
 		Node* newNode = new Node(this);
 		newNode->mTriangle = triangle;
-		mChildren.push_back(newNode);
+		mSubnodes.push_back(newNode);
 		return newNode;
 	};
 };
@@ -46,22 +46,21 @@ public:
 	~Planet();
 	void CreatePlanet(float frequency, int octaves, int lod);
 	void ResetGeometry();
-	void Update(XMFLOAT3 cameraPos);
+	bool Update(XMFLOAT3 cameraPos);
 
 	Mesh* mMesh;	
 	int mMaxLOD = 0;
-	int mStartLOD = 2;
 private:
 	std::vector<Triangle> mTriangles;
 	std::vector<XMFLOAT3> mNormals;
 	unique_ptr<Node> mTriangleTree;
 	std::map<std::pair<int, int>, int> mVertexMap;
-
 	std::vector<Vertex> mVertices;
 	std::vector<uint32_t> mIndices;
 
-	float mRadius = 1.0f;
-	bool mFirstGen = true;
+	float mRadius = 2.0f;
+	float mMaxDistance = mRadius * 10;
+
 	void BuildIndices();
 
 	float FractalBrownianMotion(FastNoiseLite fastNoise, XMFLOAT3 fractalInput, float octaves, float frequency);

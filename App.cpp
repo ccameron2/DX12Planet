@@ -320,7 +320,7 @@ void App::Update(float frameTime)
 
 	mCamera->Update();
 
-	//mPlanet->Update(mCamera->mPos);
+	if(mPlanet->Update(mCamera->mPos)) 	mModels[0]->mNumDirtyFrames += mGraphics->mNumFrameResources;
 
 	UpdateSelectedModel();
 
