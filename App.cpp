@@ -82,7 +82,7 @@ void App::CreateTextures()
 	// Create material
 	vector<Material*> materials;
 	materials.push_back(new Material());
-	materials[0]->Name = L"Models/blocksrough";
+	materials[0]->Name = L"Models/tufted-leather";
 
 	auto device = mGraphics->mD3DDevice.Get();
 	ResourceUploadBatch upload(device);

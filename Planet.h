@@ -58,8 +58,8 @@ private:
 	std::vector<Vertex> mVertices;
 	std::vector<uint32_t> mIndices;
 
-	float mRadius = 2.0f;
-	float mMaxDistance = mRadius * 10;
+	float mRadius = 1.0f;
+	float mMaxDistance = mRadius * 2;
 
 	void BuildIndices();
 

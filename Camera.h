@@ -28,6 +28,9 @@ public:
 	XMFLOAT4X4 mViewMatrix = MakeIdentity4x4();
 	XMFLOAT4X4 mProjectionMatrix = MakeIdentity4x4();
 
+	float NearZ = 0.01f;
+	float FarZ = 2000.0f;
+
 	float mTheta = 1.5f * XM_PI;
 	float mPhi = XM_PIDIV4;
 	float mRadius = 5.0f;

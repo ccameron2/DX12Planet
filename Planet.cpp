@@ -157,7 +157,7 @@ void Planet::Subdivide(Node* node, int level)
 	std::vector<Triangle> newTriangles = SubdivideTriangle(node->mTriangle);
 	for (auto& triangle : newTriangles)
 	{
-		/*Subdivide(*/node->AddSub(triangle), divLevel/*)*/;
+		/*Subdivide(*/node->AddSub(triangle)/*, divLevel)*/;
 	}
 	for (auto& sub : node->mSubnodes)
 	{
