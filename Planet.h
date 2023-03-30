@@ -66,7 +66,7 @@ private:
 	float FractalBrownianMotion(FastNoiseLite fastNoise, XMFLOAT3 fractalInput, float octaves, float frequency);
 
 	void CalculateNormals();
-	void Subdivide(Node* node, int level = 0);
+	bool Subdivide(Node* node, int level = 0);
 	int GetVertexForEdge(int v1, int v2);
 	std::vector<Triangle> SubdivideTriangle(Triangle triangle);
 	void GetTriangles(Node* node);

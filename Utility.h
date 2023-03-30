@@ -246,3 +246,20 @@ static bool Float3IsSame(XMFLOAT3 a, XMFLOAT3 b)
 	}
 }
 
+static XMFLOAT3 Midpoint(XMFLOAT3 p1, XMFLOAT3 p2)
+{
+	XMFLOAT3 mid;
+	mid.x = (p1.x + p2.x) / 2.0;
+	mid.y = (p1.y + p2.y) / 2.0;
+	mid.z = (p1.z + p2.z) / 2.0;
+	return mid;
+}
+
+static XMFLOAT3 Center(XMFLOAT3 A, XMFLOAT3 B, XMFLOAT3 C)
+{
+	XMFLOAT3 center;
+	center.x = (A.x + B.x + C.x) / 3.0;
+	center.y = (A.y + B.y + C.y) / 3.0;
+	center.z = (A.z + B.z + C.z) / 3.0;
+	return center;
+}

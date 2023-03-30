@@ -23,9 +23,9 @@ void App::Run()
 
 	while (!mWindow->mQuit)
 	{
+		StartFrame();
 		if (!mWindow->mMinimized)
-		{
-			StartFrame();
+		{		
 			float frameTime = mTimer.GetLapTime();
 			Update(frameTime);
 			Draw(frameTime);

@@ -118,8 +118,12 @@ bool Planet::CheckNodes(XMFLOAT3 cameraPos, Node* parentNode)
 	{
 		if (node->mSubnodes.size() == 0)
 		{
-			auto checkPoint = mVertices[node->mTriangle.Point[0]];
-			auto checkVector = XMFLOAT3{ checkPoint.Pos.x,checkPoint.Pos.y, checkPoint.Pos.z };
+			auto A = mVertices[node->mTriangle.Point[0]].Pos;
+			auto B = mVertices[node->mTriangle.Point[1]].Pos;
+			auto C = mVertices[node->mTriangle.Point[2]].Pos;
+			
+			auto checkPoint = Center(A, B, C);		
+			auto checkVector = XMFLOAT3{ checkPoint.x,checkPoint.y, checkPoint.z };		
 			auto distance = Distance(cameraPos, checkVector);
 			if (distance < node->mDistance)
 			{
@@ -129,7 +133,7 @@ bool Planet::CheckNodes(XMFLOAT3 cameraPos, Node* parentNode)
 		}
 		else
 		{
-			CheckNodes(cameraPos, node);
+			ret = ret || CheckNodes(cameraPos, node);
 		}
 	}
 	return ret;
@@ -148,11 +152,11 @@ bool Planet::Update(XMFLOAT3 cameraPos)
 	return false;
 }
 
-void Planet::Subdivide(Node* node, int level)
+bool Planet::Subdivide(Node* node, int level)
 {
 	auto divLevel = level;
 	divLevel++;
-	if (divLevel > mMaxLOD) return;
+	if (divLevel > mMaxLOD) return false;
 	
 	std::vector<Triangle> newTriangles = SubdivideTriangle(node->mTriangle);
 	for (auto& triangle : newTriangles)
@@ -164,6 +168,7 @@ void Planet::Subdivide(Node* node, int level)
 		sub->mLevel = divLevel;
 		sub->mDistance = mMaxDistance / divLevel;
 	}
+	return true;
 }
 
 int Planet::GetVertexForEdge(int v1, int v2)
