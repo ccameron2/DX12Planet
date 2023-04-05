@@ -48,6 +48,7 @@ void App::Initialize()
 
 	mPlanet = std::make_unique<Planet>();
 	mPlanet->CreatePlanet(0.1, 1, 1);
+
 	auto planetModel = new Model("", mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get(), mPlanet->mMesh);
 	planetModel->SetPosition(XMFLOAT3{ 0, 0, 0 },false);
 	planetModel->SetRotation(XMFLOAT3{ 0, 0, 0 }, false);
@@ -320,7 +321,7 @@ void App::Update(float frameTime)
 
 	mCamera->Update();
 
-	if(mPlanet->Update(mCamera->mPos)) 	mModels[0]->mNumDirtyFrames += mGraphics->mNumFrameResources;
+	if(mPlanet->Update(mCamera.get())) 	mModels[0]->mNumDirtyFrames += mGraphics->mNumFrameResources;
 
 	UpdateSelectedModel();
 

@@ -2,6 +2,7 @@
 
 #include "Utility.h"
 #include "Mesh.h"
+#include "Camera.h"
 
 #include <DirectXColors.h>
 #include <vector>
@@ -46,7 +47,7 @@ public:
 	~Planet();
 	void CreatePlanet(float frequency, int octaves, int lod);
 	void ResetGeometry();
-	bool Update(XMFLOAT3 cameraPos);
+	bool Update(Camera* camera);
 
 	Mesh* mMesh;	
 	int mMaxLOD = 0;
@@ -59,7 +60,7 @@ private:
 	std::vector<uint32_t> mIndices;
 
 	float mRadius = 1.0f;
-	float mMaxDistance = mRadius * 2;
+	float mMaxDistance = mRadius * 4;
 
 	void BuildIndices();
 

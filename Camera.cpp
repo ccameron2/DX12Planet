@@ -3,8 +3,11 @@
 Camera::Camera(Window* window)
 {
 	// Set the aspect ratio and compute projection matrix
-	XMMATRIX proj = XMMatrixPerspectiveFovLH(0.25f * XM_PI, static_cast<float>(window->mWidth) / window->mHeight, 1.0f, 1000.0f);
+	XMMATRIX proj = XMMatrixPerspectiveFovLH(0.25f * XM_PI, static_cast<float>(window->mWidth) / window->mHeight, NearZ, FarZ);
 	XMStoreFloat4x4(&mProjectionMatrix, proj);
+
+	mWindowWidth = window->mWidth;
+	mWindowHeight = window->mHeight;
 }
 
 Camera::~Camera()
@@ -67,4 +70,7 @@ void Camera::WindowResized(Window* window)
 	// The window resized, so update the aspect ratio and recompute projection matrix
 	XMMATRIX proj = XMMatrixPerspectiveFovLH(0.25f * XM_PI, static_cast<float>(window->mWidth) / window->mHeight, NearZ, FarZ);
 	XMStoreFloat4x4(&mProjectionMatrix, proj);
+
+	mWindowWidth = window->mWidth;
+	mWindowHeight = window->mHeight;
 }

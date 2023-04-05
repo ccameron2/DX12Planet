@@ -1,6 +1,6 @@
 #include "common.hlsl"
 
-static bool BlinnPhong = true;
+static bool UseBlinnPhong = false;
 
 struct VIn
 {
@@ -38,41 +38,19 @@ VOut VS(VIn vin)
 float4 PS(VOut pIn) : SV_Target
 {
 	VOut vOut;
-	
-	// Renormalise pixel normal and tangent because interpolation from the vertex shader can introduce scaling (refer to Graphics module lecture notes)
-	float3 worldNormal = normalize(pIn.NormalW);
 		
     float3 dx = ddx(pIn.PosW);
     float3 dy = ddy(pIn.PosW);
 	
     float3 n = normalize(cross(dx, dy));
-		
-    if (BlinnPhong)
+	float3 v = normalize(EyePosW - pIn.PosW); // Get normal to camera, called v for view vector in PBR equations
+	
+    if (UseBlinnPhong)
     {
-		// Blinn-Phong lighting (Direction)
-        float3 lightVector = -Lights[0].Direction;
-        float3 cameraNormal = normalize(EyePosW - pIn.PosW);
-        float3 halfwayNormal = normalize(cameraNormal + lightVector);
+		return BlinnPhong(pIn.Colour, n, v);
+	}
 	
-		// Diffuse
-        float lightDiffuseLevel = saturate(dot(n, lightVector));
-        float3 lightDiffuseColour = Lights[0].Colour * lightDiffuseLevel;
-	
-		// Specular
-        float lightSpecularLevel = saturate(dot(n, halfwayNormal));
-        float3 lightSpecularColour = lightDiffuseColour * lightSpecularLevel;
-	
-        float4 diffuseColour = pIn.Colour;
-		
-        float3 specularColour = { 1.0f, 1.0f, 1.0f };
-        float3 finalColour = diffuseColour.rgb * (AmbientLight.rgb + lightDiffuseColour) + (specularColour * lightSpecularColour);
-	
-        return float4(finalColour, diffuseColour.a);	
-    }
-	
-	// Sample PBR
-    float3 v = normalize(EyePosW - pIn.PosW); // Get normal to camera, called v for view vector in PBR equations
-	
+	// Sample PBR material
 	float3 albedo = pIn.Colour;
 	float roughness = 0.95f;
 	float metalness = 1.0f;

@@ -114,6 +114,7 @@ void Planet::GetTriangles(Node* node)
 bool Planet::CheckNodes(XMFLOAT3 cameraPos, Node* parentNode)
 {
 	bool ret = false;
+	bool combine = false;
 	for (auto node : parentNode->mSubnodes)
 	{
 		if (node->mSubnodes.size() == 0)
@@ -121,14 +122,19 @@ bool Planet::CheckNodes(XMFLOAT3 cameraPos, Node* parentNode)
 			auto A = mVertices[node->mTriangle.Point[0]].Pos;
 			auto B = mVertices[node->mTriangle.Point[1]].Pos;
 			auto C = mVertices[node->mTriangle.Point[2]].Pos;
-			
+		
 			auto checkPoint = Center(A, B, C);		
 			auto checkVector = XMFLOAT3{ checkPoint.x,checkPoint.y, checkPoint.z };		
 			auto distance = Distance(cameraPos, checkVector);
+
 			if (distance < node->mDistance)
 			{
 				Subdivide(node, node->mLevel);	
 				ret = true;
+			}
+			else if (distance > node->mDistance + 5)
+			{
+				combine = true;
 			}
 		}
 		else
@@ -139,9 +145,9 @@ bool Planet::CheckNodes(XMFLOAT3 cameraPos, Node* parentNode)
 	return ret;
 }
 
-bool Planet::Update(XMFLOAT3 cameraPos)
+bool Planet::Update(Camera* camera)
 {
-	if (CheckNodes(cameraPos, mTriangleTree.get()))
+	if (CheckNodes(camera->mPos, mTriangleTree.get()))
 	{
 		BuildIndices();
 		mMesh->mVertices = mVertices;

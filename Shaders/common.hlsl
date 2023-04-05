@@ -52,6 +52,27 @@ cbuffer cbMaterial : register(b2)
 	float4x4 MatTransform;
 };
 
+float4 BlinnPhong(float4 colour, float3 n, float3 v)
+{
+	// Blinn-Phong lighting (Direction)
+	float3 lightVector = -Lights[0].Direction;
+	float3 halfwayNormal = normalize(v + lightVector);
+	
+		// Diffuse
+	float lightDiffuseLevel = saturate(dot(n, lightVector));
+	float3 lightDiffuseColour = Lights[0].Colour * lightDiffuseLevel;
+	
+		// Specular
+	float lightSpecularLevel = saturate(dot(n, halfwayNormal));
+	float3 lightSpecularColour = lightDiffuseColour * lightSpecularLevel;
+	
+	float4 diffuseColour = colour;
+		
+	float3 specularColour = { 1.0f, 1.0f, 1.0f };
+	float3 finalColour = diffuseColour.rgb * (AmbientLight.rgb + lightDiffuseColour) + (specularColour * lightSpecularColour);
+	
+	return float4(finalColour, diffuseColour.a);
+}
 
 float4 CalculateLighting(float3 albedo, float roughness, float metalness, float ao, float3 n, float3 v, bool direction = true, float3 posW = { 0, 0, 0 })
 {
