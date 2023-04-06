@@ -46,7 +46,7 @@ void App::Initialize()
 
 	mCamera->Update();
 
-	mPlanet = std::make_unique<Planet>();
+	mPlanet = std::make_unique<Planet>(mGraphics->mD3DDevice.Get(),mGraphics->mCommandList.Get());
 	mPlanet->CreatePlanet(0.1, 1, 1);
 
 	auto planetModel = new Model("", mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get(), mPlanet->mMesh);
@@ -321,6 +321,15 @@ void App::Update(float frameTime)
 
 	mCamera->Update();
 
+	//TEMP
+	auto commandAllocator = mGraphics->mCurrentFrameResource->mCommandAllocator.Get();
+	auto commandList = mGraphics->mCommandList;
+
+	mGraphics->ResetCommandAllocator(commandAllocator);
+
+	mGraphics->ResetCommandList(commandAllocator, mCurrentPSO);
+	//
+	
 	if(mPlanet->Update(mCamera.get())) 	mModels[0]->mNumDirtyFrames += mGraphics->mNumFrameResources;
 
 	UpdateSelectedModel();
@@ -445,9 +454,9 @@ void App::Draw(float frameTime)
 	auto commandAllocator = mGraphics->mCurrentFrameResource->mCommandAllocator.Get();
 	auto commandList = mGraphics->mCommandList;
 
-	mGraphics->ResetCommandAllocator(commandAllocator);
+	//mGraphics->ResetCommandAllocator(commandAllocator);
 
-	mGraphics->ResetCommandList(commandAllocator, mCurrentPSO);
+	//mGraphics->ResetCommandList(commandAllocator, mCurrentPSO);
 
 	mGraphics->SetViewportAndScissorRects();
 
@@ -496,6 +505,12 @@ void App::DrawPlanet(ID3D12GraphicsCommandList* commandList)
 	commandList->SetGraphicsRootConstantBufferView(1, objCBAddress);
 
 	mModels[0]->mConstructorMesh->Draw(commandList);
+
+	for (auto& chunk : mPlanet->mTriangleChunks)
+	{
+		chunk->mMesh->Draw(commandList);
+	}
+
 }
 
 void App::DrawModels(ID3D12GraphicsCommandList* commandList)

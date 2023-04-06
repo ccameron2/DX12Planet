@@ -1,7 +1,9 @@
 #include "Planet.h"
 
-Planet::Planet()
+Planet::Planet(ID3D12Device* device, ID3D12GraphicsCommandList* commandList)
 {
+	mD3DDevice = device;
+	mCommandList = commandList;
 }
 
 Planet::~Planet()
@@ -98,7 +100,7 @@ void Planet::ResetGeometry()
 
 void Planet::GetTriangles(Node* node)
 {
-	if (node->mSubnodes.size() > 0)
+	if (node->mNumSubs > 0)
 	{
 		for (auto& subNode : node->mSubnodes)
 		{
@@ -117,7 +119,7 @@ bool Planet::CheckNodes(XMFLOAT3 cameraPos, Node* parentNode)
 	bool combine = false;
 	for (auto node : parentNode->mSubnodes)
 	{
-		if (node->mSubnodes.size() == 0)
+		if (node->mNumSubs == 0)
 		{
 			auto A = mVertices[node->mTriangle.Point[0]].Pos;
 			auto B = mVertices[node->mTriangle.Point[1]].Pos;
@@ -134,7 +136,8 @@ bool Planet::CheckNodes(XMFLOAT3 cameraPos, Node* parentNode)
 			}
 			else if (distance > node->mDistance + 5)
 			{
-				combine = true;
+				node->mCombine = true;
+				ret = true;
 			}
 		}
 		else
@@ -142,13 +145,32 @@ bool Planet::CheckNodes(XMFLOAT3 cameraPos, Node* parentNode)
 			ret = ret || CheckNodes(cameraPos, node);
 		}
 	}
+
 	return ret;
+}
+
+bool Planet::CombineNodes(Node* node)
+{
+	if (node->mCombine)
+	{
+		for(auto& subNode : node->mParent->mSubnodes) delete subNode;
+		return true;
+	}
+	else
+	{
+		for (auto& subNode : node->mSubnodes)
+		{
+			CombineNodes(subNode);
+		}
+	}
+	return false;
 }
 
 bool Planet::Update(Camera* camera)
 {
 	if (CheckNodes(camera->mPos, mTriangleTree.get()))
 	{
+		//for (auto& subNode : mTriangleTree->mSubnodes) { CombineNodes(subNode); }
 		BuildIndices();
 		mMesh->mVertices = mVertices;
 		mMesh->mIndices = mIndices;
@@ -163,11 +185,24 @@ bool Planet::Subdivide(Node* node, int level)
 	auto divLevel = level;
 	divLevel++;
 	if (divLevel > mMaxLOD) return false;
-	
+	if (divLevel == mMaxLOD)
+	{
+		for (int i = 0; i < 3; i++)
+		{
+			//mVertices[node->mTriangle.Point[i]].Colour = XMFLOAT4({ 1,0,0,0 });
+
+			node->mTriangleChunk = new TriangleChunk( mVertices[node->mTriangle.Point[0]],
+													  mVertices[node->mTriangle.Point[1]],
+													  mVertices[node->mTriangle.Point[2]],
+													  mD3DDevice,mCommandList);
+
+			mTriangleChunks.push_back(node->mTriangleChunk);
+		}
+	}
 	std::vector<Triangle> newTriangles = SubdivideTriangle(node->mTriangle);
 	for (auto& triangle : newTriangles)
 	{
-		/*Subdivide(*/node->AddSub(triangle)/*, divLevel)*/;
+		node->AddSub(triangle);
 	}
 	for (auto& sub : node->mSubnodes)
 	{

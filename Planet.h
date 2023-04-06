@@ -3,6 +3,7 @@
 #include "Utility.h"
 #include "Mesh.h"
 #include "Camera.h"
+#include "TriangleChunk.h"
 
 #include <DirectXColors.h>
 #include <vector>
@@ -17,17 +18,20 @@ private:
 public:
 	Node* mParent;
 	std::vector<Node*> mSubnodes;
+	int mNumSubs = 0;
 	Triangle mTriangle = {0,0,0};
 	float mDistance = 0;
 	int mLevel = 0;
+	bool mCombine = false;
+	TriangleChunk* mTriangleChunk = nullptr;
 	Node() : mParent{ 0 } {};
 	Node(Node* parent) : mParent{ parent } {};
 	~Node()
 	{
-		for (auto& node : mSubnodes)
+		for (auto& subNode : mSubnodes)
 		{
 			mParent = nullptr;
-			delete node;
+			delete subNode;
 		}
 	}
 	Node* AddSub(Triangle triangle)
@@ -35,6 +39,7 @@ public:
 		Node* newNode = new Node(this);
 		newNode->mTriangle = triangle;
 		mSubnodes.push_back(newNode);
+		mNumSubs++;
 		return newNode;
 	};
 };
@@ -43,7 +48,7 @@ public:
 class Planet
 {
 public:
-	Planet();
+	Planet(ID3D12Device* device, ID3D12GraphicsCommandList* commandList);
 	~Planet();
 	void CreatePlanet(float frequency, int octaves, int lod);
 	void ResetGeometry();
@@ -51,16 +56,19 @@ public:
 
 	Mesh* mMesh;	
 	int mMaxLOD = 0;
+	std::vector<TriangleChunk*> mTriangleChunks;
 private:
+	ID3D12Device* mD3DDevice;
+	ID3D12GraphicsCommandList* mCommandList;
+
 	std::vector<Triangle> mTriangles;
 	std::vector<XMFLOAT3> mNormals;
 	unique_ptr<Node> mTriangleTree;
 	std::map<std::pair<int, int>, int> mVertexMap;
 	std::vector<Vertex> mVertices;
 	std::vector<uint32_t> mIndices;
-
 	float mRadius = 1.0f;
-	float mMaxDistance = mRadius * 4;
+	float mMaxDistance = mRadius * 8;
 
 	void BuildIndices();
 
@@ -72,6 +80,7 @@ private:
 	std::vector<Triangle> SubdivideTriangle(Triangle triangle);
 	void GetTriangles(Node* node);
 	bool CheckNodes(XMFLOAT3 cameraPos, Node* parentNode);
+	bool CombineNodes(Node* node);
 	void ApplyNoise(float frequency, int octaves);
 };
 

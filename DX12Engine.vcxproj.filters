@@ -45,9 +45,6 @@
     <ClCompile Include="FrameResource.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Icosahedron.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="ImGui\imgui.cpp">
       <Filter>ImGui</Filter>
     </ClCompile>
@@ -87,6 +84,9 @@
     <ClCompile Include="Camera.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="TriangleChunk.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="App.h">
@@ -116,9 +116,6 @@
     <ClInclude Include="FrameResource.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Icosahedron.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Planet.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -138,6 +135,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Common.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="TriangleChunk.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

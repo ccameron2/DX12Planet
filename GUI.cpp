@@ -43,7 +43,7 @@ void GUI::Update(int numModels)
 
 	ImGui::Text("Geometry");
 
-	if (ImGui::SliderInt("LOD", &mLOD, 0, 10))
+	if (ImGui::SliderInt("LOD", &mLOD, 0, mMaxLOD))
 	{
 		mPlanetUpdated = true;
 	};
