@@ -4,6 +4,8 @@ Planet::Planet(ID3D12Device* device, ID3D12GraphicsCommandList* commandList)
 {
 	mD3DDevice = device;
 	mCommandList = commandList;
+	mNoise = new FastNoiseLite();
+	mNoise->SetNoiseType(FastNoiseLite::NoiseType_Perlin);
 }
 
 Planet::~Planet()
@@ -15,7 +17,8 @@ void Planet::CreatePlanet(float frequency, int octaves, int lod)
 {
 	mMaxLOD = lod;
 	if (mMesh) delete mMesh;
-
+	mFrequency = frequency;
+	mOctaves = octaves;
 	ResetGeometry();
 
 	//for (auto& node : mTriangleTree->mSubnodes)
@@ -194,7 +197,7 @@ bool Planet::Subdivide(Node* node, int level)
 			node->mTriangleChunk = new TriangleChunk( mVertices[node->mTriangle.Point[0]],
 													  mVertices[node->mTriangle.Point[1]],
 													  mVertices[node->mTriangle.Point[2]],
-													  mD3DDevice,mCommandList);
+													  mFrequency, mOctaves, mNoise, mD3DDevice, mCommandList);
 
 			mTriangleChunks.push_back(node->mTriangleChunk);
 		}
@@ -275,43 +278,6 @@ void Planet::BuildIndices()
 		mIndices.push_back(mTriangles[i].Point[0]);
 		mIndices.push_back(mTriangles[i].Point[1]);
 		mIndices.push_back(mTriangles[i].Point[2]);
-	}
-}
-
-float Planet::FractalBrownianMotion(FastNoiseLite fastNoise, XMFLOAT3 fractalInput, float octaves, float frequency)
-{
-	float result = 0;
-	float amplitude = 0.5;
-	float lacunarity = 2.0;
-	float gain = 0.5;
-
-	// Add iterations of noise at different frequencies to get more detail from perlin noise
-	for (int i = 0; i < octaves; i++)
-	{
-		result += amplitude * fastNoise.GetNoise(frequency * fractalInput.x, frequency * fractalInput.y, frequency * fractalInput.z);
-		frequency *= lacunarity;
-		amplitude *= gain;
-	}
-
-	return result;
-}
-
-void Planet::ApplyNoise(float frequency, int octaves)
-{
-	FastNoiseLite noise;
-	noise.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
-	for (auto& vertex : mVertices)
-	{
-		XMVECTOR pos = XMLoadFloat3(&vertex.Pos);
-		pos = XMVectorMultiply(pos, { 100,100,100 });
-		XMFLOAT3 position; XMStoreFloat3(&position, pos);
-		auto ElevationValue = 1 + FractalBrownianMotion(noise, position, octaves, frequency);
-		//auto ElevationValue = 1 + noise.GetNoise(0.5 * vertex.Pos.x * 100, 0.5 * vertex.Pos.y * 100, 0.5 * vertex.Pos.z * 100);
-		ElevationValue *= 1.5;
-		auto Radius = Distance(vertex.Pos, XMFLOAT3{ 0,0,0 });
-		vertex.Pos.x *= 1 + (ElevationValue / Radius);
-		vertex.Pos.y *= 1 + (ElevationValue / Radius);
-		vertex.Pos.z *= 1 + (ElevationValue / Radius);
 	}
 }
 

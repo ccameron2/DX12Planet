@@ -69,7 +69,9 @@ private:
 	std::vector<uint32_t> mIndices;
 	float mRadius = 1.0f;
 	float mMaxDistance = mRadius * 8;
-
+	float mFrequency;
+	int mOctaves;
+	FastNoiseLite* mNoise;
 	void BuildIndices();
 
 	float FractalBrownianMotion(FastNoiseLite fastNoise, XMFLOAT3 fractalInput, float octaves, float frequency);
