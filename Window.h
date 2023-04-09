@@ -35,6 +35,7 @@ public:
 	bool mUp = false;
 	bool mDown = false;
 	bool mWireframe = false;
+	float mScrollValue = 0.0f;
 	int mWidth;
 	int mHeight;
 

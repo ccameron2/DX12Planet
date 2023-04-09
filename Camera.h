@@ -16,7 +16,7 @@ public:
 
 	void MouseMoved(SDL_Event& event, Window* mWindow);
 
-	void Update(float frameTime = 0, bool orbit = true);
+	void Update(float frameTime = 0, bool orbit = true, bool invertMouse = false);
 
 	void WindowResized(Window* window);
 
@@ -33,7 +33,10 @@ public:
 	XMFLOAT4X4 mWorldMatrix = MakeIdentity4x4();
 	XMFLOAT4X4 mViewMatrix = MakeIdentity4x4();
 	XMFLOAT4X4 mProjectionMatrix = MakeIdentity4x4();
+	void UpdateSpeed(float speed);
 
+	float mMovementSpeed = 1.0f;
+	bool mInvertMouse = true;
 	bool mOrbit = true;
 	XMFLOAT3 mPos = { 0.0f, 0.0f, 0.0f };
 	XMFLOAT3 mLastPos = { 0.0f, 0.0f, 0.0f };

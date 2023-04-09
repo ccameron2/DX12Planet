@@ -33,6 +33,7 @@ public:
 	XMFLOAT3 mInRotation{0,0,0};
 	XMFLOAT3 mInScale{0,0,0};
 
+	bool mInvertY = true;
 	bool mWMatrixChanged = false;
 	bool mTesselation = false;
 	int mSelectedModel = 0;

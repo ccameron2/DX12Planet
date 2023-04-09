@@ -113,6 +113,10 @@ void Window::ProcessEvents(SDL_Event& event)
 		else if (event.button.button == 1) { mLeftMouse = false; }
 		else if (event.button.button == 2) { mMiddleMouse = false; }
 	}
+	else if (event.type == SDL_MOUSEWHEEL)
+	{
+		mScrollValue = event.wheel.y;
+	}
 }
 
 HWND Window::GetHWND()

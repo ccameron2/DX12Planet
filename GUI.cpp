@@ -90,6 +90,8 @@ void GUI::Update(int numModels)
 	if (ImGui::Checkbox("VSync", &mVSync));
 
 	if (ImGui::Checkbox("Camera Orbit", &mCameraOrbit));
+	if(!mCameraOrbit) if (ImGui::Checkbox("Invert Y", &mInvertY));
+
 
 	if (ImGui::SliderFloat3("Light Direction", mLightDir, -1, +1));
 

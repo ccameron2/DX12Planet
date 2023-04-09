@@ -42,7 +42,8 @@ void Camera::MouseMoved(SDL_Event& event, Window* window)
 			float dy = XMConvertToRadians(0.25f * static_cast<float>(mouseY - mLastMousePos.y));
 
 			mYaw += dx;
-			mPitch += dy;
+			if (mInvertMouse) mPitch += dy;
+			else mPitch -= dy;
 
 			// Clamp the pitch to avoid looking upside down
 			mPitch = std::clamp(mPitch, -XM_PIDIV2 + 0.1f, XM_PIDIV2 - 0.1f);
@@ -67,8 +68,9 @@ void Camera::MouseMoved(SDL_Event& event, Window* window)
 	mLastMousePos.y = mouseY;
 }
 
-void Camera::Update(float frameTime, bool orbit)
+void Camera::Update(float frameTime, bool orbit, bool invertMouse)
 {
+	mInvertMouse = invertMouse;
 	mOrbit = orbit;
 	if (mOrbit)
 	{
@@ -94,9 +96,9 @@ void Camera::Update(float frameTime, bool orbit)
 		XMVECTOR rightVector = XMVector3Cross(forwardVector, XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f));
 		XMVECTOR upVector = XMVector3Cross(rightVector, forwardVector);
 		XMVECTOR positionVector = XMLoadFloat3(&mPos);
-		positionVector += mMoveLeftRight * frameTime * rightVector;
-		positionVector += mMoveBackForward * frameTime * forwardVector;
-		positionVector += mMoveUpDown * frameTime * upVector;
+		positionVector += mMoveLeftRight * frameTime * mMovementSpeed * rightVector;
+		positionVector += mMoveBackForward * frameTime * mMovementSpeed * forwardVector;
+		positionVector += mMoveUpDown * frameTime * mMovementSpeed *upVector;
 		XMStoreFloat3(&mPos, positionVector);
 
 		mMoveLeftRight = 0;
@@ -150,4 +152,13 @@ void Camera::MoveUp()
 void Camera::MoveDown()
 {
 	mMoveUpDown = -1.0f;
+}
+
+void Camera::UpdateSpeed(float speed)
+{
+	if (mMovementSpeed + speed > 0)
+	{
+		mMovementSpeed += speed;
+	}
+
 }

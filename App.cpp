@@ -319,8 +319,13 @@ void App::Update(float frameTime)
 
 	mGUI->Update(mNumModels);
 
-	mCamera->Update(frameTime, mGUI->mCameraOrbit);
+	mCamera->Update(frameTime, mGUI->mCameraOrbit, mGUI->mInvertY);
 
+	if (mWindow->mScrollValue != 0) 
+	{
+		mCamera->UpdateSpeed(mWindow->mScrollValue);
+		mWindow->mScrollValue = 0;
+	}
 	if (mWindow->mForward)	mCamera->MoveForward();
 	if (mWindow->mBackward) mCamera->MoveBackward();
 	if (mWindow->mLeft)	mCamera->MoveLeft();
