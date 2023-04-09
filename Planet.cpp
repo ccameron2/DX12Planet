@@ -19,16 +19,10 @@ void Planet::CreatePlanet(float frequency, int octaves, int lod)
 	if (mMesh) delete mMesh;
 	mFrequency = frequency;
 	mOctaves = octaves;
+
 	ResetGeometry();
 
-	//for (auto& node : mTriangleTree->mSubnodes)
-	//{
-	//	Subdivide(node);
-	//}
-
 	BuildIndices();
-
-	//ApplyNoise(frequency, octaves);
 
 	CalculateNormals();
 
@@ -47,6 +41,9 @@ void Planet::ResetGeometry()
 	mTriangles.clear();
 	mVertexMap.clear();
 	mTriangleTree.reset();
+
+//	for (auto triangleChunk : mTriangleChunks) { delete triangleChunk; }
+	mTriangleChunks.clear();
 
 	const float X = 0.525731112119133606f;
 	const float Z = 0.850650808352039932f;
@@ -112,7 +109,7 @@ void Planet::GetTriangles(Node* node)
 	}
 	else 
 	{
-		mTriangles.push_back(node->mTriangle);
+		if(node->mLevel < mMaxLOD) mTriangles.push_back(node->mTriangle);
 	}
 }
 
@@ -134,8 +131,8 @@ bool Planet::CheckNodes(XMFLOAT3 cameraPos, Node* parentNode)
 
 			if (distance < node->mDistance)
 			{
-				Subdivide(node, node->mLevel);	
-				ret = true;
+				ret = Subdivide(node, node->mLevel);	
+				//ret = true;
 			}
 			else if (distance > node->mDistance + 5)
 			{
@@ -187,20 +184,18 @@ bool Planet::Subdivide(Node* node, int level)
 {
 	auto divLevel = level;
 	divLevel++;
-	if (divLevel > mMaxLOD) return false;
-	if (divLevel == mMaxLOD)
+	if (divLevel > mMaxLOD) 
 	{
-		for (int i = 0; i < 3; i++)
-		{
-			//mVertices[node->mTriangle.Point[i]].Colour = XMFLOAT4({ 1,0,0,0 });
-
-			node->mTriangleChunk = new TriangleChunk( mVertices[node->mTriangle.Point[0]],
-													  mVertices[node->mTriangle.Point[1]],
-													  mVertices[node->mTriangle.Point[2]],
-													  mFrequency, mOctaves, mNoise, mD3DDevice, mCommandList);
-
-			mTriangleChunks.push_back(node->mTriangleChunk);
-		}
+		//for (int i = 0; i < 3; i++) mVertices[node->mTriangle.Point[i]].Colour = XMFLOAT4{ 0,0,1,0 };
+		return false;
+	}
+	if (divLevel == mMaxLOD && node->mTriangleChunk == nullptr)
+	{
+		node->mTriangleChunk = new TriangleChunk(mVertices[node->mTriangle.Point[0]],
+												 mVertices[node->mTriangle.Point[1]],
+												 mVertices[node->mTriangle.Point[2]],
+												 mFrequency, mOctaves, mNoise, mD3DDevice, mCommandList);
+		mTriangleChunks.push_back(node->mTriangleChunk);
 	}
 	std::vector<Triangle> newTriangles = SubdivideTriangle(node->mTriangle);
 	for (auto& triangle : newTriangles)

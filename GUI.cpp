@@ -89,6 +89,8 @@ void GUI::Update(int numModels)
 
 	if (ImGui::Checkbox("VSync", &mVSync));
 
+	if (ImGui::Checkbox("Camera Orbit", &mCameraOrbit));
+
 	if (ImGui::SliderFloat3("Light Direction", mLightDir, -1, +1));
 
 	ImGui::Text("Average: %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);

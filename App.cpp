@@ -319,7 +319,14 @@ void App::Update(float frameTime)
 
 	mGUI->Update(mNumModels);
 
-	mCamera->Update();
+	mCamera->Update(frameTime, mGUI->mCameraOrbit);
+
+	if (mWindow->mForward)	mCamera->MoveForward();
+	if (mWindow->mBackward) mCamera->MoveBackward();
+	if (mWindow->mLeft)	mCamera->MoveLeft();
+	if (mWindow->mRight) mCamera->MoveRight();
+	if (mWindow->mUp)	mCamera->MoveUp();
+	if (mWindow->mDown)	mCamera->MoveDown();
 
 	//TEMP
 	auto commandAllocator = mGraphics->mCurrentFrameResource->mCommandAllocator.Get();
@@ -566,17 +573,13 @@ void App::ProcessEvents(SDL_Event& event)
 	//	mTexModels[0]->mNumDirtyFrames = mNumFrameResources;
 	//}
 
-	if(mWindow->mMiddleMouse)
-	{
-		mWireframe = !mWireframe;
-	}
+	mWireframe = mWindow->mWireframe;
 
 	if (mWindow->mMouseMoved)
 	{
 		mCamera->MouseMoved(event,mWindow.get());
 		mWindow->mMouseMoved = false;
 	}
-
 }
 
 void App::CreateMaterials()

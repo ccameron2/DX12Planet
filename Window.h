@@ -28,6 +28,13 @@ public:
 	bool mKeyboardFocus = false;
 	bool mMinimized = false;
 	bool mQuit = false;
+	bool mForward = false;
+	bool mBackward = false;
+	bool mLeft = false;
+	bool mRight = false;
+	bool mUp = false;
+	bool mDown = false;
+	bool mWireframe = false;
 	int mWidth;
 	int mHeight;
 

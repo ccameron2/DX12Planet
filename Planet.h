@@ -28,6 +28,7 @@ public:
 	Node(Node* parent) : mParent{ parent } {};
 	~Node()
 	{
+		if (mTriangleChunk) delete mTriangleChunk;
 		for (auto& subNode : mSubnodes)
 		{
 			mParent = nullptr;
