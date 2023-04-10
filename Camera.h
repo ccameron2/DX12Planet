@@ -52,7 +52,7 @@ public:
 	float mPitch = 0.0f;
 
 	float NearZ = 0.01f;
-	float FarZ = 2000.0f;
+	float FarZ = 1000.0f;
 
 	float mWindowWidth = 0;
 	float mWindowHeight = 0;

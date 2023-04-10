@@ -34,6 +34,7 @@ public:
 			mParent = nullptr;
 			delete subNode;
 		}
+		mSubnodes.clear();
 	}
 	Node* AddSub(Triangle triangle)
 	{
@@ -51,12 +52,13 @@ class Planet
 public:
 	Planet(ID3D12Device* device, ID3D12GraphicsCommandList* commandList);
 	~Planet();
-	void CreatePlanet(float frequency, int octaves, int lod);
+	void CreatePlanet(float frequency, int octaves, int lod, int scale);
 	void ResetGeometry();
 	bool Update(Camera* camera);
 
 	Mesh* mMesh;	
 	int mMaxLOD = 0;
+	int mScale = 1;
 	std::vector<TriangleChunk*> mTriangleChunks;
 private:
 	ID3D12Device* mD3DDevice;
@@ -69,20 +71,19 @@ private:
 	std::vector<Vertex> mVertices;
 	std::vector<uint32_t> mIndices;
 	float mRadius = 1.0f;
-	float mMaxDistance = mRadius * 4;
+	float mMaxDistance = 0.0f;
 	float mFrequency;
 	int mOctaves;
+	int mCombineLOD = mMaxLOD;
 	FastNoiseLite* mNoise;
 	void BuildIndices();
-
-	float FractalBrownianMotion(FastNoiseLite fastNoise, XMFLOAT3 fractalInput, float octaves, float frequency);
-
+	void SortBaseNodes(XMFLOAT3 cameraPos);
+	float CheckNodeDistance(Node* node, XMFLOAT3 cameraPos);
 	bool Subdivide(Node* node, int level = 0);
 	int GetVertexForEdge(int v1, int v2);
 	std::vector<Triangle> SubdivideTriangle(Triangle triangle);
 	void GetTriangles(Node* node);
 	bool CheckNodes(XMFLOAT3 cameraPos, Node* parentNode);
 	bool CombineNodes(Node* node);
-	void ApplyNoise(float frequency, int octaves);
 };
 

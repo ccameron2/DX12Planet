@@ -13,12 +13,15 @@ Planet::~Planet()
 
 }
 
-void Planet::CreatePlanet(float frequency, int octaves, int lod)
+void Planet::CreatePlanet(float frequency, int octaves, int lod, int scale)
 {
 	mMaxLOD = lod;
 	if (mMesh) delete mMesh;
 	mFrequency = frequency;
 	mOctaves = octaves;
+	mScale = scale;
+	mRadius = 1.0f * scale;
+	mMaxDistance = mRadius * (mMaxLOD + 1);
 
 	ResetGeometry();
 
@@ -126,20 +129,13 @@ bool Planet::CheckNodes(XMFLOAT3 cameraPos, Node* parentNode)
 	{
 		if (node->mNumSubs == 0)
 		{
-			auto A = mVertices[node->mTriangle.Point[0]].Pos;
-			auto B = mVertices[node->mTriangle.Point[1]].Pos;
-			auto C = mVertices[node->mTriangle.Point[2]].Pos;
-		
-			auto checkPoint = Center(A, B, C);		
-			auto checkVector = XMFLOAT3{ checkPoint.x,checkPoint.y, checkPoint.z };		
-			auto distance = Distance(cameraPos, checkVector);
-
+			auto distance = CheckNodeDistance(node, cameraPos);
 			if (distance < node->mDistance)
 			{
 				ret = Subdivide(node, node->mLevel);	
 				//ret = true;
 			}
-			else if (distance > node->mDistance + 5)
+			else if (distance > node->mDistance + 2)
 			{
 				node->mCombine = true;
 				ret = true;
@@ -156,27 +152,37 @@ bool Planet::CheckNodes(XMFLOAT3 cameraPos, Node* parentNode)
 
 bool Planet::CombineNodes(Node* node)
 {
-	if (node->mCombine)
+	if (node->mLevel != 0)
 	{
-		for(auto& subNode : node->mSubnodes) delete subNode;
-		return true;
-	}
-	else
-	{
-		for (auto& subNode : node->mSubnodes)
+		if (node->mCombine)
 		{
-			CombineNodes(subNode);
+			if (node->mLevel < mCombineLOD) mCombineLOD = node->mLevel;
+			return true;
 		}
-	}
+		else
+		{
+			for (auto& subNode : node->mSubnodes)
+			{
+				CombineNodes(subNode);
+			}
+		}
+	}	
 	return false;
 }
 
 bool Planet::Update(Camera* camera)
 {
+	SortBaseNodes(camera->mPos);
+
 	if (CheckNodes(camera->mPos, mTriangleTree.get()))
 	{
-		//for (auto& subNode : mTriangleTree->mSubnodes) { CombineNodes(subNode); }
-		BuildIndices();
+/*		bool combine = false;
+		for (auto& subNode : mTriangleTree->mSubnodes) { if (CombineNodes(subNode)) combine = true; }
+		if (combine)
+		{
+			CreatePlanet(mFrequency, mOctaves, mCombineLOD);
+		}
+		else {*/ BuildIndices(); /*}*/
 		mMesh->mVertices = mVertices;
 		mMesh->mIndices = mIndices;
 		mMesh->CalculateDynamicBufferData();
@@ -234,12 +240,69 @@ int Planet::GetVertexForEdge(int v1, int v2)
 		newPoint.Colour.x = std::lerp(edge1.Colour.x, edge2.Colour.x, 0.5);
 		newPoint.Colour.y = std::lerp(edge1.Colour.y, edge2.Colour.y, 0.5);
 		newPoint.Colour.z = std::lerp(edge1.Colour.z, edge2.Colour.z, 0.5);
-
+		
 		// Add to vertex array
 		mVertices.push_back(newPoint);
 	}
 
 	return in.first->second;
+}
+
+float Planet::CheckNodeDistance(Node* node, XMFLOAT3 cameraPos)
+{
+	auto A = mVertices[node->mTriangle.Point[0]].Pos;
+	auto B = mVertices[node->mTriangle.Point[1]].Pos;
+	auto C = mVertices[node->mTriangle.Point[2]].Pos;
+
+	auto checkPoint = Center(A, B, C);
+	auto checkVector = XMFLOAT3{ checkPoint.x,checkPoint.y, checkPoint.z };
+	auto distance = Distance(cameraPos, checkVector);
+
+	return distance;
+}
+
+void Planet::SortBaseNodes(XMFLOAT3 cameraPos)
+{
+	float distArray[20];
+	for (int i = 0; i < 20; i++)
+	{
+		distArray[i] = CheckNodeDistance(mTriangleTree->mSubnodes[i], cameraPos);
+	}
+
+	// First, we need to create an array to hold the indices of mSubnodes
+	int subnodeIndices[20];
+	for (int i = 0; i < 20; i++)
+	{
+		subnodeIndices[i] = i;
+	}
+
+	// Next, we'll use a simple selection sort algorithm to sort the subnodeIndices array based on the distances in distArray
+	for (int i = 0; i < 19; i++)
+	{
+		int minIndex = i;
+		for (int j = i + 1; j < 20; j++)
+		{
+			if (distArray[subnodeIndices[j]] < distArray[subnodeIndices[minIndex]])
+			{
+				minIndex = j;
+			}
+		}
+
+		// Swap the elements at minIndex and i
+		int temp = subnodeIndices[minIndex];
+		subnodeIndices[minIndex] = subnodeIndices[i];
+		subnodeIndices[i] = temp;
+	}
+
+	// Finally, we can create a new array of subnodes in the sorted order
+	std::vector<Node*> sortedSubnodes;
+	for (int i = 0; i < 20; i++)
+	{
+		sortedSubnodes.push_back(mTriangleTree->mSubnodes[subnodeIndices[i]]);
+	}
+
+	// Replace the mSubnodes array in mTriangleTree with the sorted array
+	mTriangleTree->mSubnodes = sortedSubnodes;
 }
 
 std::vector<Triangle> Planet::SubdivideTriangle(Triangle triangle)

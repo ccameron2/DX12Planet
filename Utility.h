@@ -266,6 +266,26 @@ static XMFLOAT3 Center(XMFLOAT3 A, XMFLOAT3 B, XMFLOAT3 C)
 	return center;
 }
 
+
+static float FractalBrownianMotion(FastNoiseLite* fastNoise, XMFLOAT3 fractalInput, float octaves, float frequency)
+{
+	float result = 0;
+	float amplitude = 0.5;
+	float lacunarity = 2.0;
+	float gain = 0.5;
+
+	// Add iterations of noise at different frequencies to get more detail from perlin noise
+	for (int i = 0; i < octaves; i++)
+	{
+		result += amplitude * fastNoise->GetNoise(frequency * fractalInput.x, frequency * fractalInput.y, frequency * fractalInput.z);
+		frequency *= lacunarity;
+		amplitude *= gain;
+	}
+
+	return result;
+}
+
+
 static std::vector<XMFLOAT3> CalculateNormals(std::vector<Vertex> vertices, std::vector<uint32_t> indices)
 {
 	std::vector<XMFLOAT3> normals;

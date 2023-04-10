@@ -61,7 +61,7 @@ void Camera::MouseMoved(SDL_Event& event, Window* window)
 			mRadius += dx - dy;
 
 			// Restrict the radius.
-			mRadius = std::clamp(mRadius, 0.1f, 90.0f);
+			mRadius = std::clamp(mRadius, 0.1f, 8000.0f);
 		}
 	}
 	mLastMousePos.x = mouseX;

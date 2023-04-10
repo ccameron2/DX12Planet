@@ -47,12 +47,12 @@ void App::Initialize()
 	mCamera->Update();
 
 	mPlanet = std::make_unique<Planet>(mGraphics->mD3DDevice.Get(),mGraphics->mCommandList.Get());
-	mPlanet->CreatePlanet(0.1, 1, 1);
+	mPlanet->CreatePlanet(0.1, 1, 1, 1);
 
 	auto planetModel = new Model("", mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get(), mPlanet->mMesh);
 	planetModel->SetPosition(XMFLOAT3{ 0, 0, 0 },false);
 	planetModel->SetRotation(XMFLOAT3{ 0, 0, 0 }, false);
-	planetModel->SetScale(XMFLOAT3{ 1, 1, 1 }, true);
+	planetModel->SetScale(XMFLOAT3{ float(mPlanet->mScale), float(mPlanet->mScale), float(mPlanet->mScale) }, true);
 
 	mModels.push_back(planetModel);
 
@@ -289,7 +289,7 @@ void App::BuildFrameResources()
 
 void App::RecreatePlanetGeometry()
 {
-	mPlanet->CreatePlanet(mGUI->mFrequency, mGUI->mOctaves, mGUI->mLOD);
+	mPlanet->CreatePlanet(mGUI->mFrequency, mGUI->mOctaves, mGUI->mLOD, mPlanet->mScale);
 	mModels[0]->mConstructorMesh = mPlanet->mMesh;
 	mModels[0]->mNumDirtyFrames += mGraphics->mNumFrameResources;
 }
@@ -342,7 +342,11 @@ void App::Update(float frameTime)
 	mGraphics->ResetCommandList(commandAllocator, mCurrentPSO);
 	//
 	
-	if(mPlanet->Update(mCamera.get())) 	mModels[0]->mNumDirtyFrames += mGraphics->mNumFrameResources;
+	if (mPlanet->Update(mCamera.get()))
+	{
+		mModels[0]->mNumDirtyFrames += mGraphics->mNumFrameResources;
+		mModels[0]->mConstructorMesh = mPlanet->mMesh;
+	}
 
 	UpdateSelectedModel();
 
