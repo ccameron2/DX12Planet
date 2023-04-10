@@ -69,7 +69,7 @@ private:
 	std::vector<Vertex> mVertices;
 	std::vector<uint32_t> mIndices;
 	float mRadius = 1.0f;
-	float mMaxDistance = mRadius * 8;
+	float mMaxDistance = mRadius * 4;
 	float mFrequency;
 	int mOctaves;
 	FastNoiseLite* mNoise;
@@ -77,7 +77,6 @@ private:
 
 	float FractalBrownianMotion(FastNoiseLite fastNoise, XMFLOAT3 fractalInput, float octaves, float frequency);
 
-	void CalculateNormals();
 	bool Subdivide(Node* node, int level = 0);
 	int GetVertexForEdge(int v1, int v2);
 	std::vector<Triangle> SubdivideTriangle(Triangle triangle);

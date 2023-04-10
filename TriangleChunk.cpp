@@ -4,10 +4,20 @@ TriangleChunk::TriangleChunk(Vertex v1, Vertex v2, Vertex v3, float frequency, i
 {
 	Subdivide(v1, v2, v3);
 	ApplyNoise(frequency,octaves,noise);
+
+	auto normals = CalculateNormals(mVertices, mIndices);
+
+	for (int i = 0; i < mVertices.size(); i++)
+	{
+		mVertices[i].Normal = normals[i];
+	}
+
 	mMesh = new Mesh();
+
 	mMesh->mVertices = mVertices;
 	mMesh->mIndices = mIndices;
 	mMesh->CalculateBufferData(device, commandList);
+
 }
 
 
@@ -123,7 +133,7 @@ void TriangleChunk::ApplyNoise(float frequency, int octaves, FastNoiseLite* nois
 		XMFLOAT3 position; XMStoreFloat3(&position, pos);
 		auto ElevationValue = mSphereOffset + FractalBrownianMotion(noise, position, octaves, frequency);
 		//auto ElevationValue = 1 + noise.GetNoise(0.5 * vertex.Pos.x * 100, 0.5 * vertex.Pos.y * 100, 0.5 * vertex.Pos.z * 100);
-		ElevationValue *= 0.1;
+		ElevationValue *= 0.3;
 		auto Radius = Distance(vertex.Pos, XMFLOAT3{ 0,0,0 });
 		vertex.Pos.x *= 1 + (ElevationValue / Radius);
 		vertex.Pos.y *= 1 + (ElevationValue / Radius);

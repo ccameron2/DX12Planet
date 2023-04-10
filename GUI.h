@@ -27,13 +27,14 @@ public:
 	float mPos[3] = {0,0,0};
 	float mRot[3] = {0,0,0};
 	float mScale = 1;
+
 	bool mCameraOrbit = true;
+	bool mInvertY = true;
 
 	XMFLOAT3 mInPosition{0,0,0};
 	XMFLOAT3 mInRotation{0,0,0};
 	XMFLOAT3 mInScale{0,0,0};
 
-	bool mInvertY = true;
 	bool mWMatrixChanged = false;
 	bool mTesselation = false;
 	int mSelectedModel = 0;

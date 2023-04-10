@@ -8,6 +8,8 @@
 #include <DirectXMath.h>
 #include "FastNoiseLite.h"
 #include <assimp/scene.h>
+#include <vector>
+#include <array>
 //#include "FrameResource.h"
 
 using namespace std;
@@ -262,4 +264,95 @@ static XMFLOAT3 Center(XMFLOAT3 A, XMFLOAT3 B, XMFLOAT3 C)
 	center.y = (A.y + B.y + C.y) / 3.0;
 	center.z = (A.z + B.z + C.z) / 3.0;
 	return center;
+}
+
+static std::vector<XMFLOAT3> CalculateNormals(std::vector<Vertex> vertices, std::vector<uint32_t> indices)
+{
+	std::vector<XMFLOAT3> normals;
+
+	// Map of vertex to triangles in Triangles array
+	int numVerts = vertices.size();
+	std::vector<std::array<int32_t, 8>> VertToTriMap;
+	for (int i = 0; i < numVerts; i++)
+	{
+		std::array<int32_t, 8> array{ -1,-1,-1,-1,-1,-1,-1,-1 };
+		VertToTriMap.push_back(array);
+	}
+
+	// For each triangle for each vertex add triangle to vertex array entry
+	for (int i = 0; i < indices.size(); i++)
+	{
+		for (int j = 0; j < 8; j++)
+		{
+			if (VertToTriMap[indices[i]][j] < 0)
+			{
+				VertToTriMap[indices[i]][j] = i / 3;
+				break;
+			}
+		}
+	}
+
+	std::vector<XMFLOAT3> NTriangles;
+
+	for (int i = 0; i < indices.size() / 3; i++)
+	{
+		XMFLOAT3 normal = {};
+		NTriangles.push_back(normal);
+	}
+
+	int index = 0;
+	for (int i = 0; i < NTriangles.size(); i++)
+	{
+		NTriangles[i].x = indices[index];
+		NTriangles[i].y = indices[index + 1];
+		NTriangles[i].z = indices[index + 2];
+		index += 3;
+	}
+
+	for (int i = 0; i < vertices.size(); i++)
+	{
+		normals.push_back({ 0,0,0 });
+	}
+
+	// For each vertex collect the triangles that share it and calculate the face normal
+	for (int i = 0; i < vertices.size(); i++)
+	{
+		for (auto& triangle : VertToTriMap[i])
+		{
+			// This shouldnt happen
+			if (triangle < 0)
+			{
+				continue;
+			}
+
+			// Get vertices from triangle index
+			auto A = vertices[NTriangles[triangle].x];
+			auto B = vertices[NTriangles[triangle].y];
+			auto C = vertices[NTriangles[triangle].z];
+
+			// Calculate edges
+			auto a = XMLoadFloat3(&A.Pos);
+			auto b = XMLoadFloat3(&B.Pos);
+			auto c = XMLoadFloat3(&C.Pos);
+
+			auto E1 = XMVectorSubtract(a, c);
+			auto E2 = XMVectorSubtract(b, c);
+
+			// Calculate normal with cross product and normalise
+			XMFLOAT3 Normal; XMStoreFloat3(&Normal, XMVector3Normalize(XMVector3Cross(E1, E2)));
+
+			normals[i].x += Normal.x;
+			normals[i].y += Normal.y;
+			normals[i].z += Normal.z;
+		}
+	}
+
+	// Average the face normals
+	for (auto& normal : normals)
+	{
+		XMFLOAT3 normalizedNormal;
+		XMStoreFloat3(&normalizedNormal, XMVector3Normalize(XMLoadFloat3(&normal)));
+		normal = normalizedNormal;
+	}
+	return normals;
 }

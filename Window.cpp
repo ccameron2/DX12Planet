@@ -75,7 +75,7 @@ void Window::ProcessEvents(SDL_Event& event)
 			}
 			mFullscreen = !mFullscreen;
 		}
-		//if (key == SDLK_F1) mWireframe = !mWireframe;
+		if (key == SDLK_F1) mWireframe = !mWireframe;
 		if (key == SDLK_w) mForward = true;
 		if (key == SDLK_s) mBackward = true;
 		if (key == SDLK_a) mLeft = true;

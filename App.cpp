@@ -283,7 +283,7 @@ void App::BuildFrameResources()
 {
 	for (int i = 0; i < mGraphics->mNumFrameResources; i++)
 	{
-		FrameResources.push_back(std::make_unique<FrameResource>(mGraphics->mD3DDevice.Get(), 1, mModels.size(), 11000000, 65000000, mMaterials.size())); //1 for planet
+		FrameResources.push_back(std::make_unique<FrameResource>(mGraphics->mD3DDevice.Get(), 1, mModels.size(), 5000000, 15000000, mMaterials.size())); //1 for planet
 	}
 }
 
