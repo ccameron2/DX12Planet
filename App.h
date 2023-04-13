@@ -66,7 +66,6 @@ public:
 
 	void Initialize();
 
-	void CreateTextures();
 
 private:
 	Timer mTimer;
@@ -78,9 +77,11 @@ private:
 	void UpdatePlanetBuffers();
 	void ProcessEvents(SDL_Event& e);
 	void CreateMaterials();
-	
+	void CreateSkybox();
+
 	vector<Texture*> mTextures;
 	vector<Material*> mMaterials;
+	Model* mSkyModel;
 
 	unique_ptr<Graphics> mGraphics;
 	unique_ptr<Window> mWindow;
@@ -103,6 +104,7 @@ private:
 
 	bool mWireframe = false;
 
+	int mCurrentMatCBIndex = 0;
 	// Input layout
 
 	ID3D12PipelineState* mCurrentPSO = nullptr;

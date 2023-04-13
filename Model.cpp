@@ -1,6 +1,6 @@
 #include "Model.h"
 #include <regex>
-#include "DDSTextureLoader.h"
+#include <DDSTextureLoader.h>
 #include <WICTextureLoader.h>
 #include <ResourceUploadBatch.h>
 

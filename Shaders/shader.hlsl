@@ -1,5 +1,6 @@
 #include "common.hlsl"
 
+
 struct VIn
 {
 	float3 PosL : POSITION;

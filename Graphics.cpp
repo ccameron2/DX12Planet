@@ -303,7 +303,30 @@ void Graphics::CreatePSO()
 	};
 	if (FAILED(D3DDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mTexPSO))))
 	{
-		MessageBox(0, L"AO Pipeline State Creation failed", L"Error", MB_OK);
+		MessageBox(0, L"PBR Pipeline State Creation failed", L"Error", MB_OK);
+	}
+
+	// The camera is inside the sky sphere, so just turn off culling.
+	psoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+
+	// Make sure the depth function is LESS_EQUAL and not just LESS.
+	// Otherwise, the normalized depth values at z = 1 (NDC) will
+	// fail the depth test if the depth buffer was cleared to 1.
+	psoDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
+	psoDesc.pRootSignature = mRootSignature.Get();
+	psoDesc.VS =
+	{
+	reinterpret_cast<BYTE*>(mSkyVSByteCode->GetBufferPointer()),
+	mSkyVSByteCode->GetBufferSize()
+	};
+	psoDesc.PS =
+	{
+	reinterpret_cast<BYTE*>(mSkyPSByteCode->GetBufferPointer()),
+	mSkyPSByteCode->GetBufferSize()
+	};
+	if (FAILED(D3DDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mSkyPSO))))
+	{
+		MessageBox(0, L"Sky Pipeline State Creation failed", L"Error", MB_OK);
 	}
 }
 
@@ -332,6 +355,10 @@ void Graphics::CreateShaders()
 
 	mPlanetVSByteCode = CompileShader(L"Shaders\\planetshader.hlsl", nullptr, "VS", "vs_5_0");
 	mPlanetPSByteCode = CompileShader(L"Shaders\\planetshader.hlsl", nullptr, "PS", "ps_5_0");
+
+	mSkyVSByteCode = CompileShader(L"Shaders\\skyshader.hlsl", nullptr, "VS", "vs_5_0");
+	mSkyPSByteCode = CompileShader(L"Shaders\\skyshader.hlsl", nullptr, "PS", "ps_5_0");
+
 }
 
 ComPtr<ID3DBlob> Graphics::CompileShader(const std::wstring& filename, const D3D_SHADER_MACRO* defines, const std::string& entrypoint, const std::string& target)

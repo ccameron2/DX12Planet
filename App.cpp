@@ -1,4 +1,6 @@
 #include "App.h"
+#include <DDSTextureLoader.h>
+#include <ResourceUploadBatch.h>
 
 std::vector<std::unique_ptr<FrameResource>> FrameResources;
 unique_ptr<SRVDescriptorHeap> SrvDescriptorHeap;
@@ -63,7 +65,9 @@ void App::Initialize()
 
 	mNumModels = mModels.size();
 
-	CreateTextures();
+	CreateSkybox();
+
+
 	mGraphics->CreateRootSignature();
 
 	mGraphics->CreateShaders();
@@ -75,14 +79,48 @@ void App::Initialize()
 		mGraphics->mNumFrameResources, mGraphics->mBackBufferFormat);
 }
 
-void App::CreateTextures()
+void App::CreateSkybox()
 {
-	bool dds = false;
-	bool metalness = false;
-	bool ao = true;
-	//mMaterials.push_back(new Material());
-	//mMaterials[0]->Name = L"Models/blocksrough";
+	auto device = D3DDevice.Get();
+	ResourceUploadBatch upload(device);
 
+	upload.Begin();
+
+	Material* skyMat = new Material();
+	skyMat->DiffuseSRVIndex = CurrentSRVOffset;
+	skyMat->Name = L"Models/nebula.dds";
+
+	Texture* cubeTex = new Texture();
+	DDS_ALPHA_MODE mode = DDS_ALPHA_MODE_OPAQUE;
+	bool cubeMap = true;
+	CreateDDSTextureFromFile(D3DDevice.Get(), upload, L"Models/nebula.dds", cubeTex->Resource.ReleaseAndGetAddressOf(), false, 0Ui64, &mode,&cubeMap);
+
+	CD3DX12_CPU_DESCRIPTOR_HANDLE hDescriptor(SrvDescriptorHeap->mHeap->GetCPUDescriptorHandleForHeapStart());
+	// next descriptor
+	hDescriptor.Offset(CurrentSRVOffset, CbvSrvUavDescriptorSize);
+
+	auto cubeMapRes = cubeTex->Resource;
+	
+	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	srvDesc.Format = cubeMapRes->GetDesc().Format;
+	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE;
+	srvDesc.Texture2D.MostDetailedMip = 0;
+	srvDesc.Texture2D.MipLevels = cubeMapRes->GetDesc().MipLevels;
+	srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
+
+	device->CreateShaderResourceView(cubeMapRes.Get(), &srvDesc, hDescriptor);
+
+	// Upload the resources to the GPU.
+	auto finish = upload.End(CommandQueue.Get());
+
+	// Wait for the upload thread to terminate
+	finish.wait();
+
+	mSkyModel->mMaterials.push_back(skyMat);
+	mSkyModel->mTextures.push_back(cubeTex);
+	mSkyModel->mTextured = true;
+	mSkyModel->mMaterials[0]->CBIndex = mCurrentMatCBIndex;
 }
 
 void App::StartFrame()
@@ -156,6 +194,13 @@ void App::LoadModels()
 	mModels.push_back(cactusModel);
 	mTexModels.push_back(cactusModel);
 
+	mSkyModel = new Model("Models/sphere.x", mGraphics->mCommandList.Get());
+
+	mSkyModel->SetPosition(XMFLOAT3{ 0.0f, 0.0f, 0.0f });
+	mSkyModel->SetRotation(XMFLOAT3{ 0.0f, 0.0f, 0.0f });
+	mSkyModel->SetScale(XMFLOAT3{ 1, 1, 1 });
+
+	mModels.push_back(mSkyModel);
 
 	for (int i = 0; i < mModels.size(); i++)
 	{
@@ -381,6 +426,10 @@ void App::Draw(float frameTime)
 
 	DrawModels(commandList.Get());
 
+	commandList->SetPipelineState(mGraphics->mSkyPSO.Get());
+
+	mSkyModel->Draw(commandList.Get());
+
 	mGraphics->ResolveMSAAToBackBuffer();
 
 	mGUI->Render(mGraphics->mCommandList.Get(), mGraphics->CurrentBackBuffer(), mGraphics->CurrentBackBufferView(), mGraphics->mDSVHeap.Get(), mGraphics->mDsvDescriptorSize);
@@ -477,16 +526,17 @@ void App::ProcessEvents(SDL_Event& event)
 
 void App::CreateMaterials()
 {
-	int index = 0;
+	mCurrentMatCBIndex = 0;
 	for (auto& model : mModels)
 	{
 		for (auto& mesh : model->mMeshes)
 		{
-			mesh->mMaterial->CBIndex = index;
+			mesh->mMaterial->CBIndex = mCurrentMatCBIndex;
 			mMaterials.push_back(mesh->mMaterial);
-			index++;
+			mCurrentMatCBIndex++;
 		}
 	}
+
 }
 
 App::~App()

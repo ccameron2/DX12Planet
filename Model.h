@@ -14,6 +14,7 @@ public:
 		Mesh* mesh = nullptr, bool textured = false, bool metalness = false,
 		bool ao = false, bool dds = false, string texOverride = "");
 	~Model();
+
 	std::vector<Mesh*> mMeshes;
 	int mObjConstantBufferIndex = 2;
 	int mNumDirtyFrames = 3;
@@ -32,6 +33,9 @@ public:
 
 	bool mParallax = false;
 	Mesh* mConstructorMesh;
+	bool mTextured = false;
+	std::vector<Material*> mMaterials;
+	std::vector<Texture*> mTextures;
 private:
 	void ProcessNode(aiNode* node, const aiScene* scene);
 	Mesh* ProcessMesh(aiMesh* mesh, const aiScene* scene);
@@ -44,11 +48,9 @@ private:
 	std::vector<Texture*> mLoadedTextures;
 	std::string mDirectory;
 	std::string mFileName;
-	std::vector<Texture*> mTextures;
-	std::vector<Material*> mMaterials;
 	bool mDDS = false;
 	bool mMetalness = false;
 	bool mAO = false;
-	bool mTextured = false;
+
 };
 
