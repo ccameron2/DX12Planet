@@ -1,6 +1,6 @@
 #include "TriangleChunk.h"
 
-TriangleChunk::TriangleChunk(Vertex v1, Vertex v2, Vertex v3, float frequency, int octaves, FastNoiseLite* noise, ID3D12Device* device, ID3D12GraphicsCommandList* commandList)
+TriangleChunk::TriangleChunk(Vertex v1, Vertex v2, Vertex v3, float frequency, int octaves, FastNoiseLite* noise, ID3D12GraphicsCommandList* commandList)
 {
 	Subdivide(v1, v2, v3);
 	ApplyNoise(frequency,octaves,noise,mVertices);
@@ -16,7 +16,7 @@ TriangleChunk::TriangleChunk(Vertex v1, Vertex v2, Vertex v3, float frequency, i
 
 	mMesh->mVertices = mVertices;
 	mMesh->mIndices = mIndices;
-	mMesh->CalculateBufferData(device, commandList);
+	mMesh->CalculateBufferData(D3DDevice.Get(), commandList);
 
 }
 
@@ -114,7 +114,7 @@ void TriangleChunk::ApplyNoise(float frequency, int octaves, FastNoiseLite* nois
 		XMFLOAT3 position; XMStoreFloat3(&position, pos);
 		auto elevationValue = FractalBrownianMotion(noise, position, octaves, frequency);
 		//auto ElevationValue = 1 + noise.GetNoise(0.5 * vertex.Pos.x * 100, 0.5 * vertex.Pos.y * 100, 0.5 * vertex.Pos.z * 100);
-		elevationValue *= 0.03;
+		elevationValue *= 0.00;
 		auto Radius = Distance(vertex.Pos, XMFLOAT3{ 0,0,0 });
 		vertex.Pos.x *= 1 + (elevationValue / Radius);
 		vertex.Pos.y *= 1 + (elevationValue / Radius);

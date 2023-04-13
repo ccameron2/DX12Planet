@@ -1,8 +1,17 @@
 #include "Model.h"
 #include <regex>
+#include "DDSTextureLoader.h"
+#include <WICTextureLoader.h>
+#include <ResourceUploadBatch.h>
 
-Model::Model(std::string fileName, ID3D12Device* device, ID3D12GraphicsCommandList* commandList, Mesh* mesh)
+Model::Model(std::string fileName, ID3D12GraphicsCommandList* commandList, Mesh* mesh, bool textured, bool metalness, bool ao, bool dds, string texOverride)
 {
+	mDDS = dds;
+	mMetalness = metalness;
+	mAO = ao;
+	mTextured = textured;
+	mTexOverride = texOverride;
+
 	if (mesh == nullptr)
 	{
 		Assimp::Importer importer;
@@ -31,7 +40,7 @@ Model::Model(std::string fileName, ID3D12Device* device, ID3D12GraphicsCommandLi
 
 		for (auto& mesh : mMeshes)
 		{
-			mesh->CalculateBufferData(device, commandList);
+			mesh->CalculateBufferData(D3DDevice.Get(), commandList);
 		}
 	}
 	else
@@ -68,11 +77,19 @@ void Model::Draw(ID3D12GraphicsCommandList* commandList)
 	auto objCBAddress = objectCB->GetGPUVirtualAddress() + mObjConstantBufferIndex * objCBByteSize;
 	commandList->SetGraphicsRootConstantBufferView(1, objCBAddress);
 
-	CD3DX12_GPU_DESCRIPTOR_HANDLE tex(SrvDescriptorHeap->mHeap->GetGPUDescriptorHandleForHeapStart());
-	tex.Offset(1, CbvSrvUavDescriptorSize);
+	if (mTextured)
+	{
+		CD3DX12_GPU_DESCRIPTOR_HANDLE tex(SrvDescriptorHeap->mHeap->GetGPUDescriptorHandleForHeapStart());
+		tex.Offset(mMaterials[0]->DiffuseSRVIndex, CbvSrvUavDescriptorSize);
 
-	commandList->SetGraphicsRootDescriptorTable(0, tex);
+		commandList->SetGraphicsRootDescriptorTable(0, tex);
 
+		// Offset to Mat CBV for this mesh
+		D3D12_GPU_VIRTUAL_ADDRESS matCBAddress = matCB->GetGPUVirtualAddress() + mMaterials[0]->CBIndex * matCBByteSize;
+		commandList->SetGraphicsRootConstantBufferView(3, matCBAddress);
+
+	}
+	
 	if (mConstructorMesh)
 	{
 		D3D12_GPU_VIRTUAL_ADDRESS matCBAddress = matCB->GetGPUVirtualAddress() + mConstructorMesh->mMaterial->CBIndex * matCBByteSize;
@@ -82,9 +99,12 @@ void Model::Draw(ID3D12GraphicsCommandList* commandList)
 
 	for (auto mesh : mMeshes)
 	{
-		// Offset to Mat CBV for this mesh
-		D3D12_GPU_VIRTUAL_ADDRESS matCBAddress = matCB->GetGPUVirtualAddress() + mesh->mMaterial->CBIndex * matCBByteSize;
-		commandList->SetGraphicsRootConstantBufferView(3, matCBAddress);
+		if (!mTextured)
+		{
+			// Offset to Mat CBV for this mesh
+			D3D12_GPU_VIRTUAL_ADDRESS matCBAddress = matCB->GetGPUVirtualAddress() + mesh->mMaterial->CBIndex * matCBByteSize;
+			commandList->SetGraphicsRootConstantBufferView(3, matCBAddress);
+		}	
 		mesh->Draw(commandList);
 	}
 }
@@ -188,40 +208,246 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 		}
 	}
 
-	// Process materials
-	if (scene->HasMaterials())
+	if (mTextured)
 	{
-		if (mesh->mMaterialIndex >= 0)
+		// Create material
+		mMaterials.push_back(new Material());
+
+		string str = "";
+
+		if (mTexOverride == "")
 		{
-			aiMaterial* assimpMaterial = scene->mMaterials[mesh->mMaterialIndex];
-
-			// Diffuse maps
-			vector<Texture*> diffuseMaps = LoadMaterialTextures(assimpMaterial, aiTextureType_DIFFUSE, "texture_diffuse", scene);
-			modelGeometry->mTextures.insert(modelGeometry->mTextures.end(), diffuseMaps.begin(), diffuseMaps.end());
-
-			// Base Colour maps
-			vector<Texture*> baseColourMaps = LoadMaterialTextures(assimpMaterial, aiTextureType_BASE_COLOR, "texture_base_colour", scene);
-			modelGeometry->mTextures.insert(modelGeometry->mTextures.end(), baseColourMaps.begin(), baseColourMaps.end());
-
-			Material* material = new Material;
-			aiString materialName;
-			assimpMaterial->Get(AI_MATKEY_NAME, materialName);
-			material->AiName = materialName;
-
-			aiColor4D diffuseColour;
-			assimpMaterial->Get(AI_MATKEY_COLOR_DIFFUSE, diffuseColour);
-			material->DiffuseAlbedo = XMFLOAT4{ diffuseColour.r,diffuseColour.g,diffuseColour.b,diffuseColour.a };
-
-			float roughness = 0.0f;
-			assimpMaterial->Get(AI_MATKEY_ROUGHNESS_FACTOR, roughness);
-			material->Roughness = roughness;
-
-			float metalness = 0.0f;
-			assimpMaterial->Get(AI_MATKEY_METALLIC_FACTOR, metalness);
-			material->Metalness = metalness;
-
-			modelGeometry->mMaterial = material;
+			str = mDirectory + "/" + mFileName;
 		}
+		else
+		{
+			str = mDirectory + "/" + mTexOverride;
+		}
+	
+		std::wstring ws(str.begin(), str.end());
+		mMaterials[0]->Name = ws;
+
+		auto device = D3DDevice.Get();
+		ResourceUploadBatch upload(device);
+
+		upload.Begin();
+
+		// Load albedo map
+		mTextures.push_back(new Texture());
+
+		if (mDDS) mTextures[0]->Path = mMaterials[0]->Name + L"-albedo.dds";
+		else mTextures[0]->Path = mMaterials[0]->Name + L"_albedo.jpg";
+
+		if (mDDS) CreateDDSTextureFromFile(device, upload, mTextures[0]->Path.c_str(), mTextures[0]->Resource.ReleaseAndGetAddressOf(), false);
+		else    CreateWICTextureFromFile(device, upload, mTextures[0]->Path.c_str(), mTextures[0]->Resource.ReleaseAndGetAddressOf(), false);
+
+		// Fill out the heap with actual descriptors.
+		CD3DX12_CPU_DESCRIPTOR_HANDLE hDescriptor(SrvDescriptorHeap->mHeap->GetCPUDescriptorHandleForHeapStart());
+		// next descriptor
+		hDescriptor.Offset(CurrentSRVOffset, CbvSrvUavDescriptorSize);
+
+		mMaterials[0]->DiffuseSRVIndex = CurrentSRVOffset;
+
+		auto foxTex = mTextures[0]->Resource;
+
+		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		srvDesc.Format = foxTex->GetDesc().Format;
+		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+		srvDesc.Texture2D.MostDetailedMip = 0;
+		srvDesc.Texture2D.MipLevels = foxTex->GetDesc().MipLevels;
+		srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
+
+		device->CreateShaderResourceView(foxTex.Get(), &srvDesc, hDescriptor);
+
+		mTextures.push_back(new Texture());
+
+		if (mDDS) mTextures[1]->Path = mMaterials[0]->Name + L"-roughness.dds";
+		else mTextures[1]->Path = mMaterials[0]->Name + L"_roughness.jpg";
+
+		if (mDDS) CreateDDSTextureFromFile(device, upload, mTextures[1]->Path.c_str(), mTextures[1]->Resource.ReleaseAndGetAddressOf(), false);
+		else   CreateWICTextureFromFile(device, upload, mTextures[1]->Path.c_str(), mTextures[1]->Resource.ReleaseAndGetAddressOf(), false);
+
+		hDescriptor.Offset(1, CbvSrvUavDescriptorSize);
+
+		auto foxRough = mTextures[1]->Resource;
+
+		//D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		srvDesc.Format = foxRough->GetDesc().Format;
+		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+		srvDesc.Texture2D.MostDetailedMip = 0;
+		srvDesc.Texture2D.MipLevels = foxRough->GetDesc().MipLevels;
+		srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
+
+		device->CreateShaderResourceView(foxRough.Get(), &srvDesc, hDescriptor);
+
+		// Load normal texture
+		mTextures.push_back(new Texture());
+
+		if (mDDS) mTextures[2]->Path = mMaterials[0]->Name + L"-normal.dds";
+		else mTextures[2]->Path = mMaterials[0]->Name + L"_normal.jpg";
+
+		if (mDDS)  CreateDDSTextureFromFile(device, upload, mTextures[2]->Path.c_str(), mTextures[2]->Resource.ReleaseAndGetAddressOf(), false);
+		else CreateWICTextureFromFile(device, upload, mTextures[2]->Path.c_str(), mTextures[2]->Resource.ReleaseAndGetAddressOf(), false);
+
+		hDescriptor.Offset(1, CbvSrvUavDescriptorSize);
+
+		auto foxNorm = mTextures[2]->Resource;
+
+		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		srvDesc.Format = foxNorm->GetDesc().Format;
+		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+		srvDesc.Texture2D.MostDetailedMip = 0;
+		srvDesc.Texture2D.MipLevels = foxNorm->GetDesc().MipLevels;
+		srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
+
+		device->CreateShaderResourceView(foxNorm.Get(), &srvDesc, hDescriptor);
+
+		// Load metalness texture
+		mTextures.push_back(new Texture());
+
+		if (mMetalness)
+		{
+			if (mDDS) mTextures[3]->Path = mMaterials[0]->Name + L"-metalness.dds";
+			else mTextures[3]->Path = mMaterials[0]->Name + L"_metalness.jpg";
+		}
+		else
+		{
+			if (mDDS) mTextures[3]->Path = L"Models/default.dds";
+			else mTextures[3]->Path = L"Models/default.png";
+		}
+
+		if (mDDS) CreateDDSTextureFromFile(device, upload, mTextures[3]->Path.c_str(), mTextures[3]->Resource.ReleaseAndGetAddressOf(), false);
+		else   CreateWICTextureFromFile(device, upload, mTextures[3]->Path.c_str(), mTextures[3]->Resource.ReleaseAndGetAddressOf(), false);
+
+		hDescriptor.Offset(1, CbvSrvUavDescriptorSize);
+
+		auto foxMetal = mTextures[3]->Resource;
+
+		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		srvDesc.Format = foxMetal->GetDesc().Format;
+		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+		srvDesc.Texture2D.MostDetailedMip = 0;
+		srvDesc.Texture2D.MipLevels = foxMetal->GetDesc().MipLevels;
+		srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
+
+		device->CreateShaderResourceView(foxMetal.Get(), &srvDesc, hDescriptor);
+
+		// Load height texture
+		mTextures.push_back(new Texture());
+		//mTextures[4]->Path = L"Models/default.png";
+
+		if (mDDS) mTextures[4]->Path = mMaterials[0]->Name + L"-height.dds";
+		else mTextures[4]->Path = mMaterials[0]->Name + L"_displacement.jpg";
+
+		if (mDDS) CreateDDSTextureFromFile(device, upload, mTextures[4]->Path.c_str(), mTextures[4]->Resource.ReleaseAndGetAddressOf(), false);
+		else    CreateWICTextureFromFile(device, upload, mTextures[4]->Path.c_str(), mTextures[4]->Resource.ReleaseAndGetAddressOf(), false);
+		hDescriptor.Offset(1, CbvSrvUavDescriptorSize);
+
+		auto foxDisplacement = mTextures[4]->Resource;
+
+		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		srvDesc.Format = foxDisplacement->GetDesc().Format;
+		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+		srvDesc.Texture2D.MostDetailedMip = 0;
+		srvDesc.Texture2D.MipLevels = foxDisplacement->GetDesc().MipLevels;
+		srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
+
+		device->CreateShaderResourceView(foxDisplacement.Get(), &srvDesc, hDescriptor);
+
+		// Load ao map
+		mTextures.push_back(new Texture());
+
+		if (mAO)
+		{
+			if (mDDS) mTextures[5]->Path = mMaterials[0]->Name + L"-ao.dds";
+			else mTextures[5]->Path = mMaterials[0]->Name + L"_ao.jpg";
+		}
+		else
+		{
+			if (mDDS) mTextures[5]->Path = L"Models/default.dds";
+			else mTextures[5]->Path = L"Models/default.png";
+		}
+
+		if (mDDS) CreateDDSTextureFromFile(device, upload, mTextures[5]->Path.c_str(), mTextures[5]->Resource.ReleaseAndGetAddressOf(), false);
+		else    CreateWICTextureFromFile(device, upload, mTextures[5]->Path.c_str(), mTextures[5]->Resource.ReleaseAndGetAddressOf(), false);
+
+		hDescriptor.Offset(1, CbvSrvUavDescriptorSize);
+
+		auto foxAO = mTextures[5]->Resource;
+
+		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		srvDesc.Format = foxAO->GetDesc().Format;
+		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+		srvDesc.Texture2D.MostDetailedMip = 0;
+		srvDesc.Texture2D.MipLevels = foxAO->GetDesc().MipLevels;
+		srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
+
+		device->CreateShaderResourceView(foxAO.Get(), &srvDesc, hDescriptor);
+
+		// Upload the resources to the GPU.
+		auto finish = upload.End(CommandQueue.Get());
+
+		// Wait for the upload thread to terminate
+		finish.wait();
+
+		aiMaterial* assimpMaterial = scene->mMaterials[mesh->mMaterialIndex];
+
+		aiColor4D diffuseColour;
+		assimpMaterial->Get(AI_MATKEY_COLOR_DIFFUSE, diffuseColour);
+		mMaterials[0]->DiffuseAlbedo = XMFLOAT4{ diffuseColour.r,diffuseColour.g,diffuseColour.b,diffuseColour.a };
+
+		float roughness = 0.0f;
+		assimpMaterial->Get(AI_MATKEY_ROUGHNESS_FACTOR, roughness);
+		mMaterials[0]->Roughness = roughness;
+
+		float metalness = 0.0f;
+		assimpMaterial->Get(AI_MATKEY_METALLIC_FACTOR, metalness);
+		mMaterials[0]->Metalness = metalness;
+
+
+		modelGeometry->mMaterial = mMaterials[0];
+		CurrentSRVOffset += 6;
+	}
+	else
+	{
+		// Process materials
+		if (scene->HasMaterials())
+		{
+			if (mesh->mMaterialIndex >= 0)
+			{
+				aiMaterial* assimpMaterial = scene->mMaterials[mesh->mMaterialIndex];
+
+				// Diffuse maps
+				vector<Texture*> diffuseMaps = LoadMaterialTextures(assimpMaterial, aiTextureType_DIFFUSE, "texture_diffuse", scene);
+				modelGeometry->mTextures.insert(modelGeometry->mTextures.end(), diffuseMaps.begin(), diffuseMaps.end());
+
+				// Base Colour maps
+				vector<Texture*> baseColourMaps = LoadMaterialTextures(assimpMaterial, aiTextureType_BASE_COLOR, "texture_base_colour", scene);
+				modelGeometry->mTextures.insert(modelGeometry->mTextures.end(), baseColourMaps.begin(), baseColourMaps.end());
+
+				Material* material = new Material;
+				aiString materialName;
+				assimpMaterial->Get(AI_MATKEY_NAME, materialName);
+				material->AiName = materialName;
+
+				aiColor4D diffuseColour;
+				assimpMaterial->Get(AI_MATKEY_COLOR_DIFFUSE, diffuseColour);
+				material->DiffuseAlbedo = XMFLOAT4{ diffuseColour.r,diffuseColour.g,diffuseColour.b,diffuseColour.a };
+
+				float roughness = 0.0f;
+				assimpMaterial->Get(AI_MATKEY_ROUGHNESS_FACTOR, roughness);
+				material->Roughness = roughness;
+
+				float metalness = 0.0f;
+				assimpMaterial->Get(AI_MATKEY_METALLIC_FACTOR, metalness);
+				material->Metalness = metalness;
+
+				modelGeometry->mMaterial = material;
+			}
+		}
+
 	}
 	
 	return modelGeometry;

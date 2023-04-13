@@ -4,6 +4,7 @@
 #include "Mesh.h"
 #include "Camera.h"
 #include "TriangleChunk.h"
+#include "Common.h"
 
 #include <DirectXColors.h>
 #include <vector>
@@ -50,7 +51,7 @@ public:
 class Planet
 {
 public:
-	Planet(ID3D12Device* device, ID3D12GraphicsCommandList* commandList);
+	Planet(ID3D12GraphicsCommandList* commandList);
 	~Planet();
 	void CreatePlanet(float frequency, int octaves, int lod, int scale);
 	void ResetGeometry();
@@ -61,7 +62,6 @@ public:
 	int mScale = 1;
 	std::vector<TriangleChunk*> mTriangleChunks;
 private:
-	ID3D12Device* mD3DDevice;
 	ID3D12GraphicsCommandList* mCommandList;
 
 	std::vector<Triangle> mTriangles;

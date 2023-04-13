@@ -5,11 +5,12 @@
 #include <vector>
 #include "Mesh.h"
 #include "FastNoiseLite.h"
+#include "Common.h"
 
 class TriangleChunk
 {
 public:
-	TriangleChunk(Vertex v1, Vertex v2, Vertex v3, float frequency, int octaves, FastNoiseLite* noise, ID3D12Device* device, ID3D12GraphicsCommandList* commandList);
+	TriangleChunk(Vertex v1, Vertex v2, Vertex v3, float frequency, int octaves, FastNoiseLite* noise, ID3D12GraphicsCommandList* commandList);
 	~TriangleChunk() { delete mMesh; };
 	std::map<std::pair<int, int>, int> mVertexMap;
 	std::vector<Vertex> mVertices;

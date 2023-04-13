@@ -4,6 +4,8 @@
 
 UINT CbvSrvUavDescriptorSize = 0;
 int CurrentFrameResourceIndex = 0;
+ComPtr<ID3D12CommandQueue> CommandQueue;
+ComPtr<ID3D12Device> D3DDevice;
 
 Graphics::Graphics(HWND hWND, int width, int height)
 {
@@ -12,7 +14,7 @@ Graphics::Graphics(HWND hWND, int width, int height)
 
 #if defined(DEBUG) || defined(_DEBUG) 
 	ID3D12InfoQueue* infoQueue = nullptr;
-	mD3DDevice->QueryInterface(IID_PPV_ARGS(&infoQueue));
+	D3DDevice->QueryInterface(IID_PPV_ARGS(&infoQueue));
 
 	infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, true);
 	infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, true);
@@ -25,7 +27,7 @@ Graphics::Graphics(HWND hWND, int width, int height)
 	CreateSwapChain(hWND, width, height);
 	CreateDescriptorHeaps();
 
-	SrvDescriptorHeap = make_unique<SRVDescriptorHeap>(mD3DDevice.Get(), CbvSrvUavDescriptorSize);
+	SrvDescriptorHeap = make_unique<SRVDescriptorHeap>(D3DDevice.Get(), CbvSrvUavDescriptorSize);
 
 	Resize(width, height);
 
@@ -135,7 +137,7 @@ void Graphics::CloseAndExecuteCommandList()
 
 	// Add the command list to the queue for execution
 	ID3D12CommandList* cmdLists[] = { mCommandList.Get() };
-	mCommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
+	CommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
 }
 
 
@@ -160,24 +162,24 @@ bool Graphics::CreateDeviceAndFence()
 	}
 
 	// Create hardware device
-	if (FAILED(D3D12CreateDevice(nullptr, D3D_FEATURE_LEVEL_12_1, IID_PPV_ARGS(&mD3DDevice))))
+	if (FAILED(D3D12CreateDevice(nullptr, D3D_FEATURE_LEVEL_12_1, IID_PPV_ARGS(&D3DDevice))))
 	{
 		// Fallback device
 		ComPtr<IDXGIAdapter> pWarpAdapter;
 		mDXGIFactory->EnumWarpAdapter(IID_PPV_ARGS(&pWarpAdapter));
-		D3D12CreateDevice(pWarpAdapter.Get(), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&mD3DDevice));
+		D3D12CreateDevice(pWarpAdapter.Get(), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&D3DDevice));
 	}
 
 	// Create Fence
-	if (FAILED(mD3DDevice->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&mFence))))
+	if (FAILED(D3DDevice->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&mFence))))
 	{
 		MessageBox(0, L"Fence creation failed", L"Error", MB_OK);
 	}
 
 	// Get descriptor sizes
-	mRtvDescriptorSize = mD3DDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-	mDsvDescriptorSize = mD3DDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
-	CbvSrvUavDescriptorSize = mD3DDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	mRtvDescriptorSize = D3DDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+	mDsvDescriptorSize = D3DDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
+	CbvSrvUavDescriptorSize = D3DDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
 	// Check MSAA quality support
 	D3D12_FEATURE_DATA_MULTISAMPLE_QUALITY_LEVELS msQualityLevels;
@@ -185,7 +187,7 @@ bool Graphics::CreateDeviceAndFence()
 	msQualityLevels.SampleCount = mMSAASampleCount;
 	msQualityLevels.Flags = D3D12_MULTISAMPLE_QUALITY_LEVELS_FLAG_NONE;
 	msQualityLevels.NumQualityLevels = 0;
-	mD3DDevice->CheckFeatureSupport(D3D12_FEATURE_MULTISAMPLE_QUALITY_LEVELS, &msQualityLevels, sizeof(msQualityLevels));
+	D3DDevice->CheckFeatureSupport(D3D12_FEATURE_MULTISAMPLE_QUALITY_LEVELS, &msQualityLevels, sizeof(msQualityLevels));
 	mMSAAQuality = msQualityLevels.NumQualityLevels;
 
 	return true;
@@ -227,7 +229,7 @@ void Graphics::CreateRootSignature()
 		OutputDebugStringA((char*)errorBlob->GetBufferPointer());
 	}
 
-	if (FAILED(mD3DDevice->CreateRootSignature(0, serializedRootSignature->GetBufferPointer(), serializedRootSignature->GetBufferSize(), IID_PPV_ARGS(mRootSignature.GetAddressOf()))))
+	if (FAILED(D3DDevice->CreateRootSignature(0, serializedRootSignature->GetBufferPointer(), serializedRootSignature->GetBufferSize(), IID_PPV_ARGS(mRootSignature.GetAddressOf()))))
 	{
 		MessageBox(0, L"Root Signature creation failed", L"Error", MB_OK);
 	}
@@ -263,13 +265,13 @@ void Graphics::CreatePSO()
 	psoDesc.SampleDesc.Count = mMSAASampleCount;
 	psoDesc.SampleDesc.Quality = mMSAAQuality - 1;
 	psoDesc.DSVFormat = mDepthStencilFormat;
-	if (FAILED(mD3DDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mSolidPSO))))
+	if (FAILED(D3DDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mSolidPSO))))
 	{
 		MessageBox(0, L"Solid Pipeline State Creation failed", L"Error", MB_OK);
 	}
 
 	psoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_WIREFRAME;
-	if (FAILED(mD3DDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mWireframePSO))))
+	if (FAILED(D3DDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mWireframePSO))))
 	{
 		MessageBox(0, L"Wireframe Pipeline State Creation failed", L"Error", MB_OK);
 	}
@@ -284,7 +286,7 @@ void Graphics::CreatePSO()
 		mPlanetPSByteCode->GetBufferSize()
 	};
 	psoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
-	if (FAILED(mD3DDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mPlanetPSO))))
+	if (FAILED(D3DDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mPlanetPSO))))
 	{
 		MessageBox(0, L"Planet Pipeline State Creation failed", L"Error", MB_OK);
 	}
@@ -299,7 +301,7 @@ void Graphics::CreatePSO()
 		reinterpret_cast<BYTE*>(mTexPSByteCode->GetBufferPointer()),
 		mTexPSByteCode->GetBufferSize()
 	};
-	if (FAILED(mD3DDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mTexPSO))))
+	if (FAILED(D3DDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mTexPSO))))
 	{
 		MessageBox(0, L"AO Pipeline State Creation failed", L"Error", MB_OK);
 	}
@@ -361,19 +363,19 @@ void Graphics::CreateCommandObjects()
 	queueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
 
 	// Create Command Queue
-	if (FAILED(mD3DDevice->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&mCommandQueue))))
+	if (FAILED(D3DDevice->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&CommandQueue))))
 	{
 		MessageBox(0, L"Command Queue creation failed", L"Error", MB_OK);
 	}
 
 	// Create Command Allocator
-	if (FAILED(mD3DDevice->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(mCommandAllocator.GetAddressOf()))))
+	if (FAILED(D3DDevice->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(mCommandAllocator.GetAddressOf()))))
 	{
 		MessageBox(0, L"Command Allocator creation failed", L"Error", MB_OK);
 	}
 
 	// Create Command List
-	if (FAILED(mD3DDevice->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, mCommandAllocator.Get(), nullptr, IID_PPV_ARGS(mCommandList.GetAddressOf()))))
+	if (FAILED(D3DDevice->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, mCommandAllocator.Get(), nullptr, IID_PPV_ARGS(mCommandList.GetAddressOf()))))
 	{
 		MessageBox(0, L"Command List creation failed", L"Error", MB_OK);
 	}
@@ -406,7 +408,7 @@ void Graphics::CreateSwapChain(HWND hWND, int width, int height)
 	swapDesc.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
 
 	// Create swap chain with description
-	if (FAILED(mDXGIFactory->CreateSwapChain(mCommandQueue.Get(), &swapDesc, mSwapChain.GetAddressOf())))
+	if (FAILED(mDXGIFactory->CreateSwapChain(CommandQueue.Get(), &swapDesc, mSwapChain.GetAddressOf())))
 	{
 		MessageBox(0, L"Swap chain creation failed", L"Error", MB_OK);
 	}
@@ -419,7 +421,7 @@ void Graphics::CreateDescriptorHeaps()
 	rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
 	rtvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
 	rtvHeapDesc.NodeMask = 0;
-	if (FAILED(mD3DDevice->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(mRTVHeap.GetAddressOf()))))
+	if (FAILED(D3DDevice->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(mRTVHeap.GetAddressOf()))))
 	{
 		MessageBox(0, L"Render Target View creation failed", L"Error", MB_OK);
 	}
@@ -429,7 +431,7 @@ void Graphics::CreateDescriptorHeaps()
 	dsvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
 	dsvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
 	dsvHeapDesc.NodeMask = 0;
-	if (FAILED(mD3DDevice->CreateDescriptorHeap(&dsvHeapDesc, IID_PPV_ARGS(mDSVHeap.GetAddressOf()))))
+	if (FAILED(D3DDevice->CreateDescriptorHeap(&dsvHeapDesc, IID_PPV_ARGS(mDSVHeap.GetAddressOf()))))
 	{
 		MessageBox(0, L"Depth Stencil View creation failed", L"Error", MB_OK);
 	}
@@ -437,7 +439,7 @@ void Graphics::CreateDescriptorHeaps()
 
 void Graphics::Resize(int width, int height)
 {
-	assert(mD3DDevice);
+	assert(D3DDevice);
 	assert(mSwapChain);
 	assert(mCommandAllocator);
 	
@@ -467,7 +469,7 @@ void Graphics::Resize(int width, int height)
 		{
 			MessageBox(0, L"Get Swap chain buffer failed", L"Error", MB_OK);
 		}
-		mD3DDevice->CreateRenderTargetView(mSwapChainBuffer[i].Get(), nullptr, rtvHeapHandle);
+		D3DDevice->CreateRenderTargetView(mSwapChainBuffer[i].Get(), nullptr, rtvHeapHandle);
 		rtvHeapHandle.Offset(1, mRtvDescriptorSize);
 	}
 	
@@ -482,7 +484,7 @@ void Graphics::Resize(int width, int height)
 	D3D12_CLEAR_VALUE clearValue = { mBackBufferFormat, {} };
 	memcpy(clearValue.Color, mBackgroundColour, sizeof(clearValue.Color));
 
-	mD3DDevice->CreateCommittedResource(
+	D3DDevice->CreateCommittedResource(
 		&heapProperties,
 		D3D12_HEAP_FLAG_ALLOW_ALL_BUFFERS_AND_TEXTURES,
 		&desc,
@@ -492,7 +494,7 @@ void Graphics::Resize(int width, int height)
 	D3D12_RENDER_TARGET_VIEW_DESC msaaDesc;
 	msaaDesc.Format = mBackBufferFormat;
 	msaaDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2DMS;
-	mD3DDevice->CreateRenderTargetView(mMSAARenderTarget.Get(), &msaaDesc, rtvHeapHandle);
+	D3DDevice->CreateRenderTargetView(mMSAARenderTarget.Get(), &msaaDesc, rtvHeapHandle);
 	rtvHeapHandle.Offset(1, mRtvDescriptorSize);
 
 	// Create the depth / stencil buffer description
@@ -514,7 +516,7 @@ void Graphics::Resize(int width, int height)
 	optClear.Format = mDepthStencilFormat;
 	optClear.DepthStencil.Depth = 1.0f;
 	optClear.DepthStencil.Stencil = 0;
-	if (FAILED(mD3DDevice->CreateCommittedResource(
+	if (FAILED(D3DDevice->CreateCommittedResource(
 		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
 		D3D12_HEAP_FLAG_NONE,
 		&depthStencilDesc,
@@ -531,7 +533,7 @@ void Graphics::Resize(int width, int height)
 	dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2DMS;
 	dsvDesc.Format = mDepthStencilFormat;
 	dsvDesc.Texture2D.MipSlice = 0;
-	mD3DDevice->CreateDepthStencilView(mDepthStencilBuffer.Get(), &dsvDesc, DepthStencilView());
+	D3DDevice->CreateDepthStencilView(mDepthStencilBuffer.Get(), &dsvDesc, DepthStencilView());
 
 	// Transition to be used as a depth buffer.
 	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(mDepthStencilBuffer.Get(),
@@ -552,7 +554,7 @@ void Graphics::Resize(int width, int height)
 	depthStencilDescGUI.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
 
 	// Create depth buffer with description
-	if (FAILED(mD3DDevice->CreateCommittedResource(
+	if (FAILED(D3DDevice->CreateCommittedResource(
 		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
 		D3D12_HEAP_FLAG_NONE,
 		&depthStencilDescGUI,
@@ -572,7 +574,7 @@ void Graphics::Resize(int width, int height)
 	dsvDescGUI.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
 	dsvDescGUI.Format = mDepthStencilFormat;
 	dsvDescGUI.Texture2D.MipSlice = 0;
-	mD3DDevice->CreateDepthStencilView(mDepthStencilBufferGUI.Get(), &dsvDesc, dsvHeapView);
+	D3DDevice->CreateDepthStencilView(mDepthStencilBufferGUI.Get(), &dsvDesc, dsvHeapView);
 	
 	// Transition to be used as a depth buffer.
 	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(mDepthStencilBufferGUI.Get(),
@@ -595,7 +597,7 @@ void Graphics::ExecuteCommands()
 	// Execute commands
 	mCommandList->Close();
 	ID3D12CommandList* cmdLists[] = { mCommandList.Get() };
-	mCommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
+	CommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
 
 	// Wait for work to be complete
 	EmptyCommandQueue();
@@ -629,7 +631,7 @@ void Graphics::EmptyCommandQueue()
 	mCurrentFence++;
 
 	// Set new fence point
-	if (FAILED(mCommandQueue->Signal(mFence.Get(), mCurrentFence)))
+	if (FAILED(CommandQueue->Signal(mFence.Get(), mCurrentFence)))
 	{
 		MessageBox(0, L"Command queue signal failed", L"Error", MB_OK);
 	}

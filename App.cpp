@@ -1,8 +1,8 @@
 #include "App.h"
-#include "DDSTextureLoader.h"
 
 std::vector<std::unique_ptr<FrameResource>> FrameResources;
 unique_ptr<SRVDescriptorHeap> SrvDescriptorHeap;
+int CurrentSRVOffset = 1;
 
 App::App()
 {
@@ -46,10 +46,10 @@ void App::Initialize()
 
 	mCamera->Update();
 
-	mPlanet = std::make_unique<Planet>(mGraphics->mD3DDevice.Get(),mGraphics->mCommandList.Get());
+	mPlanet = std::make_unique<Planet>(mGraphics->mCommandList.Get());
 	mPlanet->CreatePlanet(0.1, 1, 1, 1);
 
-	auto planetModel = new Model("", mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get(), mPlanet->mMesh);
+	auto planetModel = new Model("", mGraphics->mCommandList.Get(), mPlanet->mMesh);
 	planetModel->SetPosition(XMFLOAT3{ 0, 0, 0 },false);
 	planetModel->SetRotation(XMFLOAT3{ 0, 0, 0 }, false);
 	planetModel->SetScale(XMFLOAT3{ float(mPlanet->mScale), float(mPlanet->mScale), float(mPlanet->mScale) }, true);
@@ -71,154 +71,18 @@ void App::Initialize()
 
 	mGraphics->ExecuteCommands();
 
-	mGUI = make_unique<GUI>(SrvDescriptorHeap.get(), mWindow->mSDLWindow, mGraphics->mD3DDevice.Get(),
+	mGUI = make_unique<GUI>(SrvDescriptorHeap.get(), mWindow->mSDLWindow, D3DDevice.Get(),
 		mGraphics->mNumFrameResources, mGraphics->mBackBufferFormat);
 }
 
 void App::CreateTextures()
 {
+	bool dds = false;
+	bool metalness = false;
+	bool ao = true;
 	//mMaterials.push_back(new Material());
 	//mMaterials[0]->Name = L"Models/blocksrough";
-	
-	// Create material
-	vector<Material*> materials;
-	materials.push_back(new Material());
-	materials[0]->Name = L"Models/tufted-leather";
 
-	auto device = mGraphics->mD3DDevice.Get();
-	ResourceUploadBatch upload(device);
-
-	upload.Begin();
-
-	// Load albedo map
-	mTextures.push_back(new Texture());
-	mTextures[0]->Path = materials[0]->Name + L"-albedo.dds";
-
-	CreateDDSTextureFromFile(device,upload, mTextures[0]->Path.c_str(), mTextures[0]->Resource.ReleaseAndGetAddressOf(), false);
-	
-	// Fill out the heap with actual descriptors.
-	CD3DX12_CPU_DESCRIPTOR_HANDLE hDescriptor(SrvDescriptorHeap->mHeap->GetCPUDescriptorHandleForHeapStart());
-	// next descriptor
-	hDescriptor.Offset(1, CbvSrvUavDescriptorSize);
-
-	auto foxTex = mTextures[0]->Resource;
-
-	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-	srvDesc.Format = foxTex->GetDesc().Format;
-	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-	srvDesc.Texture2D.MostDetailedMip = 0;
-	srvDesc.Texture2D.MipLevels = foxTex->GetDesc().MipLevels;
-	srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
-
-	device->CreateShaderResourceView(foxTex.Get(), &srvDesc, hDescriptor);
-
-	mTextures.push_back(new Texture());
-	mTextures[1]->Path = materials[0]->Name + L"-roughness.dds";
-
-	CreateDDSTextureFromFile(device, upload, mTextures[1]->Path.c_str(), mTextures[1]->Resource.ReleaseAndGetAddressOf(), false);
-
-	hDescriptor.Offset(1, CbvSrvUavDescriptorSize);
-
-	auto foxRough = mTextures[1]->Resource;
-
-	//D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-	srvDesc.Format = foxRough->GetDesc().Format;
-	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-	srvDesc.Texture2D.MostDetailedMip = 0;
-	srvDesc.Texture2D.MipLevels = foxRough->GetDesc().MipLevels;
-	srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
-
-	device->CreateShaderResourceView(foxRough.Get(), &srvDesc, hDescriptor);
-
-	// Load normal texture
-	mTextures.push_back(new Texture());
-	mTextures[2]->Path = materials[0]->Name + L"-normal.dds";
-
-	//CreateWICTextureFromFile(device, upload, L"Models/subway-floor-normal.jpg", mTextures[1]->Resource.ReleaseAndGetAddressOf(), false);
-	CreateDDSTextureFromFile(device, upload, mTextures[2]->Path.c_str(), mTextures[2]->Resource.ReleaseAndGetAddressOf(), false);
-
-	hDescriptor.Offset(1, CbvSrvUavDescriptorSize);
-
-	auto foxNorm = mTextures[2]->Resource;
-
-	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-	srvDesc.Format = foxNorm->GetDesc().Format;
-	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-	srvDesc.Texture2D.MostDetailedMip = 0;
-	srvDesc.Texture2D.MipLevels = foxNorm->GetDesc().MipLevels;
-	srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
-
-	device->CreateShaderResourceView(foxNorm.Get(), &srvDesc, hDescriptor);
-
-	// Load metalness texture
-	mTextures.push_back(new Texture());
-	mTextures[3]->Path = materials[0]->Name + L"-metalness.dds";
-	//mTextures[3]->Path = L"Models/default.png";
-
-	CreateDDSTextureFromFile(device, upload, mTextures[3]->Path.c_str(), mTextures[3]->Resource.ReleaseAndGetAddressOf(), false);
-	//CreateWICTextureFromFile(device, upload, mTextures[3]->Path.c_str(), mTextures[3]->Resource.ReleaseAndGetAddressOf(), false);
-
-	hDescriptor.Offset(1, CbvSrvUavDescriptorSize);
-
-	auto foxMetal = mTextures[3]->Resource;
-
-	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-	srvDesc.Format = foxMetal->GetDesc().Format;
-	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-	srvDesc.Texture2D.MostDetailedMip = 0;
-	srvDesc.Texture2D.MipLevels = foxMetal->GetDesc().MipLevels;
-	srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
-
-	device->CreateShaderResourceView(foxMetal.Get(), &srvDesc, hDescriptor);
-
-	// Load height texture
-	mTextures.push_back(new Texture());
-	mTextures[4]->Path = materials[0]->Name + L"-height.dds";
-	//mTextures[4]->Path = L"Models/default.png";
-	
-	CreateDDSTextureFromFile(device, upload, mTextures[4]->Path.c_str(), mTextures[4]->Resource.ReleaseAndGetAddressOf(), false);
-	//CreateWICTextureFromFile(device, upload, mTextures[4]->Path.c_str(), mTextures[4]->Resource.ReleaseAndGetAddressOf(), false);
-	hDescriptor.Offset(1, CbvSrvUavDescriptorSize);
-
-	auto foxDisplacement = mTextures[4]->Resource;
-
-	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-	srvDesc.Format = foxDisplacement->GetDesc().Format;
-	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-	srvDesc.Texture2D.MostDetailedMip = 0;
-	srvDesc.Texture2D.MipLevels = foxDisplacement->GetDesc().MipLevels;
-	srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
-
-	device->CreateShaderResourceView(foxDisplacement.Get(), &srvDesc, hDescriptor);
-
-	// Load ao map
-	mTextures.push_back(new Texture());
-	mTextures[5]->Path = materials[0]->Name + L"-ao.dds";
-	//mTextures[5]->Path = L"Models/default.png";
-
-	CreateDDSTextureFromFile(device, upload, mTextures[5]->Path.c_str(), mTextures[5]->Resource.ReleaseAndGetAddressOf(), false);
-	//CreateWICTextureFromFile(device, upload, mTextures[5]->Path.c_str(), mTextures[5]->Resource.ReleaseAndGetAddressOf(), false);
-
-	hDescriptor.Offset(1, CbvSrvUavDescriptorSize);
-
-	auto foxAO = mTextures[5]->Resource;
-
-	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-	srvDesc.Format = foxAO->GetDesc().Format;
-	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-	srvDesc.Texture2D.MostDetailedMip = 0;
-	srvDesc.Texture2D.MipLevels = foxAO->GetDesc().MipLevels;
-	srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
-
-	device->CreateShaderResourceView(foxAO.Get(), &srvDesc, hDescriptor);
-
-	// Upload the resources to the GPU.
-	auto finish = upload.End(mGraphics->mCommandQueue.Get());
-
-	// Wait for the upload thread to terminate
-	finish.wait();
 }
 
 void App::StartFrame()
@@ -236,7 +100,7 @@ void App::StartFrame()
 
 void App::LoadModels()
 {
-	Model* foxModel = new Model("Models/polyfox.fbx", mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
+	Model* foxModel = new Model("Models/polyfox.fbx", mGraphics->mCommandList.Get());
 
 	foxModel->SetPosition(XMFLOAT3{ 4.0f, 0.0f, 0.0f });
 	foxModel->SetRotation(XMFLOAT3{ 90.0f, 0.0f, 0.0f });
@@ -245,9 +109,9 @@ void App::LoadModels()
 	mModels.push_back(foxModel);
 	mColourModels.push_back(foxModel);
 
-	Model* wolfModel = new Model("Models/Wolf.fbx", mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
+	Model* wolfModel = new Model("Models/Wolf.fbx", mGraphics->mCommandList.Get());
 
-	wolfModel->SetPosition(XMFLOAT3{ 8.0f, 0.0f, 0.0f });
+	wolfModel->SetPosition(XMFLOAT3{ 6.0f, 0.0f, 0.0f });
 	wolfModel->SetRotation(XMFLOAT3{ 90.0f, 0.0f, 0.0f });
 	wolfModel->SetScale(XMFLOAT3{ 1, 1, 1 });
 
@@ -255,23 +119,43 @@ void App::LoadModels()
 	mColourModels.push_back(wolfModel);
 
 
-	Model* slimeModel = new Model("Models/Slime.fbx", mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
+	Model* slimeModel = new Model("Models/Slime.fbx", mGraphics->mCommandList.Get());
 
-	slimeModel->SetPosition(XMFLOAT3{ -8.0f, 0.0f, 0.0f });
+	slimeModel->SetPosition(XMFLOAT3{ 8.0f, 0.0f, 0.0f });
 	slimeModel->SetRotation(XMFLOAT3{ 90.0f, 0.0f, 0.0f });
 	slimeModel->SetScale(XMFLOAT3{ 1, 1, 1 });
 
 	mModels.push_back(slimeModel);
 	mColourModels.push_back(slimeModel);
 
-	Model* octoModel = new Model("Models/octopus.x", mGraphics->mD3DDevice.Get(), mGraphics->mCommandList.Get());
+	Model* octoModel = new Model("Models/octopus.x", mGraphics->mCommandList.Get(), nullptr, true, true, true, true, "tufted-leather");
 
-	octoModel->SetPosition(XMFLOAT3{ -4.0f, 0.0f, 0.0f });
+	octoModel->SetPosition(XMFLOAT3{ -6.0f, 0.0f, 0.0f });
 	octoModel->SetRotation(XMFLOAT3{ 0.0f, 0.0f, 0.0f });
 	octoModel->SetScale(XMFLOAT3{ 0.5, 0.5, 0.5 });
 	octoModel->mParallax = true;
 	mModels.push_back(octoModel);
 	mTexModels.push_back(octoModel);
+
+	Model* starModel = new Model("Models/starfish.fbx", mGraphics->mCommandList.Get(), nullptr,true,false,true,false);
+
+	starModel->SetPosition(XMFLOAT3{ -4.0f, 0.0f, 0.0f });
+	starModel->SetRotation(XMFLOAT3{ 0.0f, 0.0f, 0.0f });
+	starModel->SetScale(XMFLOAT3{ 0.1, 0.1, 0.1 });
+	starModel->mParallax = false;
+	mModels.push_back(starModel);
+	mTexModels.push_back(starModel);
+
+
+	Model* cactusModel = new Model("Models/cactus.fbx", mGraphics->mCommandList.Get(), nullptr, true, false, false, false);
+
+	cactusModel->SetPosition(XMFLOAT3{ -10.0f, 0.0f, 0.0f });
+	cactusModel->SetRotation(XMFLOAT3{ 0.0f, 0.0f, 0.0f });
+	cactusModel->SetScale(XMFLOAT3{ 0.1, 0.1, 0.1 });
+	cactusModel->mParallax = false;
+	mModels.push_back(cactusModel);
+	mTexModels.push_back(cactusModel);
+
 
 	for (int i = 0; i < mModels.size(); i++)
 	{
@@ -283,7 +167,7 @@ void App::BuildFrameResources()
 {
 	for (int i = 0; i < mGraphics->mNumFrameResources; i++)
 	{
-		FrameResources.push_back(std::make_unique<FrameResource>(mGraphics->mD3DDevice.Get(), 1, mModels.size(), 5000000, 15000000, mMaterials.size())); //1 for planet
+		FrameResources.push_back(std::make_unique<FrameResource>(D3DDevice.Get(), 1, mModels.size(), 5000000, 15000000, mMaterials.size())); //1 for planet
 	}
 }
 
@@ -555,7 +439,7 @@ void App::EndFrame()
 	mGraphics->mCurrentFrameResource->Fence = ++mGraphics->mCurrentFence;
 
 	// Tell command queue to set new fence point, will only be set when the GPU gets to new fence value.
-	mGraphics->mCommandQueue->Signal(mGraphics->mFence.Get(), mGraphics->mCurrentFence);
+	CommandQueue->Signal(mGraphics->mFence.Get(), mGraphics->mCurrentFence);
 
 	mGraphics->CycleFrameResources();
 }
@@ -608,7 +492,7 @@ void App::CreateMaterials()
 App::~App()
 {
 	// Empty the command queue
-	if (mGraphics->mD3DDevice != nullptr) { mGraphics->EmptyCommandQueue(); }
+	if (D3DDevice != nullptr) { mGraphics->EmptyCommandQueue(); }
 
 	for (auto& model : mModels)
 	{

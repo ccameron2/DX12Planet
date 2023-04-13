@@ -1,8 +1,7 @@
 #include "Planet.h"
 
-Planet::Planet(ID3D12Device* device, ID3D12GraphicsCommandList* commandList)
+Planet::Planet(ID3D12GraphicsCommandList* commandList)
 {
-	mD3DDevice = device;
 	mCommandList = commandList;
 	mNoise = new FastNoiseLite();
 	mNoise->SetNoiseType(FastNoiseLite::NoiseType_Perlin);
@@ -205,7 +204,7 @@ bool Planet::Subdivide(Node* node, int level)
 		node->mTriangleChunk = new TriangleChunk(mVertices[node->mTriangle.Point[0]],
 												 mVertices[node->mTriangle.Point[1]],
 												 mVertices[node->mTriangle.Point[2]],
-												 mFrequency, mOctaves, mNoise, mD3DDevice, mCommandList);
+												 mFrequency, mOctaves, mNoise, mCommandList);
 		mTriangleChunks.push_back(node->mTriangleChunk);
 	}
 	std::vector<Triangle> newTriangles = SubdivideTriangle(node->mTriangle);

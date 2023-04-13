@@ -5,12 +5,14 @@
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
 #include "Mesh.h"
-#include "DDSTextureLoader.h"
+#include <d3d12.h>
 #include "Common.h"
 class Model
 {
 public:
-	Model(std::string fileName, ID3D12Device* d3DDevice, ID3D12GraphicsCommandList* commandList, Mesh* mesh = nullptr);
+	Model(std::string fileName, ID3D12GraphicsCommandList* commandList,
+		Mesh* mesh = nullptr, bool textured = false, bool metalness = false,
+		bool ao = false, bool dds = false, string texOverride = "");
 	~Model();
 	std::vector<Mesh*> mMeshes;
 	int mObjConstantBufferIndex = 2;
@@ -38,9 +40,15 @@ private:
 	void LoadEmbeddedTexture(const aiTexture* embeddedTexture);
 	void UpdateWorldMatrix();
 
+	std::string mTexOverride;
 	std::vector<Texture*> mLoadedTextures;
 	std::string mDirectory;
 	std::string mFileName;
-
+	std::vector<Texture*> mTextures;
+	std::vector<Material*> mMaterials;
+	bool mDDS = false;
+	bool mMetalness = false;
+	bool mAO = false;
+	bool mTextured = false;
 };
 

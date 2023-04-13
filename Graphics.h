@@ -25,7 +25,6 @@ public:
 	Graphics(HWND hwnd,int width, int height);
 	~Graphics();
 	
-	ComPtr<ID3D12Device> mD3DDevice;
 	ComPtr<ID3D12GraphicsCommandList> mCommandList;
 
 	ComPtr<IDXGIFactory4> mDXGIFactory;
@@ -35,7 +34,6 @@ public:
 	UINT64 mCurrentFence = 0;
 
 	ComPtr<ID3D12CommandAllocator> mCommandAllocator;
-	ComPtr<ID3D12CommandQueue> mCommandQueue;
 
 	const static int mSwapChainBufferCount = 2;
 	DXGI_FORMAT mBackBufferFormat = DXGI_FORMAT_R8G8B8A8_UNORM;

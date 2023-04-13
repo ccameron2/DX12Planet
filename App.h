@@ -43,8 +43,6 @@
 #include "UploadBuffer.h"
 #include "FrameResource.h"
 #include "SRVDescriptorHeap.h"
-#include <WICTextureLoader.h>
-#include <ResourceUploadBatch.h>
 
 #include <fstream>
 
