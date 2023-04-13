@@ -47,7 +47,7 @@ Texture2D Textures[6] : register(t0);
 //Texture2D DisplacementMap	
 //Texture2D AOMap
 
-SamplerState Sampler : register(s4);
+//SamplerState Sampler : register(s4);
 
 float4 PS(VOut pIn) : SV_Target
 {

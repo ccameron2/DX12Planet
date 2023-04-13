@@ -105,7 +105,8 @@ private:
 	bool mWireframe = false;
 
 	int mCurrentMatCBIndex = 0;
-	// Input layout
+
+	Material* mSkyMat;
 
 	ID3D12PipelineState* mCurrentPSO = nullptr;
 

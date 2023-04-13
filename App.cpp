@@ -67,7 +67,6 @@ void App::Initialize()
 
 	CreateSkybox();
 
-
 	mGraphics->CreateRootSignature();
 
 	mGraphics->CreateShaders();
@@ -86,9 +85,9 @@ void App::CreateSkybox()
 
 	upload.Begin();
 
-	Material* skyMat = new Material();
-	skyMat->DiffuseSRVIndex = CurrentSRVOffset;
-	skyMat->Name = L"Models/nebula.dds";
+	mSkyMat = new Material();
+	mSkyMat->DiffuseSRVIndex = CurrentSRVOffset;
+	mSkyMat->Name = L"Models/nebula.dds";
 
 	Texture* cubeTex = new Texture();
 	DDS_ALPHA_MODE mode = DDS_ALPHA_MODE_OPAQUE;
@@ -117,9 +116,8 @@ void App::CreateSkybox()
 	// Wait for the upload thread to terminate
 	finish.wait();
 
-	mSkyModel->mMaterials.push_back(skyMat);
+	mSkyModel->mMaterials.push_back(mSkyMat);
 	mSkyModel->mTextures.push_back(cubeTex);
-	mSkyModel->mTextured = true;
 	mSkyModel->mMaterials[0]->CBIndex = mCurrentMatCBIndex;
 }
 
@@ -421,6 +419,10 @@ void App::Draw(float frameTime)
 
 	auto perFrameBuffer = mGraphics->mCurrentFrameResource->mPerFrameConstantBuffer->GetBuffer();
 	commandList->SetGraphicsRootConstantBufferView(2, perFrameBuffer->GetGPUVirtualAddress());
+
+	CD3DX12_GPU_DESCRIPTOR_HANDLE cubeTex(SrvDescriptorHeap->mHeap->GetGPUDescriptorHandleForHeapStart());
+	cubeTex.Offset(mSkyMat->DiffuseSRVIndex, CbvSrvUavDescriptorSize);
+	commandList->SetGraphicsRootDescriptorTable(4, cubeTex);
 
 	DrawPlanet(commandList.Get());
 

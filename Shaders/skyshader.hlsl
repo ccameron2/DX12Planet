@@ -1,8 +1,5 @@
 #include "common.hlsl"
 
-SamplerState Sampler : register(s4);
-TextureCube CubeMap : register(t0);
-
 struct VIn
 {
 	float3 PosL : POSITION;
@@ -39,5 +36,5 @@ VOut VS(VIn vin)
 
 float4 PS(VOut pin) : SV_Target
 {
-	return CubeMap.Sample(Sampler, pin.PosL);
+	return IBLCubeMap.Sample(Sampler, pin.PosL);
 }
