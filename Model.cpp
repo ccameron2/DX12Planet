@@ -4,11 +4,9 @@
 #include <WICTextureLoader.h>
 #include <ResourceUploadBatch.h>
 
-Model::Model(std::string fileName, ID3D12GraphicsCommandList* commandList, Mesh* mesh, bool textured, bool metalness, bool ao, bool dds, string texOverride)
+Model::Model(std::string fileName, ID3D12GraphicsCommandList* commandList, Mesh* mesh, bool textured, bool dds, string texOverride)
 {
 	mDDS = dds;
-	mMetalness = metalness;
-	mAO = ao;
 	mTextured = textured;
 	mTexOverride = texOverride;
 
@@ -236,10 +234,17 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 		mTextures.push_back(new Texture());
 
 		if (mDDS) mTextures[0]->Path = mMaterials[0]->Name + L"-albedo.dds";
-		else mTextures[0]->Path = mMaterials[0]->Name + L"_albedo.jpg";
+		else mTextures[0]->Path = mMaterials[0]->Name + L"_Albedo.jpg";
 
 		if (mDDS) CreateDDSTextureFromFile(device, upload, mTextures[0]->Path.c_str(), mTextures[0]->Resource.ReleaseAndGetAddressOf(), false);
 		else    CreateWICTextureFromFile(device, upload, mTextures[0]->Path.c_str(), mTextures[0]->Resource.ReleaseAndGetAddressOf(), false);
+
+		auto modelTex = mTextures[0]->Resource;
+
+		if (!modelTex)
+		{
+
+		}
 
 		// Fill out the heap with actual descriptors.
 		CD3DX12_CPU_DESCRIPTOR_HANDLE hDescriptor(SrvDescriptorHeap->mHeap->GetCPUDescriptorHandleForHeapStart());
@@ -248,143 +253,149 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 
 		mMaterials[0]->DiffuseSRVIndex = CurrentSRVOffset;
 
-		auto foxTex = mTextures[0]->Resource;
-
 		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
 		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-		srvDesc.Format = foxTex->GetDesc().Format;
+		srvDesc.Format = modelTex->GetDesc().Format;
 		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
 		srvDesc.Texture2D.MostDetailedMip = 0;
-		srvDesc.Texture2D.MipLevels = foxTex->GetDesc().MipLevels;
+		srvDesc.Texture2D.MipLevels = modelTex->GetDesc().MipLevels;
 		srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
 
-		device->CreateShaderResourceView(foxTex.Get(), &srvDesc, hDescriptor);
+		device->CreateShaderResourceView(modelTex.Get(), &srvDesc, hDescriptor);
 
 		mTextures.push_back(new Texture());
 
 		if (mDDS) mTextures[1]->Path = mMaterials[0]->Name + L"-roughness.dds";
-		else mTextures[1]->Path = mMaterials[0]->Name + L"_roughness.jpg";
+		else mTextures[1]->Path = mMaterials[0]->Name + L"_Roughness.jpg";
 
 		if (mDDS) CreateDDSTextureFromFile(device, upload, mTextures[1]->Path.c_str(), mTextures[1]->Resource.ReleaseAndGetAddressOf(), false);
 		else   CreateWICTextureFromFile(device, upload, mTextures[1]->Path.c_str(), mTextures[1]->Resource.ReleaseAndGetAddressOf(), false);
 
 		hDescriptor.Offset(1, CbvSrvUavDescriptorSize);
 
-		auto foxRough = mTextures[1]->Resource;
+		auto modelRough = mTextures[1]->Resource;
 
 		//D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
 		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-		srvDesc.Format = foxRough->GetDesc().Format;
+		srvDesc.Format = modelRough->GetDesc().Format;
 		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
 		srvDesc.Texture2D.MostDetailedMip = 0;
-		srvDesc.Texture2D.MipLevels = foxRough->GetDesc().MipLevels;
+		srvDesc.Texture2D.MipLevels = modelRough->GetDesc().MipLevels;
 		srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
 
-		device->CreateShaderResourceView(foxRough.Get(), &srvDesc, hDescriptor);
+		device->CreateShaderResourceView(modelRough.Get(), &srvDesc, hDescriptor);
 
 		// Load normal texture
 		mTextures.push_back(new Texture());
 
 		if (mDDS) mTextures[2]->Path = mMaterials[0]->Name + L"-normal.dds";
-		else mTextures[2]->Path = mMaterials[0]->Name + L"_normal.jpg";
+		else mTextures[2]->Path = mMaterials[0]->Name + L"_Normal.jpg";
 
 		if (mDDS)  CreateDDSTextureFromFile(device, upload, mTextures[2]->Path.c_str(), mTextures[2]->Resource.ReleaseAndGetAddressOf(), false);
 		else CreateWICTextureFromFile(device, upload, mTextures[2]->Path.c_str(), mTextures[2]->Resource.ReleaseAndGetAddressOf(), false);
 
 		hDescriptor.Offset(1, CbvSrvUavDescriptorSize);
 
-		auto foxNorm = mTextures[2]->Resource;
+		auto modelNorm = mTextures[2]->Resource;
 
 		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-		srvDesc.Format = foxNorm->GetDesc().Format;
+		srvDesc.Format = modelNorm->GetDesc().Format;
 		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
 		srvDesc.Texture2D.MostDetailedMip = 0;
-		srvDesc.Texture2D.MipLevels = foxNorm->GetDesc().MipLevels;
+		srvDesc.Texture2D.MipLevels = modelNorm->GetDesc().MipLevels;
 		srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
 
-		device->CreateShaderResourceView(foxNorm.Get(), &srvDesc, hDescriptor);
+		device->CreateShaderResourceView(modelNorm.Get(), &srvDesc, hDescriptor);
 
 		// Load metalness texture
 		mTextures.push_back(new Texture());
 
-		if (mMetalness)
-		{
-			if (mDDS) mTextures[3]->Path = mMaterials[0]->Name + L"-metalness.dds";
-			else mTextures[3]->Path = mMaterials[0]->Name + L"_metalness.jpg";
-		}
-		else
-		{
-			if (mDDS) mTextures[3]->Path = L"Models/default.dds";
-			else mTextures[3]->Path = L"Models/default.png";
-		}
+		if (mDDS) mTextures[3]->Path = mMaterials[0]->Name + L"-metalness.dds";
+		else mTextures[3]->Path = mMaterials[0]->Name + L"_Metalness.jpg";
 
 		if (mDDS) CreateDDSTextureFromFile(device, upload, mTextures[3]->Path.c_str(), mTextures[3]->Resource.ReleaseAndGetAddressOf(), false);
 		else   CreateWICTextureFromFile(device, upload, mTextures[3]->Path.c_str(), mTextures[3]->Resource.ReleaseAndGetAddressOf(), false);
+		
+		auto modelMetal = mTextures[3]->Resource;
+
+		if (!modelMetal)
+		{
+			mTextures[3]->Path = L"Models/default.png";
+			CreateWICTextureFromFile(device, upload, mTextures[3]->Path.c_str(), mTextures[3]->Resource.ReleaseAndGetAddressOf(), false);
+			modelMetal = mTextures[3]->Resource;
+		}
 
 		hDescriptor.Offset(1, CbvSrvUavDescriptorSize);
 
-		auto foxMetal = mTextures[3]->Resource;
-
 		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-		srvDesc.Format = foxMetal->GetDesc().Format;
+		srvDesc.Format = modelMetal->GetDesc().Format;
 		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
 		srvDesc.Texture2D.MostDetailedMip = 0;
-		srvDesc.Texture2D.MipLevels = foxMetal->GetDesc().MipLevels;
+		srvDesc.Texture2D.MipLevels = modelMetal->GetDesc().MipLevels;
 		srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
 
-		device->CreateShaderResourceView(foxMetal.Get(), &srvDesc, hDescriptor);
+		device->CreateShaderResourceView(modelMetal.Get(), &srvDesc, hDescriptor);
 
 		// Load height texture
 		mTextures.push_back(new Texture());
 		//mTextures[4]->Path = L"Models/default.png";
 
 		if (mDDS) mTextures[4]->Path = mMaterials[0]->Name + L"-height.dds";
-		else mTextures[4]->Path = mMaterials[0]->Name + L"_displacement.jpg";
+		else mTextures[4]->Path = mMaterials[0]->Name + L"_Displacement.jpg";
 
 		if (mDDS) CreateDDSTextureFromFile(device, upload, mTextures[4]->Path.c_str(), mTextures[4]->Resource.ReleaseAndGetAddressOf(), false);
 		else    CreateWICTextureFromFile(device, upload, mTextures[4]->Path.c_str(), mTextures[4]->Resource.ReleaseAndGetAddressOf(), false);
+
+		auto modelDisplacement = mTextures[4]->Resource;
+		
+		if (!modelDisplacement)
+		{
+			mTextures[5]->Path = L"Models/default.png";
+			CreateWICTextureFromFile(device, upload, mTextures[4]->Path.c_str(), mTextures[4]->Resource.ReleaseAndGetAddressOf(), false);
+			modelDisplacement = mTextures[4]->Resource;
+			mParallax = false;
+		}
+		
 		hDescriptor.Offset(1, CbvSrvUavDescriptorSize);
 
-		auto foxDisplacement = mTextures[4]->Resource;
-
 		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-		srvDesc.Format = foxDisplacement->GetDesc().Format;
+		srvDesc.Format = modelDisplacement->GetDesc().Format;
 		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
 		srvDesc.Texture2D.MostDetailedMip = 0;
-		srvDesc.Texture2D.MipLevels = foxDisplacement->GetDesc().MipLevels;
+		srvDesc.Texture2D.MipLevels = modelDisplacement->GetDesc().MipLevels;
 		srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
 
-		device->CreateShaderResourceView(foxDisplacement.Get(), &srvDesc, hDescriptor);
+		device->CreateShaderResourceView(modelDisplacement.Get(), &srvDesc, hDescriptor);
 
 		// Load ao map
 		mTextures.push_back(new Texture());
 
-		if (mAO)
-		{
-			if (mDDS) mTextures[5]->Path = mMaterials[0]->Name + L"-ao.dds";
-			else mTextures[5]->Path = mMaterials[0]->Name + L"_ao.jpg";
-		}
-		else
-		{
-			if (mDDS) mTextures[5]->Path = L"Models/default.dds";
-			else mTextures[5]->Path = L"Models/default.png";
-		}
+		if (mDDS) mTextures[5]->Path = mMaterials[0]->Name + L"-ao.dds";
+		else mTextures[5]->Path = mMaterials[0]->Name + L"_AO.jpg";
 
 		if (mDDS) CreateDDSTextureFromFile(device, upload, mTextures[5]->Path.c_str(), mTextures[5]->Resource.ReleaseAndGetAddressOf(), false);
 		else    CreateWICTextureFromFile(device, upload, mTextures[5]->Path.c_str(), mTextures[5]->Resource.ReleaseAndGetAddressOf(), false);
+		
+		auto modelAO = mTextures[5]->Resource;
+
+		if (!modelAO)
+		{
+			mTextures[5]->Path = L"Models/default.png";
+			CreateWICTextureFromFile(device, upload, mTextures[5]->Path.c_str(), mTextures[5]->Resource.ReleaseAndGetAddressOf(), false);
+			modelAO = mTextures[5]->Resource;
+		}
 
 		hDescriptor.Offset(1, CbvSrvUavDescriptorSize);
 
-		auto foxAO = mTextures[5]->Resource;
 
 		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-		srvDesc.Format = foxAO->GetDesc().Format;
+		srvDesc.Format = modelAO->GetDesc().Format;
 		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
 		srvDesc.Texture2D.MostDetailedMip = 0;
-		srvDesc.Texture2D.MipLevels = foxAO->GetDesc().MipLevels;
+		srvDesc.Texture2D.MipLevels = modelAO->GetDesc().MipLevels;
 		srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
 
-		device->CreateShaderResourceView(foxAO.Get(), &srvDesc, hDescriptor);
+		device->CreateShaderResourceView(modelAO.Get(), &srvDesc, hDescriptor);
 
 		// Upload the resources to the GPU.
 		auto finish = upload.End(CommandQueue.Get());

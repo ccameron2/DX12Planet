@@ -22,7 +22,7 @@ public:
 	bool mPlanetUpdated = false;
 	float mFrequency = 0.5f;
 	int mLOD = 4;
-	int mMaxLOD = 6;
+	int mMaxLOD = 8;
 	int mOctaves = 8;
 	float mPos[3] = {0,0,0};
 	float mRot[3] = {0,0,0};

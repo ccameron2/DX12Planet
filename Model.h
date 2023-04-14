@@ -11,8 +11,7 @@ class Model
 {
 public:
 	Model(std::string fileName, ID3D12GraphicsCommandList* commandList,
-		Mesh* mesh = nullptr, bool textured = false, bool metalness = false,
-		bool ao = false, bool dds = false, string texOverride = "");
+		Mesh* mesh = nullptr, bool textured = false, bool dds = false, string texOverride = "");
 	~Model();
 
 	std::vector<Mesh*> mMeshes;
@@ -31,7 +30,7 @@ public:
 	void SetRotation(XMFLOAT3 rotation, bool update = true);
 	void SetScale(XMFLOAT3 scale, bool update = true);
 
-	bool mParallax = false;
+	bool mParallax = true;
 	Mesh* mConstructorMesh;
 	bool mTextured = false;
 	std::vector<Material*> mMaterials;
@@ -49,8 +48,5 @@ private:
 	std::string mDirectory;
 	std::string mFileName;
 	bool mDDS = false;
-	bool mMetalness = false;
-	bool mAO = false;
-
 };
 

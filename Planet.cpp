@@ -19,7 +19,7 @@ void Planet::CreatePlanet(float frequency, int octaves, int lod, int scale)
 	mFrequency = frequency;
 	mOctaves = octaves;
 	mScale = scale;
-	mRadius = 1.0f * scale;
+	mRadius *= scale;
 	mMaxDistance = mRadius * (mMaxLOD + 1);
 
 	ResetGeometry();
@@ -99,6 +99,11 @@ void Planet::ResetGeometry()
 	for (auto& sub : mTriangleTree->mSubnodes)
 	{
 		sub->mDistance = (mMaxDistance);
+	}
+
+	for (auto& vertex : mVertices)
+	{
+		ApplyNoise(mFrequency, mOctaves, mNoise, vertex);
 	}
 
 	mTriangles.clear();
@@ -215,7 +220,8 @@ bool Planet::Subdivide(Node* node, int level)
 	for (auto& sub : node->mSubnodes)
 	{
 		sub->mLevel = divLevel;
-		sub->mDistance = mMaxDistance / divLevel;
+		if(sub->mLevel >= mMaxLOD - 1) sub->mDistance = mRadius / mMaxLOD;
+		else sub->mDistance = mMaxDistance / divLevel;
 	}
 	return true;
 }
@@ -240,6 +246,8 @@ int Planet::GetVertexForEdge(int v1, int v2)
 		newPoint.Colour.y = std::lerp(edge1.Colour.y, edge2.Colour.y, 0.5);
 		newPoint.Colour.z = std::lerp(edge1.Colour.z, edge2.Colour.z, 0.5);
 		
+		ApplyNoise(mFrequency, mOctaves, mNoise, newPoint);
+
 		// Add to vertex array
 		mVertices.push_back(newPoint);
 	}
@@ -343,3 +351,16 @@ void Planet::BuildIndices()
 	}
 }
 
+void Planet::ApplyNoise(float frequency, int octaves, FastNoiseLite* noise, Vertex& vertex)
+{
+	XMVECTOR pos = XMLoadFloat3(&vertex.Pos);
+	pos = XMVectorMultiply(pos, { 100,100,100 });
+	XMFLOAT3 position; XMStoreFloat3(&position, pos);
+	auto elevationValue = FractalBrownianMotion(noise, position, octaves, frequency);
+	//auto ElevationValue = 1 + noise.GetNoise(0.5 * vertex.Pos.x * 100, 0.5 * vertex.Pos.y * 100, 0.5 * vertex.Pos.z * 100);
+	elevationValue *= 0.3;
+	auto Radius = Distance(vertex.Pos, XMFLOAT3{ 0,0,0 });
+	vertex.Pos.x *= 1 + (elevationValue / Radius);
+	vertex.Pos.y *= 1 + (elevationValue / Radius);
+	vertex.Pos.z *= 1 + (elevationValue / Radius);
+}

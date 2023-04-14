@@ -55,6 +55,7 @@ void App::Initialize()
 	planetModel->SetPosition(XMFLOAT3{ 0, 0, 0 },false);
 	planetModel->SetRotation(XMFLOAT3{ 0, 0, 0 }, false);
 	planetModel->SetScale(XMFLOAT3{ float(mPlanet->mScale), float(mPlanet->mScale), float(mPlanet->mScale) }, true);
+	planetModel->mParallax = false;
 
 	mModels.push_back(planetModel);
 
@@ -87,12 +88,12 @@ void App::CreateSkybox()
 
 	mSkyMat = new Material();
 	mSkyMat->DiffuseSRVIndex = CurrentSRVOffset;
-	mSkyMat->Name = L"Models/nebula.dds";
+	mSkyMat->Name = L"Models/1knebula.dds";
 
 	Texture* cubeTex = new Texture();
 	DDS_ALPHA_MODE mode = DDS_ALPHA_MODE_OPAQUE;
 	bool cubeMap = true;
-	CreateDDSTextureFromFile(D3DDevice.Get(), upload, L"Models/nebula.dds", cubeTex->Resource.ReleaseAndGetAddressOf(), false, 0Ui64, &mode,&cubeMap);
+	CreateDDSTextureFromFile(D3DDevice.Get(), upload, mSkyMat->Name.c_str(), cubeTex->Resource.ReleaseAndGetAddressOf(), false, 0Ui64, &mode, &cubeMap);
 
 	CD3DX12_CPU_DESCRIPTOR_HANDLE hDescriptor(SrvDescriptorHeap->mHeap->GetCPUDescriptorHandleForHeapStart());
 	// next descriptor
@@ -136,11 +137,11 @@ void App::StartFrame()
 
 void App::LoadModels()
 {
-	Model* foxModel = new Model("Models/polyfox.fbx", mGraphics->mCommandList.Get());
+	Model* foxModel = new Model("Models/sphere.x", mGraphics->mCommandList.Get());
 
 	foxModel->SetPosition(XMFLOAT3{ 4.0f, 0.0f, 0.0f });
 	foxModel->SetRotation(XMFLOAT3{ 90.0f, 0.0f, 0.0f });
-	foxModel->SetScale(XMFLOAT3{ 1, 1, 1 });
+	foxModel->SetScale(XMFLOAT3{ 0.1, 0.1, 0.1 });
 
 	mModels.push_back(foxModel);
 	mColourModels.push_back(foxModel);
@@ -164,33 +165,41 @@ void App::LoadModels()
 	mModels.push_back(slimeModel);
 	mColourModels.push_back(slimeModel);
 
-	Model* octoModel = new Model("Models/octopus.x", mGraphics->mCommandList.Get(), nullptr, true, true, true, true, "tufted-leather");
+	Model* octoModel = new Model("Models/octopus.x", mGraphics->mCommandList.Get(), nullptr, true, true, "pjemy");
 
 	octoModel->SetPosition(XMFLOAT3{ -6.0f, 0.0f, 0.0f });
 	octoModel->SetRotation(XMFLOAT3{ 0.0f, 0.0f, 0.0f });
 	octoModel->SetScale(XMFLOAT3{ 0.5, 0.5, 0.5 });
-	octoModel->mParallax = true;
 	mModels.push_back(octoModel);
 	mTexModels.push_back(octoModel);
 
-	Model* starModel = new Model("Models/starfish.fbx", mGraphics->mCommandList.Get(), nullptr,true,false,true,false);
+	Model* starModel = new Model("Models/starfish.fbx", mGraphics->mCommandList.Get(), nullptr, true, false);
 
 	starModel->SetPosition(XMFLOAT3{ -4.0f, 0.0f, 0.0f });
 	starModel->SetRotation(XMFLOAT3{ 0.0f, 0.0f, 0.0f });
 	starModel->SetScale(XMFLOAT3{ 0.1, 0.1, 0.1 });
-	starModel->mParallax = false;
 	mModels.push_back(starModel);
 	mTexModels.push_back(starModel);
 
 
-	Model* cactusModel = new Model("Models/cactus.fbx", mGraphics->mCommandList.Get(), nullptr, true, false, false, false);
+	Model* cactusModel = new Model("Models/cactus.fbx", mGraphics->mCommandList.Get(), nullptr, true, false);
 
 	cactusModel->SetPosition(XMFLOAT3{ -10.0f, 0.0f, 0.0f });
 	cactusModel->SetRotation(XMFLOAT3{ 0.0f, 0.0f, 0.0f });
 	cactusModel->SetScale(XMFLOAT3{ 0.1, 0.1, 0.1 });
-	cactusModel->mParallax = false;
+	//cactusModel->mParallax = false;
 	mModels.push_back(cactusModel);
 	mTexModels.push_back(cactusModel);
+
+	Model* rockModel = new Model("Models/Rock.fbx", mGraphics->mCommandList.Get(), nullptr, true, false);
+
+	rockModel->SetPosition(XMFLOAT3{ -16.0f, 0.0f, 0.0f });
+	rockModel->SetRotation(XMFLOAT3{ 0.0f, 0.0f, 0.0f });
+	rockModel->SetScale(XMFLOAT3{ 0.1, 0.1, 0.1 });
+	rockModel->mParallax = false;
+	mModels.push_back(rockModel);
+	mTexModels.push_back(rockModel);
+
 
 	mSkyModel = new Model("Models/sphere.x", mGraphics->mCommandList.Get());
 

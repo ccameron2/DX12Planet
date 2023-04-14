@@ -58,30 +58,41 @@ float4 PS(VOut pIn) : SV_Target
 	float3 worldTangent = normalize(pIn.Tangent);
 
 	// Create the bitangent - at right angles to normal and tangent. Then with these three axes, form the tangent matrix - the local axes for the current pixel
-	float3 worldBitangent = cross(worldNormal, worldTangent);
-	float3x3 tangentMatrix = float3x3(worldTangent, worldBitangent, worldNormal);
-
-	// Get displacement at current pixel, convert 0->1 range to -0.5 -> 0.5 range
-	float displacement = Textures[4].Sample(Sampler, pIn.UV).r - 0.5f;
-
-	// Parallax mapping
-	float3 v = normalize(EyePosW - pIn.PosW); // Get normal to camera, called v for view vector in PBR equations
-	float2 uv = 0;
+	// Calculate inverse tangent matrix
+	float3 biTangent = cross(worldNormal, worldTangent);
+	float3x3 invTangentMatrix = float3x3(worldTangent, biTangent, pIn.NormalW);
 	
+	// Get normal to camera, called v for view vector in PBR equations
+	float3 v = normalize(EyePosW - pIn.PosW);
+	
+	// Parallax mapping
+	float2 uv = pIn.UV;
+	
+	float3x3 tangentMatrix = transpose(invTangentMatrix);
+	
+	// Parallax mapping. Comment out for plain normal mapping
 	if (parallax)
 	{
-		float3 parallaxOffset = mul(tangentMatrix, v); // Transform camera normal into tangent space (so it is local to texture)
-		uv = pIn.UV + (gParallaxDepth * displacement * parallaxOffset.xy); // Offset texture uv in camera's view direction based on displacement. You can divide 	                                                                          // this by parallaxOffset.z to remove limiting (stronger effect, prone to artefacts)
+		 // Get camera direction in model space
+		float3x3 invWorldMatrix = transpose((float3x3) World);
+		float3 cameraModelDir = normalize(mul(v, invWorldMatrix));
+
+		 // Calculate direction to offset UVs (x and y of camera direction in tangent space)
+		float3x3 tangentMatrix = transpose(invTangentMatrix);
+		float2 textureOffsetDir = mul(cameraModelDir, tangentMatrix).xy;
+
+		// Offset UVs in that direction to account for depth (using height map and some geometry)
+		float texDepth = gParallaxDepth * (Textures[4].Sample(Sampler, uv).r - 0.5f);
+		uv += texDepth * textureOffsetDir;
 	}
-	else{ uv = pIn.UV; }
 		
+	// Extract normal from map and shift to -1 to 1 range
+	float3 textureNormal = 2.0f * Textures[2].Sample(Sampler, uv).rgb - 1.0f;
+	textureNormal.y = -textureNormal.y;
+
+	// Convert normal from tangent space to world space
+	float3 n = normalize(mul(mul(textureNormal, invTangentMatrix), (float3x3) World));
 	
-	// Sample the normal map - including conversion from 0->1 RGB values to -1 -> 1 XYZ values
-	float3 tangentNormal = normalize(Textures[2].Sample(Sampler, uv).xyz * 2.0f - 1.0f);
-
-	// Convert the sampled normal from tangent space (as it was stored) into world space. This becomes the n, the world normal for the PBR equations below
-	float3 n = mul(tangentNormal, tangentMatrix);
-
 	// Sample PBR textures
 
 	float3 albedo = Textures[0].Sample(Sampler, uv).rgb;

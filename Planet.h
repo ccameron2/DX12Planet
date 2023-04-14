@@ -69,8 +69,9 @@ private:
 	unique_ptr<Node> mTriangleTree;
 	std::map<std::pair<int, int>, int> mVertexMap;
 	std::vector<Vertex> mVertices;
+	std::vector<XMFLOAT3> mOriginalPositions;
 	std::vector<uint32_t> mIndices;
-	float mRadius = 1.0f;
+	float mRadius = 0.5f;
 	float mMaxDistance = 0.0f;
 	float mFrequency;
 	int mOctaves;
@@ -85,5 +86,7 @@ private:
 	void GetTriangles(Node* node);
 	bool CheckNodes(XMFLOAT3 cameraPos, Node* parentNode);
 	bool CombineNodes(Node* node);
+	void ApplyNoise(float frequency, int octaves, FastNoiseLite* noise, Vertex& vertex);
+
 };
 
