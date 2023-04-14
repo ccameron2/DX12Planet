@@ -22,7 +22,7 @@ public:
 
 	void ApplyNoise(float frequency, int octaves, FastNoiseLite* noise, std::vector<Vertex>& vertices);
 
-	int mMaxLOD = 4;
+	int mMaxLOD = 3;
 	Mesh* mMesh;
 	float mSphereOffset = 0.0;
 private:

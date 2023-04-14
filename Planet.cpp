@@ -19,7 +19,7 @@ void Planet::CreatePlanet(float frequency, int octaves, int lod, int scale)
 	mFrequency = frequency;
 	mOctaves = octaves;
 	mScale = scale;
-	mRadius *= scale;
+	mRadius = 0.5 * scale;
 	mMaxDistance = mRadius * (mMaxLOD + 1);
 
 	ResetGeometry();
@@ -216,11 +216,12 @@ bool Planet::Subdivide(Node* node, int level)
 	for (auto& triangle : newTriangles)
 	{
 		node->AddSub(triangle);
+		//mTriangles.push_back(triangle);
 	}
 	for (auto& sub : node->mSubnodes)
 	{
 		sub->mLevel = divLevel;
-		if(sub->mLevel >= mMaxLOD - 1) sub->mDistance = mRadius / mMaxLOD;
+		if(sub->mLevel >= mMaxLOD - 1) sub->mDistance = mRadius / mMaxLOD + 0.3;
 		else sub->mDistance = mMaxDistance / divLevel;
 	}
 	return true;
@@ -354,7 +355,7 @@ void Planet::BuildIndices()
 void Planet::ApplyNoise(float frequency, int octaves, FastNoiseLite* noise, Vertex& vertex)
 {
 	XMVECTOR pos = XMLoadFloat3(&vertex.Pos);
-	pos = XMVectorMultiply(pos, { 100,100,100 });
+	pos = XMVectorMultiply(pos, { 200,200,200 });
 	XMFLOAT3 position; XMStoreFloat3(&position, pos);
 	auto elevationValue = FractalBrownianMotion(noise, position, octaves, frequency);
 	//auto ElevationValue = 1 + noise.GetNoise(0.5 * vertex.Pos.x * 100, 0.5 * vertex.Pos.y * 100, 0.5 * vertex.Pos.z * 100);

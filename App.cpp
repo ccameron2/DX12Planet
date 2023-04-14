@@ -137,11 +137,11 @@ void App::StartFrame()
 
 void App::LoadModels()
 {
-	Model* foxModel = new Model("Models/sphere.x", mGraphics->mCommandList.Get());
+	Model* foxModel = new Model("Models/polyfox.fbx", mGraphics->mCommandList.Get());
 
 	foxModel->SetPosition(XMFLOAT3{ 4.0f, 0.0f, 0.0f });
 	foxModel->SetRotation(XMFLOAT3{ 90.0f, 0.0f, 0.0f });
-	foxModel->SetScale(XMFLOAT3{ 0.1, 0.1, 0.1 });
+	foxModel->SetScale(XMFLOAT3{ 1, 1, 1 });
 
 	mModels.push_back(foxModel);
 	mColourModels.push_back(foxModel);

@@ -112,7 +112,7 @@ void TriangleChunk::ApplyNoise(float frequency, int octaves, FastNoiseLite* nois
 		if (index > 2)
 		{
 			XMVECTOR pos = XMLoadFloat3(&vertex.Pos);
-			pos = XMVectorMultiply(pos, { 100,100,100 });
+			pos = XMVectorMultiply(pos, { 200,200,200 });
 			XMFLOAT3 position; XMStoreFloat3(&position, pos);
 			auto elevationValue = mSphereOffset + FractalBrownianMotion(noise, position, octaves, frequency);
 			//auto ElevationValue = 1 + noise.GetNoise(0.5 * vertex.Pos.x * 100, 0.5 * vertex.Pos.y * 100, 0.5 * vertex.Pos.z * 100);
