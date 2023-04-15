@@ -1,7 +1,5 @@
 #include "common.hlsl"
 
-static bool UseBlinnPhong = false;
-
 struct VIn
 {
 	float3 PosL : POSITION;
@@ -38,23 +36,49 @@ VOut VS(VIn vin)
 float4 PS(VOut pIn) : SV_Target
 {
 	VOut vOut;
-		
-    float3 dx = ddx(pIn.PosW);
-    float3 dy = ddy(pIn.PosW);
 	
-    float3 n = normalize(cross(dx, dy));
+	float3 dx = ddx(pIn.PosW);
+	float3 dy = ddy(pIn.PosW);
+	
+	float3 n = normalize(cross(dx, dy));
 	float3 v = normalize(EyePosW - pIn.PosW); // Get normal to camera, called v for view vector in PBR equations
 	
-    if (UseBlinnPhong)
-    {
-		return BlinnPhong(pIn.Colour, n, v);
-	}
+	// Calculate steepness relative to the up vector
+	float3 pos = normalize(pIn.PosW.xyz);
+	float steepness = dot(n, pos);
 	
-	// Sample PBR material
-	float3 albedo = pIn.Colour;
+	// Assign colors based on steepness
+	float3 albedo;
+	if (steepness > 0.85f) // steep enough for grass
+		albedo = float3(0.2f, 0.6f, 0.2f); // green
+	else if (steepness < 0.75f) // steep enough for stone
+		albedo = float3(0.5f, 0.5f, 0.5f); // grey
+	else // in between, use dirt
+		albedo = float3(0.7f, 0.4f, 0.1f); // brown
+	
+	// Set roughness, metalness, and AO to constant values
 	float roughness = 0.95f;
 	float metalness = 1.0f;
 	float ao = 1.0f;
 	
 	return CalculateLighting(albedo, roughness, metalness, ao, n, v);
 }
+
+//float4 PS(VOut pIn) : SV_Target
+//{
+//	VOut vOut;
+		
+//	float3 dx = ddx(pIn.PosW);
+//	float3 dy = ddy(pIn.PosW);
+	
+//	float3 n = normalize(cross(dx, dy));
+//	float3 v = normalize(EyePosW - pIn.PosW); // Get normal to camera, called v for view vector in PBR equations
+	
+//	// Sample PBR material
+//	float3 albedo = pIn.Colour;
+//	float roughness = 0.95f;
+//	float metalness = 1.0f;
+//	float ao = 1.0f;
+	
+//	return CalculateLighting(albedo, roughness, metalness, ao, n, v);
+//}
