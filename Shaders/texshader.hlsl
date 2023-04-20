@@ -67,9 +67,7 @@ float4 PS(VOut pIn) : SV_Target
 	
 	// Parallax mapping
 	float2 uv = pIn.UV;
-	
-	float3x3 tangentMatrix = transpose(invTangentMatrix);
-	
+		
 	// Parallax mapping. Comment out for plain normal mapping
 	if (parallax)
 	{

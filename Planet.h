@@ -84,9 +84,11 @@ private:
 	int GetVertexForEdge(int v1, int v2);
 	std::vector<Triangle> SubdivideTriangle(Triangle triangle);
 	void GetTriangles(Node* node);
-	bool CheckNodes(XMFLOAT3 cameraPos, Node* parentNode);
+	bool CheckNodes(Camera* camera, Node* parentNode);
 	bool CombineNodes(Node* node);
 	void ApplyNoise(float frequency, int octaves, FastNoiseLite* noise, Vertex& vertex);
+	float CheckNodeSize(Node* node, Camera* camera);
+	XMFLOAT2 WorldToScreen(XMFLOAT3 worldPos, Camera* camera);
 
 };
 

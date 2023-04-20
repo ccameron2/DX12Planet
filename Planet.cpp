@@ -21,7 +21,9 @@ void Planet::CreatePlanet(float frequency, int octaves, int lod, int scale)
 	mScale = scale;
 	mRadius = 0.5 * scale;
 	mMaxDistance = mRadius * (mMaxLOD + 1);
-
+	mVertices.reserve(sizeof(Vertex) * MAX_PLANET_VERTS);
+	mTriangles.reserve(sizeof(Triangle) * MAX_PLANET_VERTS);
+	mIndices.reserve(sizeof(int) * MAX_PLANET_VERTS * 3);
 	ResetGeometry();
 
 	BuildIndices();
@@ -125,7 +127,7 @@ void Planet::GetTriangles(Node* node)
 	}
 }
 
-bool Planet::CheckNodes(XMFLOAT3 cameraPos, Node* parentNode)
+bool Planet::CheckNodes(Camera* camera, Node* parentNode)
 {
 	bool ret = false;
 	bool combine = false;
@@ -133,13 +135,13 @@ bool Planet::CheckNodes(XMFLOAT3 cameraPos, Node* parentNode)
 	{
 		if (node->mNumSubs == 0)
 		{
-			auto distance = CheckNodeDistance(node, cameraPos);
-			if (distance < node->mDistance)
+			auto distance = CheckNodeSize(node, camera);
+			if (distance > 100000)
 			{
 				ret = Subdivide(node, node->mLevel);	
 				//ret = true;
 			}
-			else if (distance > node->mDistance + 2)
+			else if (distance > node->mDistance + 4)
 			{
 				node->mCombine = true;
 				ret = true;
@@ -147,7 +149,7 @@ bool Planet::CheckNodes(XMFLOAT3 cameraPos, Node* parentNode)
 		}
 		else
 		{
-			ret = ret || CheckNodes(cameraPos, node);
+			ret = ret || CheckNodes(camera, node);
 		}
 	}
 
@@ -156,21 +158,18 @@ bool Planet::CheckNodes(XMFLOAT3 cameraPos, Node* parentNode)
 
 bool Planet::CombineNodes(Node* node)
 {
-	if (node->mLevel != 0)
+	if (node->mCombine)
 	{
-		if (node->mCombine)
+		for (auto& subNode : node->mParent->mSubnodes) delete subNode;
+		return true;
+	}
+	else
+	{
+		for (auto& subNode : node->mSubnodes)
 		{
-			if (node->mLevel < mCombineLOD) mCombineLOD = node->mLevel;
-			return true;
+			CombineNodes(subNode);
 		}
-		else
-		{
-			for (auto& subNode : node->mSubnodes)
-			{
-				CombineNodes(subNode);
-			}
-		}
-	}	
+	}
 	return false;
 }
 
@@ -178,15 +177,17 @@ bool Planet::Update(Camera* camera)
 {
 	SortBaseNodes(camera->mPos);
 
-	if (CheckNodes(camera->mPos, mTriangleTree.get()))
+	if (CheckNodes(camera, mTriangleTree.get()))
 	{
-/*		bool combine = false;
-		for (auto& subNode : mTriangleTree->mSubnodes) { if (CombineNodes(subNode)) combine = true; }
-		if (combine)
+		//log2(distance) > something 
+		//; log2(distance) > MaxLOD
+		//bool combine = false;
+		//for (auto& subNode : mTriangleTree->mSubnodes) { if (CombineNodes(subNode)) combine = true; }
+/*		if (combine)
 		{
 			CreatePlanet(mFrequency, mOctaves, mCombineLOD);
 		}
-		else {*/ BuildIndices(); /*}*/
+		//else { */BuildIndices();/* }*/
 		mMesh->mVertices = mVertices;
 		mMesh->mIndices = mIndices;
 		mMesh->CalculateDynamicBufferData();
@@ -216,7 +217,8 @@ bool Planet::Subdivide(Node* node, int level)
 	for (auto& triangle : newTriangles)
 	{
 		node->AddSub(triangle);
-		//mTriangles.push_back(triangle);
+		//dont use pushback
+		mTriangles.push_back(triangle);
 	}
 	for (auto& sub : node->mSubnodes)
 	{
@@ -229,6 +231,7 @@ bool Planet::Subdivide(Node* node, int level)
 
 int Planet::GetVertexForEdge(int v1, int v2)
 {
+	//mTriangles.reserve(num pushbacks)
 	// Create pair to use as key in map and normalise edge direction to prevent duplication
 	std::pair<int, int> vertexPair(v1, v2);
 	if (vertexPair.first > vertexPair.second) { std::swap(vertexPair.first, vertexPair.second); }
@@ -265,7 +268,7 @@ float Planet::CheckNodeDistance(Node* node, XMFLOAT3 cameraPos)
 	auto checkPoint = Center(A, B, C);
 	auto checkVector = XMFLOAT3{ checkPoint.x,checkPoint.y, checkPoint.z };
 	auto distance = Distance(cameraPos, checkVector);
-
+	
 	return distance;
 }
 
@@ -277,14 +280,12 @@ void Planet::SortBaseNodes(XMFLOAT3 cameraPos)
 		distArray[i] = CheckNodeDistance(mTriangleTree->mSubnodes[i], cameraPos);
 	}
 
-	// First, we need to create an array to hold the indices of mSubnodes
 	int subnodeIndices[20];
 	for (int i = 0; i < 20; i++)
 	{
 		subnodeIndices[i] = i;
 	}
 
-	// Next, we'll use a simple selection sort algorithm to sort the subnodeIndices array based on the distances in distArray
 	for (int i = 0; i < 19; i++)
 	{
 		int minIndex = i;
@@ -296,20 +297,17 @@ void Planet::SortBaseNodes(XMFLOAT3 cameraPos)
 			}
 		}
 
-		// Swap the elements at minIndex and i
 		int temp = subnodeIndices[minIndex];
 		subnodeIndices[minIndex] = subnodeIndices[i];
 		subnodeIndices[i] = temp;
 	}
 
-	// Finally, we can create a new array of subnodes in the sorted order
 	std::vector<Node*> sortedSubnodes;
 	for (int i = 0; i < 20; i++)
 	{
 		sortedSubnodes.push_back(mTriangleTree->mSubnodes[subnodeIndices[i]]);
 	}
 
-	// Replace the mSubnodes array in mTriangleTree with the sorted array
 	mTriangleTree->mSubnodes = sortedSubnodes;
 }
 
@@ -336,7 +334,6 @@ std::vector<Triangle> Planet::SubdivideTriangle(Triangle triangle)
 void Planet::BuildIndices()
 {
 	mTriangles.clear();
-
 	for (auto& node : mTriangleTree->mSubnodes)
 	{
 		GetTriangles(node);
@@ -364,4 +361,61 @@ void Planet::ApplyNoise(float frequency, int octaves, FastNoiseLite* noise, Vert
 	vertex.Pos.x *= 1 + (elevationValue / Radius);
 	vertex.Pos.y *= 1 + (elevationValue / Radius);
 	vertex.Pos.z *= 1 + (elevationValue / Radius);
+}
+
+float Planet::CheckNodeSize(Node* node, Camera* camera)
+{
+	auto A = mVertices[node->mTriangle.Point[0]].Pos;
+	auto B = mVertices[node->mTriangle.Point[1]].Pos;
+	auto C = mVertices[node->mTriangle.Point[2]].Pos;
+
+	// Calculate the projection of the triangle vertices onto the screen
+	auto projA = WorldToScreen(A, camera);
+	auto projB = WorldToScreen(B, camera);
+	auto projC = WorldToScreen(C, camera);
+
+	XMFLOAT3 projA3 = {projA.x,projA.y,0};
+	XMFLOAT3 projB3 = {projB.x,projB.y,0};
+	XMFLOAT3 projC3 = {projC.x,projC.y,0};
+
+	// Calculate the distance between the projected vertices
+	auto distAB = Distance(projA3, projB3);
+	auto distBC = Distance(projB3, projC3);
+	auto distCA = Distance(projC3, projA3);
+
+	// Calculate the average distance between the projected vertices, which is the size of the triangle on the screen
+	auto size = (distAB + distBC + distCA) / 3.0f;
+
+	return size;
+}
+
+XMFLOAT2 Planet::WorldToScreen(XMFLOAT3 worldPos, Camera* camera)
+{
+	// Calculate the world-space position of the vertex relative to the camera
+	auto relativePos = SubFloat3(worldPos, camera->mPos);
+
+	// Apply the perspective projection matrix to the vertex
+	auto projPos = XMVector3TransformCoord(XMLoadFloat3(&relativePos), XMLoadFloat4x4(&camera->mProjectionMatrix));
+
+	XMFLOAT4X4 viewportMatrix = {
+	camera->mWindowWidth * 0.5f, 0.0f, 0.0f, 0.0f,
+	0.0f, -camera->mWindowHeight * 0.5f, 0.0f, 0.0f,
+	0.0f, 0.0f, camera->FarZ - camera->NearZ, 0.0f,
+	camera->mWindowWidth * 0.5f,camera->mWindowHeight * 0.5f, camera->NearZ, 1.0f
+	};
+
+	// Normalize the projected vertex coordinates
+	XMVECTOR ndcPos = XMVector3TransformCoord(projPos, XMLoadFloat4x4(&viewportMatrix));
+	ndcPos /= XMVectorGetW(ndcPos);
+	
+	XMFLOAT3 ndcPosF;
+	XMStoreFloat3(&ndcPosF, ndcPos);
+
+	// Map the normalized device coordinates to screen space
+	auto screenPos = XMFLOAT2{
+		(ndcPosF.x + 1.0f) * 0.5f * camera->mWindowWidth,
+		(1.0f - ndcPosF.y) * 0.5f * camera->mWindowHeight
+	};
+
+	return screenPos;
 }

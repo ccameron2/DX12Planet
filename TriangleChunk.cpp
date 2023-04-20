@@ -2,6 +2,9 @@
 
 TriangleChunk::TriangleChunk(Vertex v1, Vertex v2, Vertex v3, float frequency, int octaves, FastNoiseLite* noise, ID3D12GraphicsCommandList* commandList)
 {
+	mVertices.reserve(sizeof(Vertex) * pow(mMaxLOD, 2));
+	mIndices.reserve(sizeof(int) * pow(mMaxLOD, 2) * 3);
+
 	Subdivide(v1, v2, v3);
 	ApplyNoise(frequency,octaves,noise,mVertices);
 
@@ -30,6 +33,7 @@ bool TriangleChunk::Subdivide(Vertex v1, Vertex v2, Vertex v3, int level)
 
 	// Add initial triangle to list
 	std::vector<Triangle> triangles;
+	triangles.reserve(sizeof(Triangle) * pow(mMaxLOD, 2));
 	triangles.push_back(initialTriangle);
 
 	// Subdivide triangles
@@ -42,7 +46,6 @@ bool TriangleChunk::Subdivide(Vertex v1, Vertex v2, Vertex v3, int level)
 			std::vector<Triangle> subdividedTriangles = SubdivideTriangle(triangle);
 			newTriangles.insert(newTriangles.end(), subdividedTriangles.begin(), subdividedTriangles.end());
 		}
-
 		triangles = newTriangles;
 	}
 
@@ -87,7 +90,7 @@ int TriangleChunk::GetVertexForEdge(int v1, int v2)
 std::vector<Triangle> TriangleChunk::SubdivideTriangle(Triangle triangle)
 {
 	std::vector<Triangle> newTriangles;
-
+	newTriangles.reserve(sizeof(Triangle) * 4);
 	// For each edge
 	std::uint32_t mid[3];
 	for (int i = 0; i < 3; i++)

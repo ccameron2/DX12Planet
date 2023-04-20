@@ -13,7 +13,7 @@ struct Light
 	float SpotPower; // spot light only
 };
 
-static const float gParallaxDepth = 0.06f;
+static const float gParallaxDepth = 0.03f;
 static const float PI = 3.1415f;
 static const float GAMMA = 2.2f;
 

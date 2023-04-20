@@ -88,12 +88,12 @@ void App::CreateSkybox()
 
 	mSkyMat = new Material();
 	mSkyMat->DiffuseSRVIndex = CurrentSRVOffset;
-	mSkyMat->Name = L"Models/1knebula.dds";
+	mSkyMat->Name = L"Models/4knebula.dds";
 
 	Texture* cubeTex = new Texture();
 	DDS_ALPHA_MODE mode = DDS_ALPHA_MODE_OPAQUE;
 	bool cubeMap = true;
-	CreateDDSTextureFromFile(D3DDevice.Get(), upload, mSkyMat->Name.c_str(), cubeTex->Resource.ReleaseAndGetAddressOf(), false, 0Ui64, &mode, &cubeMap);
+	CreateDDSTextureFromFile(D3DDevice.Get(), upload, mSkyMat->Name.c_str(), cubeTex->Resource.ReleaseAndGetAddressOf(), true, 0Ui64, &mode, &cubeMap);
 
 	CD3DX12_CPU_DESCRIPTOR_HANDLE hDescriptor(SrvDescriptorHeap->mHeap->GetCPUDescriptorHandleForHeapStart());
 	// next descriptor
@@ -193,10 +193,10 @@ void App::LoadModels()
 
 	Model* rockModel = new Model("Models/Rock.fbx", mGraphics->mCommandList.Get(), nullptr, true, false);
 
-	rockModel->SetPosition(XMFLOAT3{ -16.0f, 0.0f, 0.0f });
+	rockModel->SetPosition(XMFLOAT3{ -14.0f, 0.0f, 0.0f });
 	rockModel->SetRotation(XMFLOAT3{ 0.0f, 0.0f, 0.0f });
-	rockModel->SetScale(XMFLOAT3{ 0.1, 0.1, 0.1 });
-	rockModel->mParallax = false;
+	rockModel->SetScale(XMFLOAT3{ 0.03, 0.03, 0.03 });
+	//rockModel->mParallax = false;
 	mModels.push_back(rockModel);
 	mTexModels.push_back(rockModel);
 
@@ -219,7 +219,7 @@ void App::BuildFrameResources()
 {
 	for (int i = 0; i < mGraphics->mNumFrameResources; i++)
 	{
-		FrameResources.push_back(std::make_unique<FrameResource>(D3DDevice.Get(), 1, mModels.size(), 5000000, 15000000, mMaterials.size())); //1 for planet
+		FrameResources.push_back(std::make_unique<FrameResource>(D3DDevice.Get(), 1, mModels.size(), MAX_PLANET_VERTS, MAX_PLANET_VERTS * 3, mMaterials.size())); //1 for planet
 	}
 }
 

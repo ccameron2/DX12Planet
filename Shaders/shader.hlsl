@@ -37,48 +37,7 @@ VOut VS(VIn vin)
 float4 PS(VOut pIn) : SV_Target
 {
 	VOut vOut;
-	
-	//float3 worldNormal = normalize(pIn.NormalW);
-	
-	//// Blinn-Phong lighting (Point)
-	////float3 lightVector = Lights[0].Position - pIn.PosW;
-	////float lightDistance = length(lightVector);
-	////float3 lightNormal = lightVector / lightDistance;
-	////float3 cameraNormal = normalize(EyePosW - pIn.PosW);
-	////float3 halfwayNormal = normalize(cameraNormal + lightNormal);
-	
-	//// Attenuate light colour
-	////float3 attLightColour = Lights[0].Colour / lightDistance;
-	
-	//// Diffuse
-	////float lightDiffuseLevel = saturate(dot(worldNormal, lightNormal));
-	////float3 lightDiffuseColour = attLightColour * lightDiffuseLevel;
-	
-	//// Specular
-	////float lightSpecularLevel = saturate(dot(worldNormal, halfwayNormal));
-	////float3 lightSpecularColour = lightDiffuseColour * lightSpecularLevel;
-	
-	//// Blinn-Phong lighting (Direction)
-	//float3 lightVector = -Lights[0].Direction;
-	//float3 cameraNormal = normalize(EyePosW - pIn.PosW);
-	//float3 halfwayNormal = normalize(cameraNormal + lightVector);
-	
-	//// Diffuse
-	//float lightDiffuseLevel = saturate(dot(worldNormal, lightVector));
-	//float3 lightDiffuseColour = Lights[0].Colour * lightDiffuseLevel;
-	
-	//// Specular
-	//float lightSpecularLevel = saturate(dot(worldNormal, halfwayNormal));
-	//float3 lightSpecularColour = lightDiffuseColour * lightSpecularLevel;
-	
-	//float4 diffuseColour = pIn.Colour;
-	//diffuseColour = DiffuseAlbedo;
-	
-	//float3 specularColour = { 1.0f, 1.0f, 1.0f };
-	//float3 finalColour = diffuseColour.rgb * (AmbientLight.rgb + lightDiffuseColour) + (specularColour * lightSpecularColour);
 
-	////return float4(finalColour.xyz, 1.0f);
-	
 	// Renormalise pixel normal and tangent because interpolation from the vertex shader can introduce scaling (refer to Graphics module lecture notes)
 	float3 worldNormal = normalize(pIn.NormalW);
 	
@@ -86,7 +45,6 @@ float4 PS(VOut pIn) : SV_Target
 	float3 n = worldNormal;
 
 	// Sample PBR textures
-
 	float3 albedo = DiffuseAlbedo;
 	float roughness = Roughness;
 	float metalness = Metallic;

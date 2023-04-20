@@ -350,7 +350,7 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 		
 		if (!modelDisplacement)
 		{
-			mTextures[5]->Path = L"Models/default.png";
+			mTextures[4]->Path = L"Models/default.png";
 			CreateWICTextureFromFile(device, upload, mTextures[4]->Path.c_str(), mTextures[4]->Resource.ReleaseAndGetAddressOf(), false);
 			modelDisplacement = mTextures[4]->Resource;
 			mParallax = false;
