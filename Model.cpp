@@ -28,6 +28,7 @@ Model::Model(std::string fileName, ID3D12GraphicsCommandList* commandList, Mesh*
 		{
 			LPCWSTR str = LPCWSTR(importer.GetErrorString());
 			MessageBox(0, L"Error importing models", L"Error", MB_OK);
+			//MessageBox(0, str, L"Error", MB_OK);
 		}
 
 		mDirectory = fileName.substr(0, fileName.find_last_of('/'));

@@ -60,13 +60,14 @@ void App::Initialize()
 	mModels.push_back(planetModel);
 
 	LoadModels();
+
+	CreateSkybox();
+
 	CreateMaterials();
 
 	BuildFrameResources();
 
 	mNumModels = mModels.size();
-
-	//CreateSkybox();
 
 	mGraphics->CreateRootSignature();
 
@@ -88,7 +89,7 @@ void App::CreateSkybox()
 
 	mSkyMat = new Material();
 	mSkyMat->DiffuseSRVIndex = CurrentSRVOffset;
-	mSkyMat->Name = L"Models/4knebula.dds";
+	mSkyMat->Name = L"Models/1knebula.dds";
 
 	Texture* cubeTex = new Texture();
 	DDS_ALPHA_MODE mode = DDS_ALPHA_MODE_OPAQUE;
@@ -139,6 +140,15 @@ void App::LoadModels()
 {
 	auto commandList = mGraphics->mCommandList.Get();
 
+	Model* octoModel2 = new Model("Models/bikegirl.", commandList);
+
+	octoModel2->SetPosition(XMFLOAT3{ -10.0f, 0.0f, 0.0f });
+	octoModel2->SetRotation(XMFLOAT3{ 90.0f, 0.0f, 0.0f });
+	octoModel2->SetScale(XMFLOAT3{ 1, 1, 1 });
+	mModels.push_back(octoModel2);
+	mColourModels.push_back(octoModel2);
+	
+	
 	Model* octoModel = new Model("Models/octopus.x", commandList, nullptr, "tufted-leather");
 
 	octoModel->SetPosition(XMFLOAT3{ -6.0f, 0.0f, 0.0f });
@@ -211,13 +221,13 @@ void App::LoadModels()
 	mTexModels.push_back(rockModel);
 
 
-	//mSkyModel = new Model("Models/sphere.x", commandList);
+	mSkyModel = new Model("Models/sphere.x", commandList);
 
-	//mSkyModel->SetPosition(XMFLOAT3{ 0.0f, 0.0f, 0.0f });
-	//mSkyModel->SetRotation(XMFLOAT3{ 0.0f, 0.0f, 0.0f });
-	//mSkyModel->SetScale(XMFLOAT3{ 1, 1, 1 });
+	mSkyModel->SetPosition(XMFLOAT3{ 0.0f, 0.0f, 0.0f });
+	mSkyModel->SetRotation(XMFLOAT3{ 0.0f, 0.0f, 0.0f });
+	mSkyModel->SetScale(XMFLOAT3{ 1, 1, 1 });
 
-	//mModels.push_back(mSkyModel);
+	mModels.push_back(mSkyModel);
 
 	for (int i = 0; i < mModels.size(); i++)
 	{
@@ -279,14 +289,11 @@ void App::Update(float frameTime)
 	if (mWindow->mUp)	mCamera->MoveUp();
 	if (mWindow->mDown)	mCamera->MoveDown();
 
-	//TEMP
+	//Reset command allocator and list before planet updates as meshes can be spawned
 	auto commandAllocator = mGraphics->mCurrentFrameResource->mCommandAllocator.Get();
 	auto commandList = mGraphics->mCommandList;
-
 	mGraphics->ResetCommandAllocator(commandAllocator);
-
 	mGraphics->ResetCommandList(commandAllocator, mCurrentPSO);
-	//
 	
 	if (mPlanet->Update(mCamera.get()))
 	{
@@ -439,9 +446,9 @@ void App::Draw(float frameTime)
 	auto perFrameBuffer = mGraphics->mCurrentFrameResource->mPerFrameConstantBuffer->GetBuffer();
 	commandList->SetGraphicsRootConstantBufferView(2, perFrameBuffer->GetGPUVirtualAddress());
 
-	/*CD3DX12_GPU_DESCRIPTOR_HANDLE cubeTex(SrvDescriptorHeap->mHeap->GetGPUDescriptorHandleForHeapStart());
+	CD3DX12_GPU_DESCRIPTOR_HANDLE cubeTex(SrvDescriptorHeap->mHeap->GetGPUDescriptorHandleForHeapStart());
 	cubeTex.Offset(mSkyMat->DiffuseSRVIndex, CbvSrvUavDescriptorSize);
-	commandList->SetGraphicsRootDescriptorTable(4, cubeTex);*/
+	commandList->SetGraphicsRootDescriptorTable(4, cubeTex);
 
 	DrawPlanet(commandList.Get());
 
@@ -449,7 +456,7 @@ void App::Draw(float frameTime)
 
 	commandList->SetPipelineState(mGraphics->mSkyPSO.Get());
 
-	//mSkyModel->Draw(commandList.Get());
+	mSkyModel->Draw(commandList.Get());
 
 	mGraphics->ResolveMSAAToBackBuffer();
 
