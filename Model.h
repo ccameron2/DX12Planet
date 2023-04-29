@@ -32,6 +32,7 @@ public:
 
 	bool mParallax = true;
 	Mesh* mConstructorMesh;
+
 	bool mTextured = false;
 private:
 	void ProcessNode(aiNode* node, const aiScene* scene);
@@ -48,5 +49,7 @@ private:
 	bool mDDS = false;
 	bool mJPG = false;
 	bool mPNG = false;
+	bool mModelTextured = false;
+	bool mMeshTextured = false;
 };
 

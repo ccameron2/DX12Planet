@@ -19,8 +19,8 @@ Model::Model(std::string fileName, ID3D12GraphicsCommandList* commandList, Mesh*
 			aiProcess_RemoveRedundantMaterials |
 			aiProcess_SortByPType |
 			aiProcess_FindInvalidData |
-			aiProcess_OptimizeMeshes |
-			aiProcess_OptimizeGraph |
+			//aiProcess_OptimizeMeshes |
+			//aiProcess_OptimizeGraph |
 			aiProcess_CalcTangentSpace |
 			aiProcess_ConvertToLeftHanded);
 
@@ -102,14 +102,6 @@ void Model::Draw(ID3D12GraphicsCommandList* commandList)
 		commandList->SetGraphicsRootConstantBufferView(3, matCBAddress);
 
 		mConstructorMesh->Draw(commandList);
-	}
-
-	for (auto mesh : mMeshes)
-	{
-		if (!mTextured)
-		{
-		}	
-		
 	}
 }
 
@@ -238,7 +230,7 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 	ResourceUploadBatch upload(device);
 	upload.Begin();
 
-	// Load albedo map
+	// Test for albedo map using model name
 	newMesh->mTextures.push_back(new Texture());
 	auto texIndex = 0;
 
@@ -246,6 +238,7 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 	CreateDDSTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
 	if (newMesh->mTextures[texIndex]->Resource != nullptr)
 	{
+		mModelTextured = true;
 		mTextured = true;
 		mDDS = true;
 	}
@@ -266,15 +259,16 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 				// No textures found
 				newMesh->mMaterial = nullptr;
 				newMesh->mTextures.clear();
+				mModelTextured = false;
 				mTextured = false;
 			}
-			else { mTextured = true; mPNG = true; };
+			else { mModelTextured = true; mTextured = true; mPNG = true; };
 		}
-		else { mTextured = true; mJPG = true; };
+		else { mModelTextured = true; mTextured = true; mJPG = true; };
 	}
 
 	// If textures found, load the rest
-	if(mTextured)
+	if(mModelTextured)
 	{
 		// Load albedo
 		auto modelTex = newMesh->mTextures[texIndex]->Resource;
@@ -501,12 +495,6 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 
 		device->CreateShaderResourceView(modelAO.Get(), &srvDesc, hDescriptor);
 
-		// Upload the resources to the GPU.
-		auto finish = upload.End(CommandQueue.Get());
-
-		// Wait for the upload thread to terminate
-		finish.wait();
-
 		aiMaterial* assimpMaterial = scene->mMaterials[mesh->mMaterialIndex];
 
 		aiColor4D diffuseColour;
@@ -522,11 +510,12 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 		newMesh->mMaterial->Metalness = metalness;
 
 		CurrentSRVOffset += 6;
+
+		auto finish = upload.End(CommandQueue.Get());
+		finish.wait();
 	}
 	else
 	{
-		auto finish = upload.End(CommandQueue.Get());
-		finish.wait();
 
 		// Process base materials
 		if (scene->HasMaterials())
@@ -537,30 +526,94 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 
 				// Diffuse maps
 				vector<Texture*> diffuseMaps = LoadMaterialTextures(assimpMaterial, aiTextureType_DIFFUSE, "texture_diffuse", scene);
-				newMesh->mTextures.insert(newMesh->mTextures.end(), diffuseMaps.begin(), diffuseMaps.end());
+				//newMesh->mTextures.insert(newMesh->mTextures.end(), diffuseMaps.begin(), diffuseMaps.end());
 
 				// Base Colour maps
 				vector<Texture*> baseColourMaps = LoadMaterialTextures(assimpMaterial, aiTextureType_BASE_COLOR, "texture_base_colour", scene);
-				newMesh->mTextures.insert(newMesh->mTextures.end(), baseColourMaps.begin(), baseColourMaps.end());
+				//newMesh->mTextures.insert(newMesh->mTextures.end(), baseColourMaps.begin(), baseColourMaps.end());
 
-				Material* material = new Material;
+				newMesh->mMaterial = new Material;
 				aiString materialName;
 				assimpMaterial->Get(AI_MATKEY_NAME, materialName);
-				material->AiName = materialName;
+				newMesh->mMaterial->AiName = materialName;
+
+				// Load textures from aiMat if exist
+
+				// Test for albedo map using mesh name
+				newMesh->mTextures.push_back(new Texture());
+				auto texIndex = 0;
+				
+				string str = mDirectory + "/" + materialName.C_Str();
+				wstring wstr(str.begin(), str.end());
+				newMesh->mTextures[texIndex]->Path = wstr + L"-albedo.dds";
+				
+				CreateDDSTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+				if (newMesh->mTextures[texIndex]->Resource != nullptr)
+				{
+					mMeshTextured = true;
+					mTextured = true;
+					mDDS = true;
+				}
+
+				// Test other file extensions if DDS not found
+				if (!mDDS)
+				{
+					// Test jpg
+					newMesh->mTextures[texIndex]->Path = wstr + L"-albedo.jpg";
+					CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+					if (!newMesh->mTextures[texIndex]->Resource)
+					{
+						// Test png
+						newMesh->mTextures[texIndex]->Path = wstr + L"-albedo.png";
+						CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+						if (!newMesh->mTextures[texIndex]->Resource)
+						{
+							// No textures found
+							//newMesh->mMaterial = nullptr;
+							newMesh->mTextures.clear();
+							mMeshTextured = false;
+							mTextured = false;
+						}
+						else { mMeshTextured = true; mTextured = true; mPNG = true; };
+					}
+					else { mMeshTextured = true; mTextured = true; mJPG = true; };
+				}
+
+				if (mMeshTextured)
+				{
+					// Fill out the heap with actual descriptors.
+					CD3DX12_CPU_DESCRIPTOR_HANDLE hDescriptor(SrvDescriptorHeap->mHeap->GetCPUDescriptorHandleForHeapStart());
+					// next descriptor
+					hDescriptor.Offset(CurrentSRVOffset, CbvSrvUavDescriptorSize);
+
+					newMesh->mMaterial->DiffuseSRVIndex = CurrentSRVOffset;
+
+					D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+					srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+					srvDesc.Format = newMesh->mTextures[texIndex]->Resource->GetDesc().Format;
+					srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+					srvDesc.Texture2D.MostDetailedMip = 0;
+					srvDesc.Texture2D.MipLevels = newMesh->mTextures[texIndex]->Resource->GetDesc().MipLevels;
+					srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
+
+					device->CreateShaderResourceView(newMesh->mTextures[texIndex]->Resource.Get(), &srvDesc, hDescriptor);
+					CurrentSRVOffset++;
+				}
 
 				aiColor4D diffuseColour;
 				assimpMaterial->Get(AI_MATKEY_COLOR_DIFFUSE, diffuseColour);
-				material->DiffuseAlbedo = XMFLOAT4{ diffuseColour.r,diffuseColour.g,diffuseColour.b,diffuseColour.a };
+				newMesh->mMaterial->DiffuseAlbedo = XMFLOAT4{ diffuseColour.r,diffuseColour.g,diffuseColour.b,diffuseColour.a };
 
 				float roughness = 0.0f;
 				assimpMaterial->Get(AI_MATKEY_ROUGHNESS_FACTOR, roughness);
-				material->Roughness = roughness;
+				newMesh->mMaterial->Roughness = roughness;
 
 				float metalness = 0.0f;
 				assimpMaterial->Get(AI_MATKEY_METALLIC_FACTOR, metalness);
-				material->Metalness = metalness;
+				newMesh->mMaterial->Metalness = metalness;
 
-				newMesh->mMaterial = material;
+				auto finish = upload.End(CommandQueue.Get());
+				finish.wait();
 			}
 		}
 

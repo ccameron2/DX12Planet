@@ -24,6 +24,7 @@ void Planet::CreatePlanet(float frequency, int octaves, int lod, int scale)
 	mVertices.reserve(sizeof(Vertex) * MAX_PLANET_VERTS);
 	mTriangles.reserve(sizeof(Triangle) * MAX_PLANET_VERTS);
 	mIndices.reserve(sizeof(int) * MAX_PLANET_VERTS * 3);
+
 	ResetGeometry();
 
 	BuildIndices();

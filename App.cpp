@@ -140,13 +140,13 @@ void App::LoadModels()
 {
 	auto commandList = mGraphics->mCommandList.Get();
 
-	Model* octoModel2 = new Model("Models/bikegirl.", commandList);
+	Model* octoModel2 = new Model("Models/foxgirl.fbx", commandList);
 
 	octoModel2->SetPosition(XMFLOAT3{ -10.0f, 0.0f, 0.0f });
 	octoModel2->SetRotation(XMFLOAT3{ 90.0f, 0.0f, 0.0f });
 	octoModel2->SetScale(XMFLOAT3{ 1, 1, 1 });
 	mModels.push_back(octoModel2);
-	mColourModels.push_back(octoModel2);
+	mTexModels.push_back(octoModel2);
 	
 	
 	Model* octoModel = new Model("Models/octopus.x", commandList, nullptr, "tufted-leather");
