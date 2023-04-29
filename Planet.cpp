@@ -135,8 +135,8 @@ bool Planet::CheckNodes(Camera* camera, Node* parentNode)
 	{
 		if (node->mNumSubs == 0)
 		{
-			auto distance = CheckNodeSize(node, camera);
-			if (distance > 100000)
+			auto distance = CheckNodeDistance(node, camera->mPos);
+			if (distance < node->mDistance)
 			{
 				ret = Subdivide(node, node->mLevel);	
 				//ret = true;

@@ -11,7 +11,7 @@ class Model
 {
 public:
 	Model(std::string fileName, ID3D12GraphicsCommandList* commandList,
-		Mesh* mesh = nullptr, bool textured = false, bool dds = false, string texOverride = "");
+		Mesh* mesh = nullptr, string texOverride = "");
 	~Model();
 
 	std::vector<Mesh*> mMeshes;
@@ -33,8 +33,6 @@ public:
 	bool mParallax = true;
 	Mesh* mConstructorMesh;
 	bool mTextured = false;
-	std::vector<Material*> mMaterials;
-	std::vector<Texture*> mTextures;
 private:
 	void ProcessNode(aiNode* node, const aiScene* scene);
 	Mesh* ProcessMesh(aiMesh* mesh, const aiScene* scene);
@@ -48,5 +46,7 @@ private:
 	std::string mDirectory;
 	std::string mFileName;
 	bool mDDS = false;
+	bool mJPG = false;
+	bool mPNG = false;
 };
 
