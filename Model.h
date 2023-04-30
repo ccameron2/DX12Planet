@@ -34,6 +34,9 @@ public:
 	Mesh* mConstructorMesh;
 
 	bool mTextured = false;
+	bool mPerMeshPBR = false;
+	bool mModelTextured = false;
+	bool mPerMeshTextured = false;
 private:
 	void ProcessNode(aiNode* node, const aiScene* scene);
 	Mesh* ProcessMesh(aiMesh* mesh, const aiScene* scene);
@@ -50,7 +53,6 @@ private:
 	bool mDDS = false;
 	bool mJPG = false;
 	bool mPNG = false;
-	bool mModelTextured = false;
-	bool mMeshTextured = false;
+
 };
 

@@ -10,7 +10,7 @@ Mesh::~Mesh()
 	if(mMaterial) delete mMaterial;
 	for (auto& tex : mTextures)
 	{
-		delete tex;
+		if(tex->Resource) delete tex;
 	}
 }
 

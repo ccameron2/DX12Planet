@@ -27,23 +27,27 @@ Model::Model(std::string fileName, ID3D12GraphicsCommandList* commandList, Mesh*
 
 		if (!scene)
 		{
+			// Output assimp error
 			string str = "Error importing models : " + string(importer.GetErrorString());
 			wstring wstr(str.begin(), str.end());
 			LPCWSTR lstr(wstr.c_str());
-			//LPCWSTR str = LPCWSTR(importer.GetErrorString());
 			MessageBox(0, lstr, L"Error", MB_OK);
-			//MessageBox(0, str, L"Error", MB_OK);
 		}
 
+		// Save dir and file name
 		mDirectory = fileName.substr(0, fileName.find_last_of('/'));
 		mFileName = fileName.substr(fileName.find_last_of('/') + 1, fileName.find_last_of('.') - fileName.find_last_of('/') - 1);
+		
+		// Process scene nodes
 		ProcessNode(scene->mRootNode, scene);
 
+		// Set textured to true if textures found
 		if (mMeshes[0]->mTextures.size() > 0)
 		{
 			mTextured = true;
 		}
 
+		// Calculate buffer data for meshes
 		for (auto& mesh : mMeshes)
 		{
 			mesh->CalculateBufferData(D3DDevice.Get(), commandList);
@@ -51,6 +55,7 @@ Model::Model(std::string fileName, ID3D12GraphicsCommandList* commandList, Mesh*
 	}
 	else
 	{
+		// Use mesh from constructor
 		mConstructorMesh = mesh;
 	}
 }
@@ -83,12 +88,11 @@ void Model::Draw(ID3D12GraphicsCommandList* commandList)
 	auto objCBAddress = objectCB->GetGPUVirtualAddress() + mObjConstantBufferIndex * objCBByteSize;
 	commandList->SetGraphicsRootConstantBufferView(1, objCBAddress);
 
+	// If not using mesh from constructor
 	if (!mConstructorMesh)
 	{
-		int index = 0;;
 		for (auto& mesh : mMeshes)
 		{
-			D3D12_GPU_VIRTUAL_ADDRESS matCBAddress;
 			if (mTextured)
 			{
 				if (mesh->mMaterial->DiffuseSRVIndex > -1)
@@ -101,17 +105,21 @@ void Model::Draw(ID3D12GraphicsCommandList* commandList)
 			}
 
 			// Offset to Mat CBV for this mesh
+			D3D12_GPU_VIRTUAL_ADDRESS matCBAddress;
 			matCBAddress = matCB->GetGPUVirtualAddress() + mesh->mMaterial->CBIndex * matCBByteSize;
 			commandList->SetGraphicsRootConstantBufferView(3, matCBAddress);
-			index++;
 
 			mesh->Draw(commandList);
 		}
 	}
 	else
 	{
-		D3D12_GPU_VIRTUAL_ADDRESS matCBAddress = matCB->GetGPUVirtualAddress() + mConstructorMesh->mMaterial->CBIndex * matCBByteSize;
-		commandList->SetGraphicsRootConstantBufferView(3, matCBAddress);
+		if (mConstructorMesh->mMaterial)
+		{
+			// Use constructor mesh's matCB index
+			D3D12_GPU_VIRTUAL_ADDRESS matCBAddress = matCB->GetGPUVirtualAddress() + mConstructorMesh->mMaterial->CBIndex * matCBByteSize;
+			commandList->SetGraphicsRootConstantBufferView(3, matCBAddress);
+		}
 
 		mConstructorMesh->Draw(commandList);
 	}
@@ -154,7 +162,10 @@ void Model::ProcessNode(aiNode* node, const aiScene* scene)
 
 Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 {
+	// Make a new mesh
 	auto newMesh = new Mesh();
+
+	// For each vertex, extract information
 	for (int i = 0; i < mesh->mNumVertices; i++)
 	{
 		Vertex vertex;
@@ -207,6 +218,7 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 		newMesh->mVertices.push_back(vertex);
 	}
 
+	// For each face extract indices
 	for (int i = 0; i < mesh->mNumFaces; i++)
 	{
 		aiFace face = mesh->mFaces[i];
@@ -216,10 +228,10 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 		}
 	}
 
-	// Create material
+	// Create new material
 	newMesh->mMaterial = new Material();
 
-	// Use either model name or file name
+	// Use either file name or override name
 	string str = "";
 	if (mTexOverride == "")
 	{
@@ -242,16 +254,18 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 	ResourceUploadBatch upload(device);
 	upload.Begin();
 
-	// Test for albedo map using model name
+	// Make a new texture
 	newMesh->mTextures.push_back(new Texture());
 	auto texIndex = 0;
 
+	// Test for albedo map using model name
 	newMesh->mTextures[texIndex]->Path = matName + L"-albedo.dds";
 	CreateDDSTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+	
+	// If texture found, set DDS to true and set model as textured per model.
 	if (newMesh->mTextures[texIndex]->Resource != nullptr)
 	{
 		mModelTextured = true;
-		mTextured = true;
 		mDDS = true;
 	}
 
@@ -272,11 +286,10 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 				newMesh->mMaterial = nullptr;
 				newMesh->mTextures.clear();
 				mModelTextured = false;
-				mTextured = false;
 			}
-			else { mModelTextured = true; mTextured = true; mPNG = true; };
+			else { mModelTextured = true; mPNG = true; };
 		}
-		else { mModelTextured = true; mTextured = true; mJPG = true; };
+		else { mModelTextured = true; mJPG = true; };
 	}
 
 	// If textures found, load the rest
@@ -285,13 +298,16 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 		// Load albedo
 		auto modelTex = newMesh->mTextures[texIndex]->Resource;
 
-		// Fill out the heap with actual descriptors.
+		// Fill out the heap with descriptors
 		CD3DX12_CPU_DESCRIPTOR_HANDLE hDescriptor(SrvDescriptorHeap->mHeap->GetCPUDescriptorHandleForHeapStart());
-		// next descriptor
+		
+		// Offset to next descriptor
 		hDescriptor.Offset(CurrentSRVOffset, CbvSrvUavDescriptorSize);
 
+		// Set material SRVIndex
 		newMesh->mMaterial->DiffuseSRVIndex = CurrentSRVOffset;
 
+		// Create descriptor
 		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
 		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 		srvDesc.Format = modelTex->GetDesc().Format;
@@ -300,10 +316,14 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 		srvDesc.Texture2D.MipLevels = modelTex->GetDesc().MipLevels;
 		srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
 
+		// Create SRV
 		device->CreateShaderResourceView(modelTex.Get(), &srvDesc, hDescriptor);
 
+		// Create new texture and increment index
 		newMesh->mTextures.push_back(new Texture());
 		texIndex++;
+
+		// Load correct file type
 		if (mDDS)
 		{
 			newMesh->mTextures[texIndex]->Path = matName + L"-roughness.dds";
@@ -320,8 +340,10 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 			CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), true);
 		}
 
+		// Offset to next descriptor
 		hDescriptor.Offset(1, CbvSrvUavDescriptorSize);
 
+		// If no textures found, load missing texture
 		auto modelRough = newMesh->mTextures[texIndex]->Resource;
 		if (!modelRough) 
 		{
@@ -330,6 +352,7 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 			modelRough = newMesh->mTextures[texIndex]->Resource;
 		}
 
+		// Create descriptor
 		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 		srvDesc.Format = modelRough->GetDesc().Format;
 		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
@@ -337,11 +360,14 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 		srvDesc.Texture2D.MipLevels = modelRough->GetDesc().MipLevels;
 		srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
 
+		// Create SRV
 		device->CreateShaderResourceView(modelRough.Get(), &srvDesc, hDescriptor);
 
 		// Load normal texture
 		newMesh->mTextures.push_back(new Texture());
 		texIndex++;
+
+		// Load correct file type
 		if (mDDS)
 		{
 			newMesh->mTextures[texIndex]->Path = matName + L"-normal.dds";
@@ -358,10 +384,12 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 			CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
 		}
 
+		// Offset to next descriptor
 		hDescriptor.Offset(1, CbvSrvUavDescriptorSize);
 
 		auto modelNorm = newMesh->mTextures[texIndex]->Resource;
 
+		// Load missing texture if normal map not found
 		if (!modelNorm)
 		{
 			newMesh->mTextures[texIndex]->Path = L"Models/missing.png";
@@ -370,6 +398,7 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 
 		}
 
+		// Create descriptor
 		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 		srvDesc.Format = modelNorm->GetDesc().Format;
 		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
@@ -377,11 +406,14 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 		srvDesc.Texture2D.MipLevels = modelNorm->GetDesc().MipLevels;
 		srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
 
+		// Create SRV
 		device->CreateShaderResourceView(modelNorm.Get(), &srvDesc, hDescriptor);
 
 		// Load metalness texture
 		newMesh->mTextures.push_back(new Texture());
 		texIndex++;
+
+		// Load correct file type
 		if (mDDS)
 		{
 			newMesh->mTextures[texIndex]->Path = matName + L"-metalness.dds";
@@ -397,11 +429,6 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 			newMesh->mTextures[texIndex]->Path = matName + L"-metalness.png";
 			CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
 		}
-		else
-		{
-			newMesh->mTextures[texIndex]->Path = L"Models/missing.png";
-			CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
-		}
 		
 		// Load white texture if no metalness map
 		auto modelMetal = newMesh->mTextures[texIndex]->Resource;
@@ -414,6 +441,7 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 
 		hDescriptor.Offset(1, CbvSrvUavDescriptorSize);
 
+		// Create descriptor
 		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 		srvDesc.Format = modelMetal->GetDesc().Format;
 		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
@@ -421,11 +449,14 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 		srvDesc.Texture2D.MipLevels = modelMetal->GetDesc().MipLevels;
 		srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
 
+		// Create SRV
 		device->CreateShaderResourceView(modelMetal.Get(), &srvDesc, hDescriptor);
 
 		// Load height texture
 		newMesh->mTextures.push_back(new Texture());
 		texIndex++;
+
+		// Load correct file type
 		if (mDDS)
 		{
 			newMesh->mTextures[texIndex]->Path = matName + L"-height.dds";
@@ -441,11 +472,6 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 			newMesh->mTextures[texIndex]->Path = matName + L"-height.png";
 			CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
 		}
-		else
-		{
-			newMesh->mTextures[texIndex]->Path = L"Models/missing.png";
-			CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
-		}
 
 		// Load white texture if no height map
 		auto modelHeight = newMesh->mTextures[texIndex]->Resource;
@@ -457,8 +483,10 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 			mParallax = false;
 		}
 		
+		// Offset to next descriptor
 		hDescriptor.Offset(1, CbvSrvUavDescriptorSize);
 
+		// Create SRV descriptor
 		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 		srvDesc.Format = modelHeight->GetDesc().Format;
 		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
@@ -466,11 +494,14 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 		srvDesc.Texture2D.MipLevels = modelHeight->GetDesc().MipLevels;
 		srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
 
+		// Create SRV
 		device->CreateShaderResourceView(modelHeight.Get(), &srvDesc, hDescriptor);
 
 		// Load ao map
 		newMesh->mTextures.push_back(new Texture());
 		texIndex++;
+
+		// Load correct file type
 		if (mDDS)
 		{
 			newMesh->mTextures[texIndex]->Path = matName + L"-ao.dds";
@@ -486,12 +517,7 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 			newMesh->mTextures[texIndex]->Path = matName + L"-ao.png";
 			CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
 		}
-		else
-		{
-			newMesh->mTextures[texIndex]->Path = L"Models/missing.png";
-			CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
-		}
-		
+
 		// Load white texture if no AO
 		auto modelAO = newMesh->mTextures[texIndex]->Resource;
 		if (!modelAO)
@@ -501,8 +527,10 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 			modelAO = newMesh->mTextures[texIndex]->Resource;
 		}
 
+		// Offset to next descriptor
 		hDescriptor.Offset(1, CbvSrvUavDescriptorSize);
-
+		
+		// Create SRV descriptor
 		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 		srvDesc.Format = modelAO->GetDesc().Format;
 		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
@@ -510,10 +538,13 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 		srvDesc.Texture2D.MipLevels = modelAO->GetDesc().MipLevels;
 		srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
 
+		// Create SRV
 		device->CreateShaderResourceView(modelAO.Get(), &srvDesc, hDescriptor);
 
+		// Load assimp material
 		aiMaterial* assimpMaterial = scene->mMaterials[mesh->mMaterialIndex];
-
+		
+		// Extract PBR info
 		aiColor4D diffuseColour;
 		assimpMaterial->Get(AI_MATKEY_COLOR_DIFFUSE, diffuseColour);
 		newMesh->mMaterial->DiffuseAlbedo = XMFLOAT4{ diffuseColour.r,diffuseColour.g,diffuseColour.b,diffuseColour.a };
@@ -526,8 +557,10 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 		assimpMaterial->Get(AI_MATKEY_METALLIC_FACTOR, metalness);
 		newMesh->mMaterial->Metalness = metalness;
 
+		// Offset SRV index
 		CurrentSRVOffset += 6;
 
+		// Finish upload
 		auto finish = upload.End(CommandQueue.Get());
 		finish.wait();
 	}
@@ -541,6 +574,9 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 				auto numMaterials = scene->mNumMaterials;
 				aiMaterial* assimpMaterial = scene->mMaterials[mesh->mMaterialIndex];
 
+				// If textures set in model, load from there
+				// Not in use as uncommon in most models found
+				
 				// Diffuse maps
 				vector<Texture*> diffuseMaps = LoadMaterialTextures(assimpMaterial, aiTextureType_DIFFUSE, "texture_diffuse", scene);
 				//newMesh->mTextures.insert(newMesh->mTextures.end(), diffuseMaps.begin(), diffuseMaps.end());
@@ -549,26 +585,31 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 				vector<Texture*> baseColourMaps = LoadMaterialTextures(assimpMaterial, aiTextureType_BASE_COLOR, "texture_base_colour", scene);
 				//newMesh->mTextures.insert(newMesh->mTextures.end(), baseColourMaps.begin(), baseColourMaps.end());
 
+				// Create new material
 				newMesh->mMaterial = new Material;
+
+				// Get material name
 				aiString materialName;
 				assimpMaterial->Get(AI_MATKEY_NAME, materialName);
 				newMesh->mMaterial->AiName = materialName;
 
-				// Load textures from aiMat if exist
+				bool thisMeshTextured = false;
+				// Load textures from aiMat name if exist
 
-				// Test for albedo map using mesh name
+				// Test for albedo map using mesh material name
 				newMesh->mTextures.push_back(new Texture());
 				auto texIndex = 0;
 				
 				string str = mDirectory + "/" + materialName.C_Str();
 				wstring wstr(str.begin(), str.end());
-				newMesh->mTextures[texIndex]->Path = wstr + L"-albedo.dds";
-				
+				newMesh->mTextures[texIndex]->Path = wstr + L"-albedo.dds";				
 				CreateDDSTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+				
+				// If albedo dds found
 				if (newMesh->mTextures[texIndex]->Resource != nullptr)
 				{
-					mMeshTextured = true;
-					mTextured = true;
+					mPerMeshTextured = true;
+					thisMeshTextured = true;
 					mDDS = true;
 				}
 
@@ -588,15 +629,14 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 							// No textures found
 							//newMesh->mMaterial = nullptr;
 							newMesh->mTextures.clear();
-							mMeshTextured = false;
-							mTextured = false;
+							thisMeshTextured = false;
 						}
-						else { mMeshTextured = true; mTextured = true; mPNG = true; };
+						else { mPerMeshTextured = true; thisMeshTextured = true; mPNG = true; };
 					}
-					else { mMeshTextured = true; mTextured = true; mJPG = true; };
+					else { mPerMeshTextured = true; thisMeshTextured = true; mJPG = true; };
 				}
 
-				if (mMeshTextured)
+				if (thisMeshTextured)
 				{
 					// Fill out the heap with actual descriptors.
 					CD3DX12_CPU_DESCRIPTOR_HANDLE hDescriptor(SrvDescriptorHeap->mHeap->GetCPUDescriptorHandleForHeapStart());
@@ -615,6 +655,233 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 
 					device->CreateShaderResourceView(newMesh->mTextures[texIndex]->Resource.Get(), &srvDesc, hDescriptor);
 					CurrentSRVOffset++;
+
+					// Test for roughness PBR texture
+					// Create new texture and increment index
+					newMesh->mTextures.push_back(new Texture());
+					texIndex++;
+
+					// Load correct file type
+					if (mDDS)
+					{
+						newMesh->mTextures[texIndex]->Path = wstr + L"-roughness.dds";
+						CreateDDSTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+					}
+					else if (mJPG)
+					{
+						newMesh->mTextures[texIndex]->Path = wstr + L"-roughness.jpg";
+						CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), true);
+					}
+					else if (mPNG)
+					{
+						newMesh->mTextures[texIndex]->Path = wstr + L"-roughness.png";
+						CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), true);
+					}
+
+					// Offset to next descriptor
+					hDescriptor.Offset(1, CbvSrvUavDescriptorSize);
+
+					auto modelRough = newMesh->mTextures[texIndex]->Resource;
+					if (modelRough)
+					{
+						mPerMeshPBR = true;
+					}
+					else { delete newMesh->mTextures[1]; }
+
+					if (mPerMeshPBR && thisMeshTextured)
+					{
+						// Create descriptor
+						srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+						srvDesc.Format = modelRough->GetDesc().Format;
+						srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+						srvDesc.Texture2D.MostDetailedMip = 0;
+						srvDesc.Texture2D.MipLevels = modelRough->GetDesc().MipLevels;
+						srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
+
+						// Create SRV
+						device->CreateShaderResourceView(modelRough.Get(), &srvDesc, hDescriptor);
+
+						// Load normal texture
+						newMesh->mTextures.push_back(new Texture());
+						texIndex++;
+
+						// Load correct file type
+						if (mDDS)
+						{
+							newMesh->mTextures[texIndex]->Path = wstr + L"-normal.dds";
+							CreateDDSTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+						}
+						else if (mJPG)
+						{
+							newMesh->mTextures[texIndex]->Path = wstr + L"-normal.jpg";
+							CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+						}
+						else if (mPNG)
+						{
+							newMesh->mTextures[texIndex]->Path = wstr + L"-normal.png";
+							CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+						}
+
+						// Offset to next descriptor
+						hDescriptor.Offset(1, CbvSrvUavDescriptorSize);
+
+						auto modelNorm = newMesh->mTextures[texIndex]->Resource;
+
+						// Load missing texture if normal map not found
+						if (!modelNorm)
+						{
+							newMesh->mTextures[texIndex]->Path = L"Models/missing.png";
+							CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+							modelNorm = newMesh->mTextures[texIndex]->Resource;
+
+						}
+
+						// Create descriptor
+						srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+						srvDesc.Format = modelNorm->GetDesc().Format;
+						srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+						srvDesc.Texture2D.MostDetailedMip = 0;
+						srvDesc.Texture2D.MipLevels = modelNorm->GetDesc().MipLevels;
+						srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
+
+						// Create SRV
+						device->CreateShaderResourceView(modelNorm.Get(), &srvDesc, hDescriptor);
+
+						// Load metalness texture
+						newMesh->mTextures.push_back(new Texture());
+						texIndex++;
+
+						// Load correct file type
+						if (mDDS)
+						{
+							newMesh->mTextures[texIndex]->Path = wstr + L"-metalness.dds";
+							CreateDDSTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+						}
+						else if (mJPG)
+						{
+							newMesh->mTextures[texIndex]->Path = wstr + L"-metalness.jpg";
+							CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+						}
+						else if (mPNG)
+						{
+							newMesh->mTextures[texIndex]->Path = wstr + L"-metalness.png";
+							CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+						}
+
+						// Load white texture if no metalness map
+						auto modelMetal = newMesh->mTextures[texIndex]->Resource;
+						if (!modelMetal)
+						{
+							newMesh->mTextures[texIndex]->Path = L"Models/default.png";
+							CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+							modelMetal = newMesh->mTextures[texIndex]->Resource;
+						}
+
+						hDescriptor.Offset(1, CbvSrvUavDescriptorSize);
+
+						// Create descriptor
+						srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+						srvDesc.Format = modelMetal->GetDesc().Format;
+						srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+						srvDesc.Texture2D.MostDetailedMip = 0;
+						srvDesc.Texture2D.MipLevels = modelMetal->GetDesc().MipLevels;
+						srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
+
+						// Create SRV
+						device->CreateShaderResourceView(modelMetal.Get(), &srvDesc, hDescriptor);
+
+						// Load height texture
+						newMesh->mTextures.push_back(new Texture());
+						texIndex++;
+
+						// Load correct file type
+						if (mDDS)
+						{
+							newMesh->mTextures[texIndex]->Path = wstr + L"-height.dds";
+							CreateDDSTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+						}
+						else if (mJPG)
+						{
+							newMesh->mTextures[texIndex]->Path = wstr + L"-height.jpg";
+							CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+						}
+						else if (mPNG)
+						{
+							newMesh->mTextures[texIndex]->Path = wstr + L"-height.png";
+							CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+						}
+
+						// Load white texture if no height map
+						auto modelHeight = newMesh->mTextures[texIndex]->Resource;
+						if (!modelHeight)
+						{
+							newMesh->mTextures[texIndex]->Path = L"Models/default.png";
+							CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+							modelHeight = newMesh->mTextures[texIndex]->Resource;
+							mParallax = false;
+						}
+
+						// Offset to next descriptor
+						hDescriptor.Offset(1, CbvSrvUavDescriptorSize);
+
+						// Create SRV descriptor
+						srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+						srvDesc.Format = modelHeight->GetDesc().Format;
+						srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+						srvDesc.Texture2D.MostDetailedMip = 0;
+						srvDesc.Texture2D.MipLevels = modelHeight->GetDesc().MipLevels;
+						srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
+
+						// Create SRV
+						device->CreateShaderResourceView(modelHeight.Get(), &srvDesc, hDescriptor);
+
+						// Load ao map
+						newMesh->mTextures.push_back(new Texture());
+						texIndex++;
+
+						// Load correct file type
+						if (mDDS)
+						{
+							newMesh->mTextures[texIndex]->Path = wstr + L"-ao.dds";
+							CreateDDSTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+						}
+						else if (mJPG)
+						{
+							newMesh->mTextures[texIndex]->Path = wstr + L"-ao.jpg";
+							CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+						}
+						else if (mPNG)
+						{
+							newMesh->mTextures[texIndex]->Path = wstr + L"-ao.png";
+							CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+						}
+
+						// Load white texture if no AO
+						auto modelAO = newMesh->mTextures[texIndex]->Resource;
+						if (!modelAO)
+						{
+							newMesh->mTextures[texIndex]->Path = L"Models/default.png";
+							CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+							modelAO = newMesh->mTextures[texIndex]->Resource;
+						}
+
+						// Offset to next descriptor
+						hDescriptor.Offset(1, CbvSrvUavDescriptorSize);
+
+						// Create SRV descriptor
+						srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+						srvDesc.Format = modelAO->GetDesc().Format;
+						srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+						srvDesc.Texture2D.MostDetailedMip = 0;
+						srvDesc.Texture2D.MipLevels = modelAO->GetDesc().MipLevels;
+						srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
+
+						// Create SRV
+						device->CreateShaderResourceView(modelAO.Get(), &srvDesc, hDescriptor);
+
+						CurrentSRVOffset += 5;
+					}
+					
 				}
 
 				aiColor4D diffuseColour;

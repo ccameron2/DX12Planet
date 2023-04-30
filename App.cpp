@@ -140,60 +140,54 @@ void App::LoadModels()
 {
 	auto commandList = mGraphics->mCommandList.Get();
 
-	Model* ahriModel = new Model("Models/lisa.gltf", commandList);
+	// Multiple meshes, full PBR textured per mesh
+	Model* roboModel = new Model("Models/robo_bun.fbx", commandList);
 
-	ahriModel->SetPosition(XMFLOAT3{ -4.0f, 0.0f, 0.0f });
-	ahriModel->SetRotation(XMFLOAT3{ 00.0f, 0.0f, 0.0f });
-	ahriModel->SetScale(XMFLOAT3{ 0.1, 0.1, 0.1 });
-	mModels.push_back(ahriModel);
-	mSimpleTexModels.push_back(ahriModel);
+	roboModel->SetPosition(XMFLOAT3{ -6.0f, 0.0f, 0.0f });
+	roboModel->SetRotation(XMFLOAT3{ 90.0f, 0.0f, 0.0f });
+	roboModel->SetScale(XMFLOAT3{ 1.f, 1.f, 1.f });
+	roboModel->mParallax = false;
+	mModels.push_back(roboModel);
 
-	// Multiple meshes, textured per mesh
-	Model* amber = new Model("Models/Amber.glb", commandList);
+	// Multiple meshes, albedo textured per mesh
+	Model* amberModel = new Model("Models/Amber.glb", commandList);
 
-	amber->SetPosition(XMFLOAT3{ -6.0f, 0.0f, 0.0f });
-	amber->SetRotation(XMFLOAT3{ 0.0f, 0.0f, 0.0f });
-	amber->SetScale(XMFLOAT3{ 0.1, 0.1, 0.1 });
-	mModels.push_back(amber);
-	mSimpleTexModels.push_back(amber);
+	amberModel->SetPosition(XMFLOAT3{ -14.0f, 0.0f, 0.0f });
+	amberModel->SetRotation(XMFLOAT3{ 0.0f, 0.0f, 0.0f });
+	amberModel->SetScale(XMFLOAT3{ 0.3f, 0.3f, 0.3f });
+	mModels.push_back(amberModel);
 
-	// PBR texture display model
+	// PBR per model texture display model
 	Model* octoModel = new Model("Models/octopus.x", commandList, nullptr, "tufted-leather");
 
 	octoModel->SetPosition(XMFLOAT3{ -10.0f, 0.0f, 0.0f });
 	octoModel->SetRotation(XMFLOAT3{ 0.0f, 0.0f, 0.0f });
-	octoModel->SetScale(XMFLOAT3{ 0.5, 0.5, 0.5 });
+	octoModel->SetScale(XMFLOAT3{ 0.5f, 0.5f, 0.5f });
 	mModels.push_back(octoModel);
-	mTexModels.push_back(octoModel);
 
 	// Base material colour models
 	Model* foxModel = new Model("Models/polyfox.fbx", commandList);
 
 	foxModel->SetPosition(XMFLOAT3{ 4.0f, 0.0f, 0.0f });
 	foxModel->SetRotation(XMFLOAT3{ 90.0f, 0.0f, 0.0f });
-	foxModel->SetScale(XMFLOAT3{ 1, 1, 1 });
-
+	foxModel->SetScale(XMFLOAT3{ 1.f, 1.f, 1.f });
 	mModels.push_back(foxModel);
-	mColourModels.push_back(foxModel);
 
 	Model* wolfModel = new Model("Models/Wolf.fbx", commandList);
 
 	wolfModel->SetPosition(XMFLOAT3{ 6.0f, 0.0f, 0.0f });
 	wolfModel->SetRotation(XMFLOAT3{ 90.0f, 0.0f, 0.0f });
-	wolfModel->SetScale(XMFLOAT3{ 1, 1, 1 });
+	wolfModel->SetScale(XMFLOAT3{ 1.f, 1.f, 1.f });
 
 	mModels.push_back(wolfModel);
-	mColourModels.push_back(wolfModel);
 
-
-	Model* slimeModel = new Model("Models/Slime.fbx", commandList);
+	Model* slimeModel = new Model("Models/PolyFrog.fbx", commandList);
 
 	slimeModel->SetPosition(XMFLOAT3{ 8.0f, 0.0f, 0.0f });
 	slimeModel->SetRotation(XMFLOAT3{ 90.0f, 0.0f, 0.0f });
-	slimeModel->SetScale(XMFLOAT3{ 1, 1, 1 });
+	slimeModel->SetScale(XMFLOAT3{ 0.02f, 0.02f, 0.02f });
 
 	mModels.push_back(slimeModel);
-	mColourModels.push_back(slimeModel);
 
 	//Model* octoModel2 = new Model("Models/octopus.x", commandList, octoModel->mMeshes[0], "pjemy");
 
@@ -204,14 +198,6 @@ void App::LoadModels()
 	//mTexModels.push_back(octoModel2);
 
 	// Megascans PBR models
-	Model* cactusModel = new Model("Models/cactus.fbx", commandList);
-
-	cactusModel->SetPosition(XMFLOAT3{ -14.0f, 0.0f, 0.0f });
-	cactusModel->SetRotation(XMFLOAT3{ 0.0f, 0.0f, 0.0f });
-	cactusModel->SetScale(XMFLOAT3{ 0.1, 0.1, 0.1 });
-	cactusModel->mParallax = false;
-	mModels.push_back(cactusModel);
-	mTexModels.push_back(cactusModel);
 
 	Model* rockModel = new Model("Models/Rock.fbx", commandList);
 
@@ -220,7 +206,36 @@ void App::LoadModels()
 	rockModel->SetScale(XMFLOAT3{ 0.03, 0.03, 0.03 });
 	rockModel->mParallax = false;
 	mModels.push_back(rockModel);
-	mTexModels.push_back(rockModel);
+
+	int index = 0;
+	for (auto& model : mModels)
+	{
+		model->mObjConstantBufferIndex = index;
+
+		if (model->mTextured)
+		{
+			if (model->mPerMeshTextured)
+			{
+				if (model->mPerMeshPBR)
+				{
+					mTexModels.push_back(model);
+				}
+				else
+				{
+					mSimpleTexModels.push_back(model);
+				}
+			}
+			else if (model->mModelTextured)
+			{
+				mTexModels.push_back(model);
+			}
+		}
+		else
+		{
+			mColourModels.push_back(model);
+		}		
+			index++;
+	}
 
 	// Skybox
 	mSkyModel = new Model("Models/sphere.x", commandList);
@@ -228,13 +243,9 @@ void App::LoadModels()
 	mSkyModel->SetPosition(XMFLOAT3{ 0.0f, 0.0f, 0.0f });
 	mSkyModel->SetRotation(XMFLOAT3{ 0.0f, 0.0f, 0.0f });
 	mSkyModel->SetScale(XMFLOAT3{ 1, 1, 1 });
+	mSkyModel->mObjConstantBufferIndex = index;
 
 	mModels.push_back(mSkyModel);
-
-	for (int i = 0; i < mModels.size(); i++)
-	{
-		mModels[i]->mObjConstantBufferIndex = i;
-	}
 }
 
 void App::BuildFrameResources()
