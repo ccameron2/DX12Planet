@@ -308,6 +308,22 @@ void Graphics::CreatePSO()
 		MessageBox(0, L"PBR Pipeline State Creation failed", L"Error", MB_OK);
 	}
 
+	psoDesc.VS =
+	{
+		reinterpret_cast<BYTE*>(mSimpleTexVSByteCode->GetBufferPointer()),
+		mSimpleTexVSByteCode->GetBufferSize()
+	};
+	//psoDesc.InputLayout = { mTexInputLayout.data(), (UINT)mTexInputLayout.size() };
+	psoDesc.PS =
+	{
+		reinterpret_cast<BYTE*>(mSimpleTexPSByteCode->GetBufferPointer()),
+		mSimpleTexPSByteCode->GetBufferSize()
+	};
+	if (FAILED(D3DDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mSimpleTexPSO))))
+	{
+		MessageBox(0, L"Simple Pipeline State Creation failed", L"Error", MB_OK);
+	}
+
 	// The camera is inside the sky sphere, so just turn off culling.
 	psoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
 
@@ -345,6 +361,9 @@ void Graphics::CreateShaders()
 
 	mTexVSByteCode = CompileShader(L"Shaders\\texshader.hlsl", nullptr, "VS", "vs_5_1");
 	mTexPSByteCode = CompileShader(L"Shaders\\texshader.hlsl", nullptr, "PS", "ps_5_1");
+
+	mSimpleTexVSByteCode = CompileShader(L"Shaders\\simpletexshader.hlsl", nullptr, "VS", "vs_5_1");
+	mSimpleTexPSByteCode = CompileShader(L"Shaders\\simpletexshader.hlsl", nullptr, "PS", "ps_5_1");
 
 	mTexInputLayout =
 	{

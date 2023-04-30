@@ -84,6 +84,7 @@ public:
 	ComPtr<ID3D12PipelineState> mSolidPSO = nullptr;
 	ComPtr<ID3D12PipelineState> mWireframePSO = nullptr;
 	ComPtr<ID3D12PipelineState> mTexPSO = nullptr;
+	ComPtr<ID3D12PipelineState> mSimpleTexPSO = nullptr;
 	ComPtr<ID3D12PipelineState> mSkyPSO = nullptr;
 	ComPtr<ID3D12PipelineState> mPlanetPSO = nullptr;
 
@@ -92,6 +93,8 @@ public:
 	ComPtr<ID3DBlob> mColourPSByteCode = nullptr;
 	ComPtr<ID3DBlob> mTexVSByteCode = nullptr;
 	ComPtr<ID3DBlob> mTexPSByteCode = nullptr;
+	ComPtr<ID3DBlob> mSimpleTexVSByteCode = nullptr;
+	ComPtr<ID3DBlob> mSimpleTexPSByteCode = nullptr;
 	ComPtr<ID3DBlob> mPlanetVSByteCode = nullptr;
 	ComPtr<ID3DBlob> mPlanetPSByteCode = nullptr;
 	ComPtr<ID3DBlob> mSkyVSByteCode = nullptr;

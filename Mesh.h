@@ -17,6 +17,8 @@ using Microsoft::WRL::ComPtr;
 class Mesh
 {
 public:
+	Mesh();
+	~Mesh();
 	// Vertex and index buffers on CPU side
 	ComPtr<ID3DBlob> mCPUVertexBuffer = nullptr;
 	ComPtr<ID3DBlob> mCPUIndexBuffer = nullptr;

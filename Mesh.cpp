@@ -1,5 +1,19 @@
 #include "Mesh.h"
 
+Mesh::Mesh()
+{
+}
+
+Mesh::~Mesh()
+{
+
+	if(mMaterial) delete mMaterial;
+	for (auto& tex : mTextures)
+	{
+		delete tex;
+	}
+}
+
 D3D12_VERTEX_BUFFER_VIEW Mesh::GetVertexBufferView()
 {
 	D3D12_VERTEX_BUFFER_VIEW vbv;

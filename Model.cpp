@@ -3,6 +3,7 @@
 #include <DDSTextureLoader.h>
 #include <WICTextureLoader.h>
 #include <ResourceUploadBatch.h>
+#include <iostream>
 
 Model::Model(std::string fileName, ID3D12GraphicsCommandList* commandList, Mesh* mesh, string texOverride)
 {
@@ -26,14 +27,22 @@ Model::Model(std::string fileName, ID3D12GraphicsCommandList* commandList, Mesh*
 
 		if (!scene)
 		{
-			LPCWSTR str = LPCWSTR(importer.GetErrorString());
-			MessageBox(0, L"Error importing models", L"Error", MB_OK);
+			string str = "Error importing models : " + string(importer.GetErrorString());
+			wstring wstr(str.begin(), str.end());
+			LPCWSTR lstr(wstr.c_str());
+			//LPCWSTR str = LPCWSTR(importer.GetErrorString());
+			MessageBox(0, lstr, L"Error", MB_OK);
 			//MessageBox(0, str, L"Error", MB_OK);
 		}
 
 		mDirectory = fileName.substr(0, fileName.find_last_of('/'));
 		mFileName = fileName.substr(fileName.find_last_of('/') + 1, fileName.find_last_of('.') - fileName.find_last_of('/') - 1);
 		ProcessNode(scene->mRootNode, scene);
+
+		if (mMeshes[0]->mTextures.size() > 0)
+		{
+			mTextured = true;
+		}
 
 		for (auto& mesh : mMeshes)
 		{
@@ -82,10 +91,13 @@ void Model::Draw(ID3D12GraphicsCommandList* commandList)
 			D3D12_GPU_VIRTUAL_ADDRESS matCBAddress;
 			if (mTextured)
 			{
-				// Offset to texture diffuse SRV from model
-				CD3DX12_GPU_DESCRIPTOR_HANDLE tex(SrvDescriptorHeap->mHeap->GetGPUDescriptorHandleForHeapStart());
-				tex.Offset(mesh->mMaterial->DiffuseSRVIndex, CbvSrvUavDescriptorSize);
-				commandList->SetGraphicsRootDescriptorTable(0, tex);
+				if (mesh->mMaterial->DiffuseSRVIndex > -1)
+				{
+					// Offset to texture diffuse SRV from model
+					CD3DX12_GPU_DESCRIPTOR_HANDLE tex(SrvDescriptorHeap->mHeap->GetGPUDescriptorHandleForHeapStart());
+					tex.Offset(mesh->mMaterial->DiffuseSRVIndex, CbvSrvUavDescriptorSize);
+					commandList->SetGraphicsRootDescriptorTable(0, tex);
+				}		
 			}
 
 			// Offset to Mat CBV for this mesh
@@ -307,16 +319,17 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 			newMesh->mTextures[texIndex]->Path = matName + L"-roughness.png";
 			CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), true);
 		}
-		else
-		{
-			newMesh->mTextures[texIndex]->Path = L"Models/missing.png";
-			CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), true);
-		}
+
 		hDescriptor.Offset(1, CbvSrvUavDescriptorSize);
 
 		auto modelRough = newMesh->mTextures[texIndex]->Resource;
+		if (!modelRough) 
+		{
+			newMesh->mTextures[texIndex]->Path = L"Models/missing.png";
+			CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), true);
+			modelRough = newMesh->mTextures[texIndex]->Resource;
+		}
 
-		//D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
 		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 		srvDesc.Format = modelRough->GetDesc().Format;
 		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
@@ -344,15 +357,19 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 			newMesh->mTextures[texIndex]->Path = matName + L"-normal.png";
 			CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
 		}
-		else
-		{
-			newMesh->mTextures[texIndex]->Path = L"Models/missing.png";
-			CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
-		}
 
 		hDescriptor.Offset(1, CbvSrvUavDescriptorSize);
 
 		auto modelNorm = newMesh->mTextures[texIndex]->Resource;
+
+		if (!modelNorm)
+		{
+			newMesh->mTextures[texIndex]->Path = L"Models/missing.png";
+			CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+			modelNorm = newMesh->mTextures[texIndex]->Resource;
+
+		}
+
 		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 		srvDesc.Format = modelNorm->GetDesc().Format;
 		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
@@ -516,12 +533,12 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 	}
 	else
 	{
-
 		// Process base materials
 		if (scene->HasMaterials())
 		{
 			if (mesh->mMaterialIndex >= 0)
 			{
+				auto numMaterials = scene->mNumMaterials;
 				aiMaterial* assimpMaterial = scene->mMaterials[mesh->mMaterialIndex];
 
 				// Diffuse maps

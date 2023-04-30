@@ -46,6 +46,7 @@ private:
 	std::vector<Texture*> mLoadedTextures;
 	std::string mDirectory;
 	std::string mFileName;
+	int mMaterialIndex = 0;
 	bool mDDS = false;
 	bool mJPG = false;
 	bool mPNG = false;

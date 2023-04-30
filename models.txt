@@ -1,0 +1,9 @@
+Importing Models and Textures
+
+Models will use the textures with the same name
+Eg: octopus.x will use octopus-albedo.dds, octopus-roughness.dds
+	or octopus-albedo.jpg, octopus-roughness.png
+Or they can be overridden in the model constructor
+
+If a texture sharing the model's name isnt found, 
+will try to load texture per mesh using mesh name from assimp

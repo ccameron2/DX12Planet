@@ -92,6 +92,7 @@ private:
 	// If diffent PSOs needed then use different lists
 	vector<Model*> mModels;
 	vector<Model*> mTexModels;
+	vector<Model*> mSimpleTexModels;
 	vector<Model*> mColourModels;
 
 	unique_ptr<Camera> mCamera;
