@@ -141,21 +141,36 @@ void App::LoadModels()
 	auto commandList = mGraphics->mCommandList.Get();
 
 	// Multiple meshes, full PBR textured per mesh
-	Model* roboModel = new Model("Models/robo_bun.fbx", commandList);
 
-	roboModel->SetPosition(XMFLOAT3{ -6.0f, 0.0f, 0.0f });
-	roboModel->SetRotation(XMFLOAT3{ 90.0f, 0.0f, 0.0f });
-	roboModel->SetScale(XMFLOAT3{ 1.f, 1.f, 1.f });
-	roboModel->mParallax = false;
-	mModels.push_back(roboModel);
+	Model* smgModel = new Model("Models/doom_barrels.glb", commandList);
 
-	// Multiple meshes, albedo textured per mesh
-	Model* amberModel = new Model("Models/Amber.glb", commandList);
+	smgModel->SetPosition(XMFLOAT3{ -20.0f, 0.0f, 0.0f });
+	smgModel->SetRotation(XMFLOAT3{ 90.0f, 0.0f, 0.0f });
+	smgModel->SetScale(XMFLOAT3{ 0.05f, 0.05f, 0.05f });
+	mModels.push_back(smgModel);
+
+	Model* plasmaModel = new Model("Models/plasmarifle.fbx", commandList);
+
+	plasmaModel->SetPosition(XMFLOAT3{ -16.0f, 0.0f, 0.0f });
+	plasmaModel->SetRotation(XMFLOAT3{ 90.0f, 0.0f, 0.0f });
+	plasmaModel->SetScale(XMFLOAT3{ 1.f, 1.f, 1.f });
+	//rockModel->mParallax = false;
+	mModels.push_back(plasmaModel);
+
+	Model* amberModel = new Model("Models/sci-fi_blade.fbx", commandList);
 
 	amberModel->SetPosition(XMFLOAT3{ -14.0f, 0.0f, 0.0f });
 	amberModel->SetRotation(XMFLOAT3{ 0.0f, 0.0f, 0.0f });
-	amberModel->SetScale(XMFLOAT3{ 0.3f, 0.3f, 0.3f });
+	amberModel->SetScale(XMFLOAT3{ 3.f, 3.f, 3.f });
 	mModels.push_back(amberModel);
+	
+	//Model* roboModel = new Model("Models/robo_bun.fbx", commandList);
+
+	//roboModel->SetPosition(XMFLOAT3{ -6.0f, 0.0f, 0.0f });
+	//roboModel->SetRotation(XMFLOAT3{ 90.0f, 0.0f, 0.0f });
+	//roboModel->SetScale(XMFLOAT3{ 1.f, 1.f, 1.f });
+	////roboModel->mParallax = false;
+	//mModels.push_back(roboModel);
 
 	// PBR per model texture display model
 	Model* octoModel = new Model("Models/octopus.x", commandList, nullptr, "tufted-leather");
@@ -196,16 +211,6 @@ void App::LoadModels()
 	//octoModel2->SetScale(XMFLOAT3{ 0.5, 0.5, 0.5 });
 	//mModels.push_back(octoModel2);
 	//mTexModels.push_back(octoModel2);
-
-	// Megascans PBR models
-
-	Model* rockModel = new Model("Models/Rock.fbx", commandList);
-
-	rockModel->SetPosition(XMFLOAT3{ -18.0f, 0.0f, 0.0f });
-	rockModel->SetRotation(XMFLOAT3{ 0.0f, 0.0f, 0.0f });
-	rockModel->SetScale(XMFLOAT3{ 0.03, 0.03, 0.03 });
-	rockModel->mParallax = false;
-	mModels.push_back(rockModel);
 
 	int index = 0;
 	for (auto& model : mModels)
@@ -500,7 +505,6 @@ void App::DrawPlanet(ID3D12GraphicsCommandList* commandList)
 	{
 		chunk->mMesh->Draw(commandList);
 	}
-
 }
 
 void App::DrawModels(ID3D12GraphicsCommandList* commandList)

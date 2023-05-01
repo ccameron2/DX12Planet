@@ -144,8 +144,7 @@ bool Planet::CheckNodes(Camera* camera, Node* parentNode)
 			}
 			else if (distance > node->mDistance + 4)
 			{
-				node->mCombine = true;
-				ret = true;
+				if (node->mLevel > 0) { node->mCombine = true; ret = true; }			
 			}
 		}
 		else
@@ -161,7 +160,14 @@ bool Planet::CombineNodes(Node* node)
 {
 	if (node->mCombine)
 	{
-		for (auto& subNode : node->mParent->mSubnodes) delete subNode;
+		if (node->mTriangleChunk != nullptr) { delete node->mTriangleChunk; };
+		//for (auto& subNode : node->mSubnodes)
+		//{
+		//	if (subNode->mTriangleChunk != nullptr) delete subNode->mTriangleChunk;
+		//}
+		node->mParent->mSubnodes.clear();
+		node->mParent->mNumSubs = 0;
+		//for (auto& subNode : node->mParent->mSubnodes) { delete subNode; subNode = nullptr; }
 		return true;
 	}
 	else
@@ -182,18 +188,19 @@ bool Planet::Update(Camera* camera)
 	{
 		//log2(distance) > something 
 		//; log2(distance) > MaxLOD
-		//bool combine = false;
-		//for (auto& subNode : mTriangleTree->mSubnodes) { if (CombineNodes(subNode)) combine = true; }
-/*		if (combine)
-		{
-			CreatePlanet(mFrequency, mOctaves, mCombineLOD);
-		}
-		//else { */BuildIndices();/* }*/
+		bool combine = false;
+		for (auto& subNode : mTriangleTree->mSubnodes) { if (CombineNodes(subNode)) combine = true; }	
+
+		BuildIndices();
+
 		mMesh->mVertices = mVertices;
 		mMesh->mIndices = mIndices;
 		mMesh->CalculateDynamicBufferData();
-		return true;
 	}
+
+
+	return true;
+
 	return false;
 }
 
@@ -335,6 +342,7 @@ std::vector<Triangle> Planet::SubdivideTriangle(Triangle triangle)
 void Planet::BuildIndices()
 {
 	mTriangles.clear();
+
 	for (auto& node : mTriangleTree->mSubnodes)
 	{
 		GetTriangles(node);

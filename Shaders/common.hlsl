@@ -56,7 +56,8 @@ cbuffer cbMaterial : register(b2)
 
 SamplerState Sampler : register(s4);
 
-float4 CalculateLighting(float3 albedo, float roughness, float metalness, float ao, float3 n, float3 v, bool direction = true, float3 posW = { 0, 0, 0 })
+float4 CalculateLighting(float3 albedo, float roughness, float metalness, float ao, float3 n, float3 v, 
+						float3 emissive = {0,0,0}, bool direction = true, float3 posW = { 0, 0, 0 })
 {	
 	float3 lightVector = 0;
 	float3 l = 0;
@@ -133,6 +134,7 @@ float4 CalculateLighting(float3 albedo, float roughness, float metalness, float 
 
 	// Accumulate punctual light equation for this light
 	colour += PI * nDotL * lc * li * brdf;
+	colour += emissive;
 	
 	colour = pow(colour, 1 / GAMMA);
 	

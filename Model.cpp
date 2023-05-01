@@ -541,6 +541,50 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 		// Create SRV
 		device->CreateShaderResourceView(modelAO.Get(), &srvDesc, hDescriptor);
 
+		// Load emissive map
+		newMesh->mTextures.push_back(new Texture());
+		texIndex++;
+
+		// Load correct file type
+		if (mDDS)
+		{
+			newMesh->mTextures[texIndex]->Path = matName + L"-emissive.dds";
+			CreateDDSTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+		}
+		else if (mJPG)
+		{
+			newMesh->mTextures[texIndex]->Path = matName + L"-emissive.jpg";
+			CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+		}
+		else if (mPNG)
+		{
+			newMesh->mTextures[texIndex]->Path = matName + L"-emissive.png";
+			CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+		}
+
+		// Load black texture if no emissive
+		auto modelEmissive = newMesh->mTextures[texIndex]->Resource;
+		if (!modelEmissive)
+		{
+			newMesh->mTextures[texIndex]->Path = L"Models/defaultBlack.png";
+			CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+			modelEmissive = newMesh->mTextures[texIndex]->Resource;
+		}
+
+		// Offset to next descriptor
+		hDescriptor.Offset(1, CbvSrvUavDescriptorSize);
+
+		// Create SRV descriptor
+		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		srvDesc.Format = modelEmissive->GetDesc().Format;
+		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+		srvDesc.Texture2D.MostDetailedMip = 0;
+		srvDesc.Texture2D.MipLevels = modelEmissive->GetDesc().MipLevels;
+		srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
+
+		// Create SRV
+		device->CreateShaderResourceView(modelEmissive.Get(), &srvDesc, hDescriptor);
+
 		// Load assimp material
 		aiMaterial* assimpMaterial = scene->mMaterials[mesh->mMaterialIndex];
 		
@@ -558,7 +602,7 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 		newMesh->mMaterial->Metalness = metalness;
 
 		// Offset SRV index
-		CurrentSRVOffset += 6;
+		CurrentSRVOffset += 7;
 
 		// Finish upload
 		auto finish = upload.End(CommandQueue.Get());
@@ -879,7 +923,51 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 						// Create SRV
 						device->CreateShaderResourceView(modelAO.Get(), &srvDesc, hDescriptor);
 
-						CurrentSRVOffset += 5;
+						// Load emissive map
+						newMesh->mTextures.push_back(new Texture());
+						texIndex++;
+
+						// Load correct file type
+						if (mDDS)
+						{
+							newMesh->mTextures[texIndex]->Path = wstr + L"-emissive.dds";
+							CreateDDSTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+						}
+						else if (mJPG)
+						{
+							newMesh->mTextures[texIndex]->Path = wstr + L"-emissive.jpg";
+							CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+						}
+						else if (mPNG)
+						{
+							newMesh->mTextures[texIndex]->Path = wstr + L"-emissive.png";
+							CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+						}
+
+						// Load black texture if no Emissive
+						auto modelEmissive = newMesh->mTextures[texIndex]->Resource;
+						if (!modelEmissive)
+						{
+							newMesh->mTextures[texIndex]->Path = L"Models/defaultBlack.png";
+							CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+							modelEmissive = newMesh->mTextures[texIndex]->Resource;
+						}
+
+						// Offset to next descriptor
+						hDescriptor.Offset(1, CbvSrvUavDescriptorSize);
+
+						// Create SRV descriptor
+						srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+						srvDesc.Format = modelEmissive->GetDesc().Format;
+						srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+						srvDesc.Texture2D.MostDetailedMip = 0;
+						srvDesc.Texture2D.MipLevels = modelEmissive->GetDesc().MipLevels;
+						srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
+
+						// Create SRV
+						device->CreateShaderResourceView(modelEmissive.Get(), &srvDesc, hDescriptor);
+
+						CurrentSRVOffset += 6; // Albedo already incremented once
 					}
 					
 				}

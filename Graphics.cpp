@@ -196,7 +196,7 @@ bool Graphics::CreateDeviceAndFence()
 void Graphics::CreateRootSignature()
 {
 	CD3DX12_DESCRIPTOR_RANGE texTable;
-	texTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV,6,0,0); // register t0
+	texTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV,7,0,0); // register t0
 
 	CD3DX12_DESCRIPTOR_RANGE texTable1;
 	texTable1.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV,6,0,1); // register t0 space 1

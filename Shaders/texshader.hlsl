@@ -38,7 +38,7 @@ VOut VS(VIn vin)
 	return vout;
 }
 
-Texture2D Textures[6] : register(t0);
+Texture2D Textures[7] : register(t0);
 
 //Texture2D AlbedoMap	
 //Texture2D RoughnessMap
@@ -97,6 +97,6 @@ float4 PS(VOut pIn) : SV_Target
 	float roughness = Textures[1].Sample(Sampler, uv).r;
 	float metalness = Textures[3].Sample(Sampler, uv).r;
 	float ao = Textures[5].Sample(Sampler, uv).r;
-	
-	return CalculateLighting(albedo, roughness, metalness, ao, n, v);
+	float3 emissive = Textures[6].Sample(Sampler, uv);
+	return CalculateLighting(albedo, roughness, metalness, ao, n, v, emissive);
 }
