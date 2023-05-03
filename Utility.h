@@ -84,7 +84,7 @@ struct PerFrameConstants
 	float FarZ = 0.0f;
 	float TotalTime = 0.0f;
 	float DeltaTime = 0.0f;
-	float padding2 = 0.0f;
+	float TexDebugIndex = 0.0f;
 	float padding3 = 0.0f;
 	XMFLOAT4 AmbientLight = { 0.0f, 0.0f, 0.0f, 1.0f };
 	mLight Lights[mMaxLights];

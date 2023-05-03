@@ -11,7 +11,7 @@ class TriangleChunk
 {
 public:
 	TriangleChunk(Vertex v1, Vertex v2, Vertex v3, float frequency, int octaves, FastNoiseLite* noise, ID3D12GraphicsCommandList* commandList);
-	~TriangleChunk() { delete mMesh; };
+	~TriangleChunk() { delete mMesh; mMesh = nullptr; };
 	std::map<std::pair<int, int>, int> mVertexMap;
 	std::vector<Vertex> mVertices;
 	std::vector<uint32_t> mIndices;
@@ -25,6 +25,7 @@ public:
 	int mMaxLOD = 4;
 	Mesh* mMesh;
 	float mSphereOffset = 0.0;
+	bool mCombine = false;
 private:
 
 };

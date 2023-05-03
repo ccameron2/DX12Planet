@@ -27,7 +27,7 @@ public:
 	float mPos[3] = {0,0,0};
 	float mRot[3] = {0,0,0};
 	float mScale = 1;
-
+	int mDebugTex = 0.f;
 	bool mCameraOrbit = true;
 	bool mInvertY = true;
 

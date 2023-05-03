@@ -5,6 +5,7 @@
 #include "Camera.h"
 #include "TriangleChunk.h"
 #include "Common.h"
+#include "Graphics.h"
 
 #include <DirectXColors.h>
 #include <vector>
@@ -55,7 +56,7 @@ public:
 	~Planet();
 	void CreatePlanet(float frequency, int octaves, int lod, int scale);
 	void ResetGeometry();
-	bool Update(Camera* camera);
+	bool Update(Camera* camera, Graphics* graphics);
 
 	Mesh* mMesh;	
 	int mMaxLOD = 0;

@@ -72,6 +72,22 @@ void GUI::Update(int numModels)
 
 	};
 
+	if (ImGui::SliderInt("TexDebug", &mDebugTex, 0, 7));
+	string str = "";
+	
+	
+	if (mDebugTex == 0) str = "PBR";
+	else if (mDebugTex == 1) str = "Albedo";
+	else if (mDebugTex == 2) str = "Roughness";
+	else if (mDebugTex == 3) str = "Normal";
+	else if (mDebugTex == 4) str = "Metalness";
+	else if (mDebugTex == 5) str = "Height";
+	else if (mDebugTex == 6) str = "AO";
+	else if (mDebugTex == 7) str = "Emissive";
+	else str = "error";
+
+	ImGui::Text(str.c_str());
+	
 	if (ImGui::InputFloat3("Position", mPos, "%.1f"))
 	{
 		mWMatrixChanged = true;
@@ -151,7 +167,7 @@ void GUI::Render(ID3D12GraphicsCommandList* commandList, ID3D12Resource* current
 
 bool GUI::ProcessEvents(SDL_Event& event)
 {
-	//Window event occured
+	// Window event occured
 	ImGuiIO& io = ImGui::GetIO();
 	ImGui_ImplSDL2_ProcessEvent(&event);
 	if (io.WantCaptureMouse || io.WantCaptureKeyboard)

@@ -6,7 +6,6 @@ Mesh::Mesh()
 
 Mesh::~Mesh()
 {
-
 	if(mMaterial) delete mMaterial;
 	for (auto& tex : mTextures)
 	{

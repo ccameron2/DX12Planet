@@ -9,7 +9,6 @@ Planet::Planet(ID3D12GraphicsCommandList* commandList)
 
 Planet::~Planet()
 {
-
 }
 
 void Planet::CreatePlanet(float frequency, int octaves, int lod, int scale)
@@ -51,8 +50,6 @@ void Planet::ResetGeometry()
 	mTriangles.clear();
 	mVertexMap.clear();
 	mTriangleTree.reset();
-
-//	for (auto triangleChunk : mTriangleChunks) { delete triangleChunk; }
 	mTriangleChunks.clear();
 
 	const float X = 0.525731112119133606f;
@@ -85,7 +82,6 @@ void Planet::ResetGeometry()
 		10,1,6,	11,0,9,	2,11,9,
 		5,2,9,	11,2,7
 	};
-
 
 	// Build triangles
 	for (int i = 0; i < mIndices.size(); i += 3)
@@ -124,7 +120,12 @@ void Planet::GetTriangles(Node* node)
 	}
 	else 
 	{
-		if(node->mLevel < mMaxLOD) mTriangles.push_back(node->mTriangle);
+		if (node->mLevel < mMaxLOD) mTriangles.push_back(node->mTriangle);
+		else
+		{
+			if (node->mTriangleChunk) mTriangleChunks.push_back(node->mTriangleChunk);
+			else mTriangles.push_back(node->mTriangle);			
+		}
 	}
 }
 
@@ -142,7 +143,7 @@ bool Planet::CheckNodes(Camera* camera, Node* parentNode)
 				ret = Subdivide(node, node->mLevel);	
 				//ret = true;
 			}
-			else if (distance > node->mDistance + 4)
+			else if (distance > node->mDistance + 2)
 			{
 				if (node->mLevel > 0) { node->mCombine = true; ret = true; }			
 			}
@@ -160,10 +161,12 @@ bool Planet::CombineNodes(Node* node)
 {
 	if (node->mCombine)
 	{
-		if (node->mTriangleChunk != nullptr) { delete node->mTriangleChunk; };
+		if (node->mTriangleChunk)
+		{
+			node->mTriangleChunk->mCombine = true;
+		}
 		node->mParent->mSubnodes.clear();
 		node->mParent->mNumSubs = 0;
-		//for (auto& subNode : node->mParent->mSubnodes) { delete subNode; subNode = nullptr; }
 		return true;
 	}
 	else
@@ -176,7 +179,7 @@ bool Planet::CombineNodes(Node* node)
 	return false;
 }
 
-bool Planet::Update(Camera* camera)
+bool Planet::Update(Camera* camera, Graphics* graphics)
 {
 	SortBaseNodes(camera->mPos);
 
@@ -185,17 +188,31 @@ bool Planet::Update(Camera* camera)
 		//log2(distance) > something 
 		//; log2(distance) > MaxLOD
 		bool combine = false;
-		for (auto& subNode : mTriangleTree->mSubnodes) { if (CombineNodes(subNode)) combine = true; }	
+		for (auto& subNode : mTriangleTree->mSubnodes) { CombineNodes(subNode); }
+
+		for (auto& chunk : mTriangleChunks)
+		{
+			if (chunk->mCombine)
+				combine = true;
+		}
+
+		if (combine)
+		{
+			graphics->EmptyCommandQueue();			
+		}
+
+		for (auto& chunk : mTriangleChunks)
+		{
+			if (chunk->mCombine) delete chunk;
+		}
 
 		BuildIndices();
 
 		mMesh->mVertices = mVertices;
 		mMesh->mIndices = mIndices;
 		mMesh->CalculateDynamicBufferData();
+		return true;
 	}
-
-
-	return true;
 
 	return false;
 }
@@ -203,21 +220,26 @@ bool Planet::Update(Camera* camera)
 bool Planet::Subdivide(Node* node, int level)
 {
 	auto divLevel = level;
-	divLevel++;
 	if (divLevel > mMaxLOD) 
 	{
 		//for (int i = 0; i < 3; i++) mVertices[node->mTriangle.Point[i]].Colour = XMFLOAT4{ 0,0,1,0 };
 		return false;
 	}
-	if (divLevel == mMaxLOD && node->mTriangleChunk == nullptr)
+	if (divLevel == mMaxLOD)
 	{
-		node->mTriangleChunk = new TriangleChunk(mVertices[node->mTriangle.Point[0]],
-												 mVertices[node->mTriangle.Point[1]],
-												 mVertices[node->mTriangle.Point[2]],
-												 mFrequency, mOctaves, mNoise, mCommandList);
-		mTriangleChunks.push_back(node->mTriangleChunk);
+		if (node->mTriangleChunk == nullptr)
+		{
+			node->mTriangleChunk = new TriangleChunk(mVertices[node->mTriangle.Point[0]],
+				mVertices[node->mTriangle.Point[1]],
+				mVertices[node->mTriangle.Point[2]],
+				mFrequency, mOctaves, mNoise, mCommandList);
+			mTriangleChunks.push_back(node->mTriangleChunk);
+			return true;
+		}
+		return false;		
 	}
 	std::vector<Triangle> newTriangles = SubdivideTriangle(node->mTriangle);
+	divLevel++;
 	for (auto& triangle : newTriangles)
 	{
 		node->AddSub(triangle);
@@ -338,14 +360,14 @@ std::vector<Triangle> Planet::SubdivideTriangle(Triangle triangle)
 void Planet::BuildIndices()
 {
 	mTriangles.clear();
-
+	std::vector<TriangleChunk*> triangleChunks;
+	mTriangleChunks = triangleChunks;
 	for (auto& node : mTriangleTree->mSubnodes)
 	{
 		GetTriangles(node);
 	}
 
 	mIndices.clear();
-
 	for (int i = 0; i < mTriangles.size(); i++)
 	{
 		mIndices.push_back(mTriangles[i].Point[0]);

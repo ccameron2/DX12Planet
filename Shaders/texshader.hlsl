@@ -102,5 +102,16 @@ float4 PS(VOut pIn) : SV_Target
 	float metalness = Textures[3].Sample(Sampler, uv).r;
 	float ao = Textures[5].Sample(Sampler, uv).r;
 	float3 emissive = Textures[6].Sample(Sampler, uv);
+	
+	// Return lighting or debug texture
+	if (TexDebugIndex == 0) return CalculateLighting(albedo, roughness, metalness, ao, n, v, emissive);
+	else if (TexDebugIndex == 1) return Textures[0].Sample(Sampler, uv);
+	else if (TexDebugIndex == 2) return Textures[1].Sample(Sampler, uv);
+	else if (TexDebugIndex == 3) return Textures[2].Sample(Sampler, uv);
+	else if (TexDebugIndex == 4) return Textures[3].Sample(Sampler, uv);
+	else if (TexDebugIndex == 5) return Textures[4].Sample(Sampler, uv);
+	else if (TexDebugIndex == 6) return Textures[5].Sample(Sampler, uv);
+	else if (TexDebugIndex == 7) return Textures[6].Sample(Sampler, uv);
+
 	return CalculateLighting(albedo, roughness, metalness, ao, n, v, emissive);
 }

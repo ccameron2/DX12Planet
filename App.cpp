@@ -156,7 +156,7 @@ void App::LoadModels()
 
 	roboModel->SetPosition(XMFLOAT3{ -6.0f, 0.0f, 0.0f });
 	roboModel->SetRotation(XMFLOAT3{ 0.0f, 0.0f, 0.0f });
-	roboModel->SetScale(XMFLOAT3{ 0.01f, 0.01f, 0.01f });
+	roboModel->SetScale(XMFLOAT3{ 0.005f, 0.005f, 0.005f });
 	mModels.push_back(roboModel);
 
 	//Model* bladeModel = new Model("Models/robo_bun.fbx", commandList);
@@ -175,12 +175,11 @@ void App::LoadModels()
 	plasmaModel->SetScale(XMFLOAT3{ 0.01f, 0.01f, 0.01f });
 	mModels.push_back(plasmaModel);
 
-
 	// PBR per model texture display model
-	Model* octoModel = new Model("Models/octopus.x", commandList, nullptr, "tufted-leather");
+	Model* octoModel = new Model("Models/octopus.x", commandList, nullptr, "pjemy");
 
 	octoModel->SetPosition(XMFLOAT3{ -10.0f, 0.0f, 0.0f });
-	octoModel->SetRotation(XMFLOAT3{ -1.0f, 0.0f, 0.0f });
+	octoModel->SetRotation(XMFLOAT3{ -1.2f, 0.0f, 0.0f });
 	octoModel->SetScale(XMFLOAT3{ 0.5f, 0.5f, 0.5f });
 	mModels.push_back(octoModel);
 
@@ -316,8 +315,8 @@ void App::Update(float frameTime)
 	auto commandList = mGraphics->mCommandList;
 	mGraphics->ResetCommandAllocator(commandAllocator);
 	mGraphics->ResetCommandList(commandAllocator, mCurrentPSO);
-	
-	if (mPlanet->Update(mCamera.get()))
+
+	if (mPlanet->Update(mCamera.get(), mGraphics.get()))
 	{
 		mModels[0]->mNumDirtyFrames += mGraphics->mNumFrameResources;
 		mModels[0]->mConstructorMesh = mPlanet->mMesh;
@@ -327,6 +326,7 @@ void App::Update(float frameTime)
 
 	if (mGUI->mPlanetUpdated)
 	{
+		mGraphics->EmptyCommandQueue();
 		RecreatePlanetGeometry();
 		mGUI->mPlanetUpdated = false;
 	}
@@ -400,7 +400,7 @@ void App::UpdatePerFrameConstantBuffer()
 	perFrameConstantBuffer.TotalTime = mTimer.GetTime();
 	perFrameConstantBuffer.DeltaTime = mTimer.GetLapTime();
 	perFrameConstantBuffer.AmbientLight = { 0.01f, 0.01f, 0.01f, 1.0f };
-
+	perFrameConstantBuffer.TexDebugIndex = mGUI->mDebugTex;
 	XMVECTOR lightDir = -SphericalToCartesian(1.0f, mSunTheta, mSunPhi);
 	XMStoreFloat3(&perFrameConstantBuffer.Lights[0].Direction, lightDir);
 

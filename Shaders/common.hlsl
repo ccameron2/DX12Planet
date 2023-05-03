@@ -38,7 +38,7 @@ cbuffer cbPerPassConstants : register(b1)
 	float FarZ;
 	float TotalTime;
 	float DeltaTime;
-	float padding2;
+	float TexDebugIndex;
 	float padding3;
 	float4 AmbientLight;
 	Light Lights[MaxLights];
