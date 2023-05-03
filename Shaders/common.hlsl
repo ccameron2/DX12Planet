@@ -101,7 +101,7 @@ float4 CalculateLighting(float3 albedo, float roughness, float metalness, float 
 	
 	float3 reflectionVector = reflect(-v, n);
 	
-	float3 IBLDiffuse = IBLCubeMap.SampleLevel(Sampler, n, 8.0f).rgb;
+	float3 IBLDiffuse = IBLCubeMap.SampleLevel(Sampler, n, 9.0f).rgb;
 
 	float specularMipLevel = 8 * log2(roughness + 1);
 	

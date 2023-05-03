@@ -20,8 +20,12 @@ Model::Model(std::string fileName, ID3D12GraphicsCommandList* commandList, Mesh*
 			aiProcess_RemoveRedundantMaterials |
 			aiProcess_SortByPType |
 			aiProcess_FindInvalidData |
+			aiProcess_PreTransformVertices |
 			//aiProcess_OptimizeMeshes |
 			//aiProcess_OptimizeGraph |
+			//aiProcess_FlipUVs |
+			//aiProcess_GenUVCoords|
+			//aiProcess_TransformUVCoords|
 			aiProcess_CalcTangentSpace |
 			aiProcess_ConvertToLeftHanded);
 
@@ -42,11 +46,14 @@ Model::Model(std::string fileName, ID3D12GraphicsCommandList* commandList, Mesh*
 		ProcessNode(scene->mRootNode, scene);
 
 		// Set textured to true if textures found
-		if (mMeshes[0]->mTextures.size() > 0)
+		for (auto mesh : mMeshes)
 		{
-			mTextured = true;
+			if (mesh->mTextures.size() > 0)
+			{
+				mTextured = true;
+			}
 		}
-
+		
 		// Calculate buffer data for meshes
 		for (auto& mesh : mMeshes)
 		{
@@ -66,10 +73,10 @@ Model::~Model()
 	{
 		delete mesh;
 	}
-	for (auto& texture : mLoadedTextures)
-	{
-		delete texture;
-	}
+	//for (auto& texture : mLoadedTextures)
+	//{
+	//	delete texture;
+	//}
 }
 
 void Model::Draw(ID3D12GraphicsCommandList* commandList)
@@ -617,16 +624,13 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 			{
 				auto numMaterials = scene->mNumMaterials;
 				aiMaterial* assimpMaterial = scene->mMaterials[mesh->mMaterialIndex];
-
-				// If textures set in model, load from there
-				// Not in use as uncommon in most models found
-				
+			
 				// Diffuse maps
-				vector<Texture*> diffuseMaps = LoadMaterialTextures(assimpMaterial, aiTextureType_DIFFUSE, "texture_diffuse", scene);
+				//vector<Texture*> diffuseMaps = LoadMaterialTextures(assimpMaterial, aiTextureType_DIFFUSE, "texture_diffuse", scene);
 				//newMesh->mTextures.insert(newMesh->mTextures.end(), diffuseMaps.begin(), diffuseMaps.end());
 
 				// Base Colour maps
-				vector<Texture*> baseColourMaps = LoadMaterialTextures(assimpMaterial, aiTextureType_BASE_COLOR, "texture_base_colour", scene);
+				//vector<Texture*> baseColourMaps = LoadMaterialTextures(assimpMaterial, aiTextureType_BASE_COLOR, "texture_base_colour", scene);
 				//newMesh->mTextures.insert(newMesh->mTextures.end(), baseColourMaps.begin(), baseColourMaps.end());
 
 				// Create new material
@@ -647,7 +651,12 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 				string str = mDirectory + "/" + materialName.C_Str();
 				wstring wstr(str.begin(), str.end());
 				newMesh->mTextures[texIndex]->Path = wstr + L"-albedo.dds";				
-				CreateDDSTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+				
+
+				if (!CheckTextureLoaded(newMesh->mTextures[texIndex]))
+				{
+					CreateDDSTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+				}
 				
 				// If albedo dds found
 				if (newMesh->mTextures[texIndex]->Resource != nullptr)
@@ -662,12 +671,18 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 				{
 					// Test jpg
 					newMesh->mTextures[texIndex]->Path = wstr + L"-albedo.jpg";
-					CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+					if (!CheckTextureLoaded(newMesh->mTextures[texIndex]))
+					{
+						CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+					}
 					if (!newMesh->mTextures[texIndex]->Resource)
 					{
 						// Test png
 						newMesh->mTextures[texIndex]->Path = wstr + L"-albedo.png";
-						CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+						if (!CheckTextureLoaded(newMesh->mTextures[texIndex]))
+						{
+							CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+						}
 						if (!newMesh->mTextures[texIndex]->Resource)
 						{
 							// No textures found
@@ -698,6 +713,8 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 					srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
 
 					device->CreateShaderResourceView(newMesh->mTextures[texIndex]->Resource.Get(), &srvDesc, hDescriptor);
+					mLoadedTextures.push_back(newMesh->mTextures[texIndex]);
+					
 					CurrentSRVOffset++;
 
 					// Test for roughness PBR texture
@@ -709,17 +726,26 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 					if (mDDS)
 					{
 						newMesh->mTextures[texIndex]->Path = wstr + L"-roughness.dds";
-						CreateDDSTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+						if (!CheckTextureLoaded(newMesh->mTextures[texIndex]))
+						{
+							CreateDDSTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+						}
 					}
 					else if (mJPG)
 					{
 						newMesh->mTextures[texIndex]->Path = wstr + L"-roughness.jpg";
-						CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), true);
+						if (!CheckTextureLoaded(newMesh->mTextures[texIndex]))
+						{
+							CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), true);
+						}
 					}
 					else if (mPNG)
 					{
 						newMesh->mTextures[texIndex]->Path = wstr + L"-roughness.png";
-						CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), true);
+						if (!CheckTextureLoaded(newMesh->mTextures[texIndex]))
+						{
+							CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), true);
+						}
 					}
 
 					// Offset to next descriptor
@@ -744,6 +770,7 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 
 						// Create SRV
 						device->CreateShaderResourceView(modelRough.Get(), &srvDesc, hDescriptor);
+						mLoadedTextures.push_back(newMesh->mTextures[texIndex]);
 
 						// Load normal texture
 						newMesh->mTextures.push_back(new Texture());
@@ -753,17 +780,26 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 						if (mDDS)
 						{
 							newMesh->mTextures[texIndex]->Path = wstr + L"-normal.dds";
-							CreateDDSTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+							if (!CheckTextureLoaded(newMesh->mTextures[texIndex]))
+							{
+								CreateDDSTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+							}
 						}
 						else if (mJPG)
 						{
 							newMesh->mTextures[texIndex]->Path = wstr + L"-normal.jpg";
-							CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+							if (!CheckTextureLoaded(newMesh->mTextures[texIndex]))
+							{
+								CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+							}
 						}
 						else if (mPNG)
 						{
 							newMesh->mTextures[texIndex]->Path = wstr + L"-normal.png";
-							CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+							if (!CheckTextureLoaded(newMesh->mTextures[texIndex]))
+							{
+								CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+							}
 						}
 
 						// Offset to next descriptor
@@ -777,7 +813,6 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 							newMesh->mTextures[texIndex]->Path = L"Models/missing.png";
 							CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
 							modelNorm = newMesh->mTextures[texIndex]->Resource;
-
 						}
 
 						// Create descriptor
@@ -790,6 +825,7 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 
 						// Create SRV
 						device->CreateShaderResourceView(modelNorm.Get(), &srvDesc, hDescriptor);
+						mLoadedTextures.push_back(newMesh->mTextures[texIndex]);
 
 						// Load metalness texture
 						newMesh->mTextures.push_back(new Texture());
@@ -799,17 +835,26 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 						if (mDDS)
 						{
 							newMesh->mTextures[texIndex]->Path = wstr + L"-metalness.dds";
-							CreateDDSTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+							if (!CheckTextureLoaded(newMesh->mTextures[texIndex]))
+							{
+								CreateDDSTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+							}
 						}
 						else if (mJPG)
 						{
 							newMesh->mTextures[texIndex]->Path = wstr + L"-metalness.jpg";
-							CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+							if (!CheckTextureLoaded(newMesh->mTextures[texIndex]))
+							{
+								CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+							}
 						}
 						else if (mPNG)
 						{
 							newMesh->mTextures[texIndex]->Path = wstr + L"-metalness.png";
-							CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+							if (!CheckTextureLoaded(newMesh->mTextures[texIndex]))
+							{
+								CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+							}
 						}
 
 						// Load white texture if no metalness map
@@ -833,6 +878,7 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 
 						// Create SRV
 						device->CreateShaderResourceView(modelMetal.Get(), &srvDesc, hDescriptor);
+						mLoadedTextures.push_back(newMesh->mTextures[texIndex]);
 
 						// Load height texture
 						newMesh->mTextures.push_back(new Texture());
@@ -842,17 +888,26 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 						if (mDDS)
 						{
 							newMesh->mTextures[texIndex]->Path = wstr + L"-height.dds";
-							CreateDDSTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+							if (!CheckTextureLoaded(newMesh->mTextures[texIndex]))
+							{
+								CreateDDSTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+							}
 						}
 						else if (mJPG)
 						{
 							newMesh->mTextures[texIndex]->Path = wstr + L"-height.jpg";
-							CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+							if (!CheckTextureLoaded(newMesh->mTextures[texIndex]))
+							{
+								CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+							}
 						}
 						else if (mPNG)
 						{
 							newMesh->mTextures[texIndex]->Path = wstr + L"-height.png";
-							CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+							if (!CheckTextureLoaded(newMesh->mTextures[texIndex]))
+							{
+								CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+							}
 						}
 
 						// Load white texture if no height map
@@ -878,7 +933,8 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 
 						// Create SRV
 						device->CreateShaderResourceView(modelHeight.Get(), &srvDesc, hDescriptor);
-
+						mLoadedTextures.push_back(newMesh->mTextures[texIndex]);
+						
 						// Load ao map
 						newMesh->mTextures.push_back(new Texture());
 						texIndex++;
@@ -887,17 +943,26 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 						if (mDDS)
 						{
 							newMesh->mTextures[texIndex]->Path = wstr + L"-ao.dds";
-							CreateDDSTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+							if (!CheckTextureLoaded(newMesh->mTextures[texIndex]))
+							{
+								CreateDDSTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+							}
 						}
 						else if (mJPG)
 						{
 							newMesh->mTextures[texIndex]->Path = wstr + L"-ao.jpg";
-							CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+							if (!CheckTextureLoaded(newMesh->mTextures[texIndex]))
+							{
+								CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+							}
 						}
 						else if (mPNG)
 						{
 							newMesh->mTextures[texIndex]->Path = wstr + L"-ao.png";
-							CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+							if (!CheckTextureLoaded(newMesh->mTextures[texIndex])) 
+							{
+								CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+							}
 						}
 
 						// Load white texture if no AO
@@ -922,6 +987,7 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 
 						// Create SRV
 						device->CreateShaderResourceView(modelAO.Get(), &srvDesc, hDescriptor);
+						mLoadedTextures.push_back(newMesh->mTextures[texIndex]);
 
 						// Load emissive map
 						newMesh->mTextures.push_back(new Texture());
@@ -931,17 +997,26 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 						if (mDDS)
 						{
 							newMesh->mTextures[texIndex]->Path = wstr + L"-emissive.dds";
-							CreateDDSTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+							if (!CheckTextureLoaded(newMesh->mTextures[texIndex]))
+							{
+								CreateDDSTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+							}
 						}
 						else if (mJPG)
 						{
 							newMesh->mTextures[texIndex]->Path = wstr + L"-emissive.jpg";
-							CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+							if (!CheckTextureLoaded(newMesh->mTextures[texIndex]))
+							{
+								CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+							}
 						}
 						else if (mPNG)
 						{
 							newMesh->mTextures[texIndex]->Path = wstr + L"-emissive.png";
-							CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+							if (!CheckTextureLoaded(newMesh->mTextures[texIndex]))
+							{
+								CreateWICTextureFromFile(device, upload, newMesh->mTextures[texIndex]->Path.c_str(), newMesh->mTextures[texIndex]->Resource.ReleaseAndGetAddressOf(), false);
+							}
 						}
 
 						// Load black texture if no Emissive
@@ -966,6 +1041,8 @@ Mesh* Model::ProcessMesh(aiMesh* mesh, const aiScene* scene)
 
 						// Create SRV
 						device->CreateShaderResourceView(modelEmissive.Get(), &srvDesc, hDescriptor);
+						
+						mLoadedTextures.push_back(newMesh->mTextures[texIndex]);
 
 						CurrentSRVOffset += 6; // Albedo already incremented once
 					}
@@ -1067,4 +1144,17 @@ void Model::UpdateWorldMatrix()
 		* XMMatrixRotationY(mRotation.y)
 		* XMMatrixRotationZ(mRotation.z)
 		* XMMatrixTranslation(mPosition.x,mPosition.y,mPosition.z));
+}
+
+bool Model::CheckTextureLoaded(Texture* texture)
+{
+	for (auto loadedTex : mLoadedTextures)
+	{
+		if (texture->Path == loadedTex->Path)
+		{
+			texture->Resource = loadedTex->Resource;
+			return true;
+		}
+	}
+	return false;
 }

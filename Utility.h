@@ -210,6 +210,17 @@ static XMFLOAT3 SubFloat3(XMFLOAT3 a, XMFLOAT3 b)
 	return result;
 }
 
+static XMFLOAT3 MulFloat3(XMFLOAT3 a, XMFLOAT3 b)
+{
+	XMFLOAT3 result;
+
+	result.x = a.x * b.x;
+	result.y = a.y * b.y;
+	result.z = a.z * b.z;
+
+	return result;
+}
+
 static float DotProduct(XMFLOAT3 v1, XMFLOAT3 v2)
 {
 	auto x = v1.x * v2.x;

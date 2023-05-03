@@ -161,10 +161,6 @@ bool Planet::CombineNodes(Node* node)
 	if (node->mCombine)
 	{
 		if (node->mTriangleChunk != nullptr) { delete node->mTriangleChunk; };
-		//for (auto& subNode : node->mSubnodes)
-		//{
-		//	if (subNode->mTriangleChunk != nullptr) delete subNode->mTriangleChunk;
-		//}
 		node->mParent->mSubnodes.clear();
 		node->mParent->mNumSubs = 0;
 		//for (auto& subNode : node->mParent->mSubnodes) { delete subNode; subNode = nullptr; }

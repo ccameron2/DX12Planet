@@ -94,6 +94,11 @@ void App::CreateSkybox()
 	Texture* cubeTex = new Texture();
 	DDS_ALPHA_MODE mode = DDS_ALPHA_MODE_OPAQUE;
 	bool cubeMap = true;
+
+	//CreateDDSTextureFromFileEx(D3DDevice.Get(), upload, mSkyMat->Name.c_str(), 0, D3D12_RESOURCE_FLAG_NONE,
+	//	(DirectX::DX12::DDS_LOADER_FLAGS)(DirectX::DX12::DDS_LOADER_DEFAULT) | DirectX::DX12::DDS_LOADER_MIP_AUTOGEN,
+	//	cubeTex->Resource.ReleaseAndGetAddressOf(), &mode, &cubeMap);
+
 	CreateDDSTextureFromFile(D3DDevice.Get(), upload, mSkyMat->Name.c_str(), cubeTex->Resource.ReleaseAndGetAddressOf(), true, 0Ui64, &mode, &cubeMap);
 
 	CD3DX12_CPU_DESCRIPTOR_HANDLE hDescriptor(SrvDescriptorHeap->mHeap->GetCPUDescriptorHandleForHeapStart());
@@ -140,43 +145,42 @@ void App::LoadModels()
 {
 	auto commandList = mGraphics->mCommandList.Get();
 
-	// Multiple meshes, full PBR textured per mesh
-
-	Model* smgModel = new Model("Models/doom_barrels.glb", commandList);
+	Model* smgModel = new Model("Models/Boat1.fbx", commandList);
 
 	smgModel->SetPosition(XMFLOAT3{ -20.0f, 0.0f, 0.0f });
-	smgModel->SetRotation(XMFLOAT3{ 90.0f, 0.0f, 0.0f });
-	smgModel->SetScale(XMFLOAT3{ 0.05f, 0.05f, 0.05f });
+	smgModel->SetRotation(XMFLOAT3{ 0.0f, 0.0f, 0.0f });
+	smgModel->SetScale(XMFLOAT3{ 0.1f, 0.1f, 0.1f });
 	mModels.push_back(smgModel);
+
+	Model* roboModel = new Model("Models/snow2.fbx", commandList);
+
+	roboModel->SetPosition(XMFLOAT3{ -6.0f, 0.0f, 0.0f });
+	roboModel->SetRotation(XMFLOAT3{ 0.0f, 0.0f, 0.0f });
+	roboModel->SetScale(XMFLOAT3{ 0.01f, 0.01f, 0.01f });
+	mModels.push_back(roboModel);
+
+	//Model* bladeModel = new Model("Models/robo_bun.fbx", commandList);
+
+	//bladeModel->SetPosition(XMFLOAT3{ -14.0f, 0.0f, 0.0f });
+	//bladeModel->SetRotation(XMFLOAT3{ 0.0f, 0.0f, 0.0f });
+	//bladeModel->SetScale(XMFLOAT3{ 0.01f, 0.01f, 0.01f });
+	//mModels.push_back(bladeModel);
+
+	// Multiple meshes, full PBR textured per mesh
 
 	Model* plasmaModel = new Model("Models/plasmarifle.fbx", commandList);
 
 	plasmaModel->SetPosition(XMFLOAT3{ -16.0f, 0.0f, 0.0f });
-	plasmaModel->SetRotation(XMFLOAT3{ 90.0f, 0.0f, 0.0f });
-	plasmaModel->SetScale(XMFLOAT3{ 1.f, 1.f, 1.f });
-	//rockModel->mParallax = false;
+	plasmaModel->SetRotation(XMFLOAT3{ 0.0f, 0.0f, 0.0f });
+	plasmaModel->SetScale(XMFLOAT3{ 0.01f, 0.01f, 0.01f });
 	mModels.push_back(plasmaModel);
 
-	Model* amberModel = new Model("Models/sci-fi_blade.fbx", commandList);
-
-	amberModel->SetPosition(XMFLOAT3{ -14.0f, 0.0f, 0.0f });
-	amberModel->SetRotation(XMFLOAT3{ 0.0f, 0.0f, 0.0f });
-	amberModel->SetScale(XMFLOAT3{ 3.f, 3.f, 3.f });
-	mModels.push_back(amberModel);
-	
-	//Model* roboModel = new Model("Models/robo_bun.fbx", commandList);
-
-	//roboModel->SetPosition(XMFLOAT3{ -6.0f, 0.0f, 0.0f });
-	//roboModel->SetRotation(XMFLOAT3{ 90.0f, 0.0f, 0.0f });
-	//roboModel->SetScale(XMFLOAT3{ 1.f, 1.f, 1.f });
-	////roboModel->mParallax = false;
-	//mModels.push_back(roboModel);
 
 	// PBR per model texture display model
 	Model* octoModel = new Model("Models/octopus.x", commandList, nullptr, "tufted-leather");
 
 	octoModel->SetPosition(XMFLOAT3{ -10.0f, 0.0f, 0.0f });
-	octoModel->SetRotation(XMFLOAT3{ 0.0f, 0.0f, 0.0f });
+	octoModel->SetRotation(XMFLOAT3{ -1.0f, 0.0f, 0.0f });
 	octoModel->SetScale(XMFLOAT3{ 0.5f, 0.5f, 0.5f });
 	mModels.push_back(octoModel);
 
@@ -184,23 +188,23 @@ void App::LoadModels()
 	Model* foxModel = new Model("Models/polyfox.fbx", commandList);
 
 	foxModel->SetPosition(XMFLOAT3{ 4.0f, 0.0f, 0.0f });
-	foxModel->SetRotation(XMFLOAT3{ 90.0f, 0.0f, 0.0f });
-	foxModel->SetScale(XMFLOAT3{ 1.f, 1.f, 1.f });
+	foxModel->SetRotation(XMFLOAT3{ 0.0f, 0.0f, 0.0f });
+	foxModel->SetScale(XMFLOAT3{ 0.01f, 0.01f, 0.01f });
 	mModels.push_back(foxModel);
 
 	Model* wolfModel = new Model("Models/Wolf.fbx", commandList);
 
 	wolfModel->SetPosition(XMFLOAT3{ 6.0f, 0.0f, 0.0f });
-	wolfModel->SetRotation(XMFLOAT3{ 90.0f, 0.0f, 0.0f });
-	wolfModel->SetScale(XMFLOAT3{ 1.f, 1.f, 1.f });
+	wolfModel->SetRotation(XMFLOAT3{ 0.0f, 0.0f, 0.0f });
+	wolfModel->SetScale(XMFLOAT3{ 0.01f, 0.01f, 0.01f });
 
 	mModels.push_back(wolfModel);
 
 	Model* slimeModel = new Model("Models/PolyFrog.fbx", commandList);
 
 	slimeModel->SetPosition(XMFLOAT3{ 8.0f, 0.0f, 0.0f });
-	slimeModel->SetRotation(XMFLOAT3{ 90.0f, 0.0f, 0.0f });
-	slimeModel->SetScale(XMFLOAT3{ 0.02f, 0.02f, 0.02f });
+	slimeModel->SetRotation(XMFLOAT3{ 0.0f, 0.0f, 0.0f });
+	slimeModel->SetScale(XMFLOAT3{ 0.002f, 0.002f, 0.002f });
 
 	mModels.push_back(slimeModel);
 

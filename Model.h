@@ -44,7 +44,7 @@ private:
 	int LoadTextureFromFile(const char* path, string directory);
 	void LoadEmbeddedTexture(const aiTexture* embeddedTexture);
 	void UpdateWorldMatrix();
-
+	bool CheckTextureLoaded(Texture* texture);
 	std::string mTexOverride;
 	std::vector<Texture*> mLoadedTextures;
 	std::string mDirectory;

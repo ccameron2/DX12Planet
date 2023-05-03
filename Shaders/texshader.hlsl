@@ -71,17 +71,21 @@ float4 PS(VOut pIn) : SV_Target
 	// Parallax mapping. Comment out for plain normal mapping
 	if (parallax)
 	{
-		 // Get camera direction in model space
-		float3x3 invWorldMatrix = transpose((float3x3) World);
-		float3 cameraModelDir = normalize(mul(v, invWorldMatrix));
+		// // Get camera direction in model space
+		//float3x3 invWorldMatrix = transpose((float3x3) World);
+		//float3 cameraModelDir = normalize(mul(v, invWorldMatrix));
 
-		 // Calculate direction to offset UVs (x and y of camera direction in tangent space)
-		float3x3 tangentMatrix = transpose(invTangentMatrix);
-		float2 textureOffsetDir = mul(cameraModelDir, tangentMatrix).xy;
+		// // Calculate direction to offset UVs (x and y of camera direction in tangent space)
+		//float3x3 tangentMatrix = transpose(invTangentMatrix);
+		//float2 textureOffsetDir = mul(cameraModelDir, tangentMatrix).xy;
 
-		// Offset UVs in that direction to account for depth (using height map and some geometry)
-		float texDepth = gParallaxDepth * (Textures[4].Sample(Sampler, uv).r - 0.5f);
-		uv += texDepth * textureOffsetDir;
+		//// Offset UVs in that direction to account for depth (using height map and some geometry)
+		//float texDepth = gParallaxDepth * (Textures[4].Sample(Sampler, uv).r - 0.5f);
+		//uv += texDepth * textureOffsetDir;
+		
+		float displacement = Textures[4].Sample(Sampler, uv).r - 0.5f;
+		float3 parallaxOffset = mul(invTangentMatrix, v); // Transform camera normal into tangent space (so it is local to texture)
+		float2 uv = pIn.UV + gParallaxDepth * displacement * parallaxOffset.xy;
 	}
 		
 	// Extract normal from map and shift to -1 to 1 range
