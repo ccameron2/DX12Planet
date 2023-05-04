@@ -281,10 +281,10 @@ int Planet::GetVertexForEdge(int v1, int v2)
 		auto newPoint = AddFloat3(edge1.Pos, edge2.Pos);
 		Normalize(&newPoint.Pos);
 
-		// Set colours
-		newPoint.Colour.x = std::lerp(edge1.Colour.x, edge2.Colour.x, 0.5);
-		newPoint.Colour.y = std::lerp(edge1.Colour.y, edge2.Colour.y, 0.5);
-		newPoint.Colour.z = std::lerp(edge1.Colour.z, edge2.Colour.z, 0.5);
+		//// Set colours
+		//newPoint.Colour.x = std::lerp(edge1.Colour.x, edge2.Colour.x, 0.5);
+		//newPoint.Colour.y = std::lerp(edge1.Colour.y, edge2.Colour.y, 0.5);
+		//newPoint.Colour.z = std::lerp(edge1.Colour.z, edge2.Colour.z, 0.5);
 		
 		ApplyNoise(mFrequency, mOctaves, mNoise, newPoint);
 

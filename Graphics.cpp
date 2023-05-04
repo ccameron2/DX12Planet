@@ -502,7 +502,7 @@ void Graphics::CreateCommandObjects()
 	{
 		for (int list = 0; list < mMaxCommandListsPerThread; ++list)
 		{
-			if (FAILED(D3DDevice->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, mCommandAllocators[mCurrentBackBuffer][thread].Get(), NULL, IID_PPV_ARGS(&mCommandLists[thread][list]))))
+			if (FAILED(D3DDevice->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, mCommandAllocators[CurrentFrameResourceIndex][thread].Get(), NULL, IID_PPV_ARGS(&mCommandLists[thread][list]))))
 			{
 				MessageBox(0, L"Command Allocator creation failed", L"Error", MB_OK);
 				throw std::runtime_error("Error creating command list");
@@ -721,6 +721,10 @@ void Graphics::Resize(int width, int height)
 	mViewport.MinDepth = 0.0f;
 	mViewport.MaxDepth = 1.0f;
 	mScissorRect = { 0, 0, width, height };
+
+	mBackbufferWidth = mScissorRect.right - mScissorRect.left;
+	mBackbufferHeight = mScissorRect.bottom - mScissorRect.top;
+
 }
 
 void Graphics::ExecuteCommands()
@@ -788,7 +792,7 @@ void Graphics::EmptyCommandQueue()
 void Graphics::ResetCommandAllocator(int thread)
 {
 	// Only reset a command allocator when any command lists it created have finished running
-	HRESULT hr = mCommandAllocators[mCurrentBackBuffer][thread]->Reset();
+	HRESULT hr = mCommandAllocators[CurrentFrameResourceIndex][thread]->Reset();
 	if (FAILED(hr))  throw std::runtime_error("Error reseting command allocator");
 }
 
@@ -796,7 +800,7 @@ void Graphics::ResetCommandAllocator(int thread)
 // Returns command list ready to record
 ID3D12GraphicsCommandList* Graphics::StartCommandList(int thread, int list)
 {
-	HRESULT hr = mCommandLists[thread][list]->Reset(mCommandAllocators[mCurrentBackBuffer][thread].Get(), NULL);
+	HRESULT hr = mCommandLists[thread][list]->Reset(mCommandAllocators[CurrentFrameResourceIndex][thread].Get(), NULL);
 	if (FAILED(hr))  throw std::runtime_error("Error reseting command list");
 	return mCommandLists[thread][list].Get();
 }

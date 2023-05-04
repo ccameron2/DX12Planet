@@ -79,14 +79,14 @@ void App::Initialize()
 	mGUI = make_unique<GUI>(SrvDescriptorHeap.get(), mWindow->mSDLWindow, D3DDevice.Get(),
 		mGraphics->mNumFrameResources, mGraphics->mBackBufferFormat);
 
-	////// Start worker threads
+	//// Start worker threads
 
-	//mNumRenderWorkers = std::thread::hardware_concurrency(); // Gives a hint about level of thread concurrency supported by system (0 means no hint given)
-	//if (mNumRenderWorkers == 0)  mNumRenderWorkers = 8;
-	//for (int i = 0; i < mNumRenderWorkers; ++i)
-	//{
-	//	mRenderWorkers[i].first.thread = std::thread(&App::RenderThread, this, i);
-	//}
+	mNumRenderWorkers = std::thread::hardware_concurrency(); // Gives a hint about level of thread concurrency supported by system (0 means no hint given)
+	if (mNumRenderWorkers == 0)  mNumRenderWorkers = 8;
+	for (int i = 0; i < mNumRenderWorkers; ++i)
+	{
+		mRenderWorkers[i].first.thread = std::thread(&App::RenderThread, this, i);
+	}
 
 }
 
@@ -339,13 +339,26 @@ void App::Update(float frameTime)
 	//mGraphics->ResetCommandList(commandAllocator, mCurrentPSO);
 
 	// Reset allocator and start new command list on it
-	mGraphics->ResetCommandAllocator(0);
-	mCurrentMainCommandList = mGraphics->StartCommandList(0, 0);
 
-	if (mPlanet->Update(mCamera.get(), mCurrentMainCommandList))
+	auto commandList = mGraphics->mCommandList.Get();
+	if (FAILED(commandList->Reset(mGraphics->mCommandAllocator.Get(), nullptr)))
+	{
+		MessageBox(0, L"Command List reset failed", L"Error", MB_OK);
+	}
+
+	if (mPlanet->Update(mCamera.get(), commandList))
 	{
 		mModels[0]->mNumDirtyFrames += mGraphics->mNumFrameResources;
 		mModels[0]->mConstructorMesh = mPlanet->mMesh;
+
+		mGraphics->CloseAndExecuteCommandList();
+		mGraphics->EmptyCommandQueue();
+
+		commandList = mGraphics->mCommandList.Get();
+		if (FAILED(commandList->Reset(mGraphics->mCommandAllocator.Get(), nullptr)))
+		{
+			MessageBox(0, L"Command List reset failed", L"Error", MB_OK);
+		}
 	}
 
 	UpdateSelectedModel();
@@ -353,10 +366,20 @@ void App::Update(float frameTime)
 	if (mGUI->mPlanetUpdated)
 	{
 		mPlanet->mCLOD = mGUI->mCLOD;
-		mGraphics->EmptyCommandQueue();
+
 		RecreatePlanetGeometry();
+
+		mGraphics->CloseAndExecuteCommandList();
+		mGraphics->EmptyCommandQueue();
+
 		mGUI->mPlanetUpdated = false;
 	}
+	else
+	{
+		// No commands recorded
+		mGraphics->CloseAndExecuteCommandList();
+	}
+
 	UpdatePlanetBuffers();
 	UpdatePerObjectConstantBuffers();
 	UpdatePerFrameConstantBuffer();
@@ -469,7 +492,8 @@ void App::UpdatePerMaterialConstantBuffers()
 
 void App::Draw(float frameTime)
 {
-	auto commandList = mCurrentMainCommandList;
+	mGraphics->ResetCommandAllocator(0);
+	auto commandList = mGraphics->StartCommandList(0, 0);
 
 	//mGraphics->ResetCommandAllocator(commandAllocator);
 
@@ -498,14 +522,46 @@ void App::Draw(float frameTime)
 
 	DrawModels(commandList);
 
-	//close here
-
-	// Do Threading
 	DrawPlanet(commandList);
 
 	// All opening commands added to first main thread command list, now execute it
 	mGraphics->CloseAndExecuteCommandList(0, 0);
-	//^temp for planet view
+
+	// Do Threading
+	int start = 0;
+	int count = (mPlanet->mTriangleChunks.size() + mNumRenderWorkers - 1) / mNumRenderWorkers;
+	for (int i = 0; i < mNumRenderWorkers; ++i)
+	{
+		// Prepare work parameters - a chunk of the boats
+		auto& work = mRenderWorkers[i].second;
+		work.start = start;
+		start += count;
+		if (start > mPlanet->mTriangleChunks.size())  start = mPlanet->mTriangleChunks.size();
+		work.end = start;
+
+		// Flag the work as not yet complete
+		auto& workerThread = mRenderWorkers[i].first;
+		{
+			// Guard every access to shared variable "work.complete" with a mutex (see BlockSpritesThread comments)
+			std::unique_lock<std::mutex> l(workerThread.lock);
+			work.complete = false;
+		}
+
+		// Notify the worker thread via a condition variable - this will wake the worker thread up
+		workerThread.workReady.notify_one();
+	}
+
+	// Wait for all the workers to finish
+	for (int i = 0; i < mNumRenderWorkers; ++i)
+	{
+		auto& workerThread = mRenderWorkers[i].first;
+		auto& work = mRenderWorkers[i].second;
+
+		// Wait for a signal via a condition variable indicating that the worker is complete
+		// See comments in BlockSpritesThread regarding the mutex and the wait method
+		std::unique_lock<std::mutex> l(workerThread.lock);
+		workerThread.workReady.wait(l, [&]() { return work.complete; });
+	}
 
 	commandList = mGraphics->StartCommandList(0, 1);
 
@@ -513,7 +569,8 @@ void App::Draw(float frameTime)
 	mGraphics->SetViewportAndScissorRects(commandList);
 	mGraphics->SetMSAARenderTarget(commandList);
 
-	commandList->SetPipelineState(mGraphics->mWaterPSO.Get());
+	if (mWireframe) commandList->SetPipelineState(mGraphics->mWireframePSO.Get());
+	else commandList->SetPipelineState(mGraphics->mWaterPSO.Get());
 
 	mWaterModel->Draw(commandList);
 
@@ -548,11 +605,11 @@ void App::DrawPlanet(ID3D12GraphicsCommandList* commandList)
 	commandList->SetGraphicsRootConstantBufferView(1, objCBAddress);
 
 	mModels[0]->mConstructorMesh->Draw(commandList);
-
-	for (auto& chunk : mPlanet->mTriangleChunks)
+	
+	/*for (auto& chunk : mPlanet->mTriangleChunks)
 	{
 		chunk->mMesh->Draw(commandList);
-	}
+	}*/
 }
 
 void App::DrawModels(ID3D12GraphicsCommandList* commandList)
@@ -581,6 +638,55 @@ void App::DrawModels(ID3D12GraphicsCommandList* commandList)
 	{
 		mSimpleTexModels[i]->Draw(commandList);
 	}
+}
+
+// Worker thread for rendering - exists throughout program, sleeps when waiting for work
+void App::RenderThread(int thread)
+{
+	auto& worker = mRenderWorkers[thread].first;
+	auto& work = mRenderWorkers[thread].second;
+	while (true)
+	{
+		{ // Guard access (to work.complete)
+			std::unique_lock<std::mutex> l(worker.lock);
+			worker.workReady.wait(l, [&]() { return !work.complete; }); // Wait until a workReady signal arrives, then verify it by testing that work.complete is false
+		}
+
+		// We have some work so do it...
+		RenderChunks(thread + 1, work.start, work.end); // Main thread counts as thread 0 so + 1
+
+		{ // Guard access (to work.complete)
+			std::unique_lock<std::mutex> l(worker.lock);
+			work.complete = true; // Flag work as complete
+		}
+		// Send a signal back to the main thread to say the work is complete, loop back and wait for more work
+		worker.workReady.notify_one();
+	}
+}
+
+// Threaded work - render a lot of boats
+void App::RenderChunks(int thread, int start, int end)
+{
+	// Reset the main thread command allocator and start a new command lists on it
+	mGraphics->ResetCommandAllocator(thread);
+	auto commandList = mGraphics->StartCommandList(thread, 0);
+
+	mGraphics->SetDescriptorHeapsAndRootSignature(thread, 0);
+
+	D3D12_VIEWPORT viewport = { 0.0f, 0.0f, static_cast<float>(mGraphics->GetBackbufferWidth()), static_cast<float>(mGraphics->GetBackbufferHeight()), D3D12_MIN_DEPTH, D3D12_MAX_DEPTH };
+	D3D12_RECT     scissorRect = { 0,    0,  static_cast<LONG> (mGraphics->GetBackbufferWidth()), static_cast<LONG> (mGraphics->GetBackbufferWidth()) };
+	commandList->RSSetViewports(1, &viewport);
+	commandList->RSSetScissorRects(1, &scissorRect);
+
+	mGraphics->SetMSAARenderTarget(commandList);
+
+	if(mWireframe) commandList->SetPipelineState(mGraphics->mWireframePSO.Get());
+	else commandList->SetPipelineState(mGraphics->mPlanetPSO.Get());
+
+	for (int i = start; i < end; ++i)
+		mPlanet->mTriangleChunks[i]->mMesh->Draw(commandList);
+
+	mGraphics->CloseAndExecuteCommandList(thread, 0);
 }
 
 void App::EndFrame()

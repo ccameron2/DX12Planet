@@ -54,6 +54,9 @@ public:
 	D3D12_VIEWPORT mViewport;
 	D3D12_RECT mScissorRect;
 
+	int mBackbufferWidth;
+	int mBackbufferHeight;
+
 	UINT mRtvDescriptorSize = 0;
 	UINT mDsvDescriptorSize = 0;
 
@@ -119,6 +122,9 @@ public:
 
 	D3D12_RENDER_TARGET_BLEND_DESC mTransparencyBlendDesc;
 
+	unsigned int GetBackbufferWidth() { return mBackbufferWidth; }
+	unsigned int GetBackbufferHeight() { return mBackbufferHeight; }
+
 	void ExecuteCommands();
 	void CycleFrameResources();
 	void CreateDescriptorHeaps();
@@ -136,6 +142,7 @@ public:
 	void SetDescriptorHeapsAndRootSignature(int thread, int list);
 	void SwapBackBuffers(bool vSync);
 	void CreateBlendState();
+
 };
 
 

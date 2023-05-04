@@ -128,6 +128,9 @@ private:
 	void StartFrame();
 	void EndFrame();
 
+	void RenderThread(int thread);
+	void RenderChunks(int thread, int start, int end);
+
 	// A worker thread wakes up when work is signalled to be ready, and signals back when the work is complete.
 	// Same condition variable is used for signalling in both directions. A mutex is used to guard data shared between threads
 	struct WorkerThread
@@ -150,6 +153,4 @@ private:
 	static const int MAX_WORKERS = 128;
 	std::pair<WorkerThread, RenderWork> mRenderWorkers[MAX_WORKERS];
 	int mNumRenderWorkers = 0;
-
-	ID3D12GraphicsCommandList* mCurrentMainCommandList;
 };
