@@ -24,16 +24,18 @@ class Graphics
 public:
 	Graphics(HWND hwnd,int width, int height);
 	~Graphics();
-	
+
+	static const unsigned int mNumFrameResources = 3;
+
 	ComPtr<ID3D12GraphicsCommandList> mCommandList;
-	ComPtr<ID3D12CommandAllocator> mCommandAllocator;
+	ComPtr<ID3D12CommandAllocator> mBaseCommandAllocators[mNumFrameResources];
 	ComPtr<IDXGIFactory4> mDXGIFactory;
 	ComPtr<IDXGISwapChain> mSwapChain;
 
 	ComPtr<ID3D12Fence1> mFence;
 	UINT64 mCurrentFence = 0;
 
-	static const unsigned int mNumFrameResources = 3;
+
 
 	static const unsigned int mMaxThreads = 64;
 	static const unsigned int mMaxCommandListsPerThread = 2;

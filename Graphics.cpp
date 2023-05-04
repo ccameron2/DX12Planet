@@ -33,7 +33,7 @@ Graphics::Graphics(HWND hWND, int width, int height)
 	Resize(width, height);
 
 	//StartCommandList(0, 0);
-	if (FAILED(mCommandList->Reset(mCommandAllocator.Get(), nullptr)))
+	if (FAILED(mCommandList->Reset(mBaseCommandAllocators[CurrentFrameResourceIndex].Get(), nullptr)))
 	{
 		MessageBox(0, L"Command List reset failed", L"Error", MB_OK);
 	}
@@ -330,6 +330,7 @@ void Graphics::CreatePSO()
 	{
 		MessageBox(0, L"Planet Pipeline State Creation failed", L"Error", MB_OK);
 	}
+
 	psoDesc.VS =
 	{
 		reinterpret_cast<BYTE*>(mTexVSByteCode->GetBufferPointer()),
@@ -475,14 +476,18 @@ void Graphics::CreateCommandObjects()
 		MessageBox(0, L"Command Queue creation failed", L"Error", MB_OK);
 	}
 
-	// Create Command Allocator
-	if (FAILED(D3DDevice->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(mCommandAllocator.GetAddressOf()))))
+	for (int i = 0; i < mNumFrameResources; i++)
 	{
-		MessageBox(0, L"Command Allocator creation failed", L"Error", MB_OK);
+		// Create Command Allocator
+		if (FAILED(D3DDevice->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(mBaseCommandAllocators[i].GetAddressOf()))))
+		{
+			MessageBox(0, L"Command Allocator creation failed", L"Error", MB_OK);
+		}
 	}
+	
 
 	// Create Command List
-	if (FAILED(D3DDevice->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, mCommandAllocator.Get(), nullptr, IID_PPV_ARGS(mCommandList.GetAddressOf()))))
+	if (FAILED(D3DDevice->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, mBaseCommandAllocators[CurrentFrameResourceIndex].Get(), nullptr, IID_PPV_ARGS(mCommandList.GetAddressOf()))))
 	{
 		MessageBox(0, L"Command List creation failed", L"Error", MB_OK);
 	}
@@ -572,10 +577,10 @@ void Graphics::Resize(int width, int height)
 {
 	assert(D3DDevice);
 	assert(mSwapChain);
-	assert(mCommandAllocator);
+	assert(mBaseCommandAllocators[CurrentFrameResourceIndex]);
 	
 	EmptyCommandQueue();
-	if (FAILED(mCommandList->Reset(mCommandAllocator.Get(), nullptr)))
+	if (FAILED(mCommandList->Reset(mBaseCommandAllocators[CurrentFrameResourceIndex].Get(), nullptr)))
 	{
 		MessageBox(0, L"Command List reset failed", L"Error", MB_OK);
 	}

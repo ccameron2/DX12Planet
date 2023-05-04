@@ -49,7 +49,7 @@ void App::Initialize()
 	mCamera->Update();
 
 	mPlanet = std::make_unique<Planet>(mGraphics.get());
-	mPlanet->CreatePlanet(0.1, 1, 1, 1);
+	mPlanet->CreatePlanet(0.1, 1, 1, 1,rand());
 
 	auto planetModel = new Model("", mGraphics->mCommandList.Get(), mPlanet->mMesh);
 	planetModel->SetPosition(XMFLOAT3{ 0, 0, 0 },false);
@@ -288,7 +288,7 @@ void App::BuildFrameResources()
 
 void App::RecreatePlanetGeometry()
 {
-	mPlanet->CreatePlanet(mGUI->mFrequency, mGUI->mOctaves, mGUI->mLOD, mPlanet->mScale);
+	mPlanet->CreatePlanet(mGUI->mFrequency, mGUI->mOctaves, mGUI->mLOD, mPlanet->mScale, mGUI->mSeed);
 	mModels[0]->mConstructorMesh = mPlanet->mMesh;
 	mModels[0]->mNumDirtyFrames += mGraphics->mNumFrameResources;
 }
@@ -341,7 +341,8 @@ void App::Update(float frameTime)
 	// Reset allocator and start new command list on it
 
 	auto commandList = mGraphics->mCommandList.Get();
-	if (FAILED(commandList->Reset(mGraphics->mCommandAllocator.Get(), nullptr)))
+	mGraphics->ResetCommandAllocator(mGraphics->mBaseCommandAllocators[CurrentFrameResourceIndex].Get());
+	if (FAILED(commandList->Reset(mGraphics->mBaseCommandAllocators[CurrentFrameResourceIndex].Get(), nullptr)))
 	{
 		MessageBox(0, L"Command List reset failed", L"Error", MB_OK);
 	}
@@ -352,10 +353,10 @@ void App::Update(float frameTime)
 		mModels[0]->mConstructorMesh = mPlanet->mMesh;
 
 		mGraphics->CloseAndExecuteCommandList();
-		mGraphics->EmptyCommandQueue();
+		//mGraphics->EmptyCommandQueue();
 
 		commandList = mGraphics->mCommandList.Get();
-		if (FAILED(commandList->Reset(mGraphics->mCommandAllocator.Get(), nullptr)))
+		if (FAILED(commandList->Reset(mGraphics->mBaseCommandAllocators[CurrentFrameResourceIndex].Get(), nullptr)))
 		{
 			MessageBox(0, L"Command List reset failed", L"Error", MB_OK);
 		}
@@ -366,6 +367,7 @@ void App::Update(float frameTime)
 	if (mGUI->mPlanetUpdated)
 	{
 		mPlanet->mCLOD = mGUI->mCLOD;
+		mGraphics->EmptyCommandQueue();
 
 		RecreatePlanetGeometry();
 

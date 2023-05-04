@@ -43,6 +43,11 @@ void GUI::Update(int numModels)
 
 	ImGui::Text("Geometry");
 
+	if (ImGui::InputInt("Seed", &mSeed, 1, 10))
+	{
+		mPlanetUpdated = true;
+	}
+
 	if (ImGui::SliderInt("LOD", &mLOD, 0, mMaxLOD))
 	{
 		mPlanetUpdated = true;

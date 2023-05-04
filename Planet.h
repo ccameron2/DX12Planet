@@ -54,7 +54,7 @@ class Planet
 public:
 	Planet(Graphics* graphics);
 	~Planet();
-	void CreatePlanet(float frequency, int octaves, int lod, int scale);
+	void CreatePlanet(float frequency, int octaves, int lod, int scale, int seed);
 	void ResetGeometry();
 	bool Update(Camera* camera, ID3D12GraphicsCommandList* commandList);
 

@@ -13,8 +13,9 @@ Planet::~Planet()
 	mGraphics = nullptr;
 }
 
-void Planet::CreatePlanet(float frequency, int octaves, int lod, int scale)
+void Planet::CreatePlanet(float frequency, int octaves, int lod, int scale, int seed)
 {
+	mNoise->SetSeed(seed);
 	mMaxLOD = lod;
 	if (mMesh) delete mMesh;
 	mFrequency = frequency;
