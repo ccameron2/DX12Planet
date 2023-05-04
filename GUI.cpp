@@ -48,6 +48,11 @@ void GUI::Update(int numModels)
 		mPlanetUpdated = true;
 	};
 
+	if (ImGui::Checkbox("CLOD", &mCLOD))
+	{
+		mPlanetUpdated = true;
+	}
+
 	//if (ImGui::Checkbox("Tesselation", &mTesselation))
 	//{
 	//	mUpdated = true;
@@ -105,11 +110,19 @@ void GUI::Update(int numModels)
 
 	if (ImGui::Checkbox("VSync", &mVSync));
 
-	if (ImGui::Checkbox("Camera Orbit", &mCameraOrbit));
+	if (ImGui::Checkbox("Orbit Camera", &mCameraOrbit));
 	if(!mCameraOrbit) if (ImGui::Checkbox("Invert Y", &mInvertY));
 
+	if (ImGui::InputFloat("Speed Mul", &mSpeedMultipler, 1.0f, 10.0f, "%.1f"))
+	{
+		if (mSpeedMultipler <= 0)
+		{
+			mSpeedMultipler = 0.1f;
+		}
+		mWMatrixChanged = true;
+	}
 
-	if (ImGui::SliderFloat3("Light Direction", mLightDir, -1, +1));
+	if (ImGui::SliderFloat3("Light Dir", mLightDir, -1, +1));
 
 	ImGui::Text("Average: %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 

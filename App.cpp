@@ -152,12 +152,12 @@ void App::LoadModels()
 	smgModel->SetScale(XMFLOAT3{ 0.1f, 0.1f, 0.1f });
 	mModels.push_back(smgModel);
 
-	Model* roboModel = new Model("Models/snow2.fbx", commandList);
+	//Model* roboModel = new Model("Models/snow2.fbx", commandList);
 
-	roboModel->SetPosition(XMFLOAT3{ -6.0f, 0.0f, 0.0f });
-	roboModel->SetRotation(XMFLOAT3{ 0.0f, 0.0f, 0.0f });
-	roboModel->SetScale(XMFLOAT3{ 0.005f, 0.005f, 0.005f });
-	mModels.push_back(roboModel);
+	//roboModel->SetPosition(XMFLOAT3{ -6.0f, 0.0f, 0.0f });
+	//roboModel->SetRotation(XMFLOAT3{ 0.0f, 0.0f, 0.0f });
+	//roboModel->SetScale(XMFLOAT3{ 0.005f, 0.005f, 0.005f });
+	//mModels.push_back(roboModel);
 
 	//Model* bladeModel = new Model("Models/robo_bun.fbx", commandList);
 
@@ -245,6 +245,17 @@ void App::LoadModels()
 			index++;
 	}
 
+	// Water
+	mWaterModel = new Model("Models/Water.fbx", commandList);
+	 
+	mWaterModel->SetPosition(XMFLOAT3{ 0.0f, 0.0f, 0.0f });
+	mWaterModel->SetRotation(XMFLOAT3{ 0.0f, 0.0f, 0.0f });
+	mWaterModel->SetScale(XMFLOAT3{ 0.01, 0.01, 0.01 });
+	mWaterModel->mObjConstantBufferIndex = index;
+	index++;
+
+	mModels.push_back(mWaterModel);
+
 	// Skybox
 	mSkyModel = new Model("Models/sphere.x", commandList);
 
@@ -254,6 +265,7 @@ void App::LoadModels()
 	mSkyModel->mObjConstantBufferIndex = index;
 
 	mModels.push_back(mSkyModel);
+
 }
 
 void App::BuildFrameResources()
@@ -296,7 +308,7 @@ void App::Update(float frameTime)
 
 	mGUI->Update(mNumModels);
 
-	mCamera->Update(frameTime, mGUI->mCameraOrbit, mGUI->mInvertY);
+	mCamera->Update(frameTime, mGUI->mCameraOrbit, mGUI->mInvertY, mGUI->mSpeedMultipler);
 
 	if (mWindow->mScrollValue != 0) 
 	{
@@ -326,6 +338,7 @@ void App::Update(float frameTime)
 
 	if (mGUI->mPlanetUpdated)
 	{
+		mPlanet->mCLOD = mGUI->mCLOD;
 		mGraphics->EmptyCommandQueue();
 		RecreatePlanetGeometry();
 		mGUI->mPlanetUpdated = false;
@@ -476,9 +489,14 @@ void App::Draw(float frameTime)
 
 	DrawModels(commandList.Get());
 
+	commandList->SetPipelineState(mGraphics->mWaterPSO.Get());
+
+	mWaterModel->Draw(commandList.Get());
+
 	commandList->SetPipelineState(mGraphics->mSkyPSO.Get());
 
 	mSkyModel->Draw(commandList.Get());
+
 
 	mGraphics->ResolveMSAAToBackBuffer();
 

@@ -16,7 +16,7 @@ public:
 
 	void MouseMoved(SDL_Event& event, Window* mWindow);
 
-	void Update(float frameTime = 0, bool orbit = true, bool invertMouse = false);
+	void Update(float frameTime = 0, bool orbit = true, bool invertMouse = false, float speedMultiplier = 1);
 
 	void WindowResized(Window* window);
 
@@ -52,7 +52,7 @@ public:
 	float mPitch = 0.0f;
 
 	float NearZ = 0.01f;
-	float FarZ = 1000.0f;
+	float FarZ = 10000.0f;
 
 	float mWindowWidth = 0;
 	float mWindowHeight = 0;

@@ -120,6 +120,20 @@ void Graphics::SwapBackBuffers(bool vSync)
 	mCurrentBackBuffer = (mCurrentBackBuffer + 1) % mSwapChainBufferCount;
 }
 
+void Graphics::CreateBlendState()
+{
+	mTransparencyBlendDesc.BlendEnable = true;
+	mTransparencyBlendDesc.LogicOpEnable = false;
+	mTransparencyBlendDesc.SrcBlend = D3D12_BLEND_ZERO;
+	mTransparencyBlendDesc.DestBlend = D3D12_BLEND_SRC_COLOR;
+	mTransparencyBlendDesc.BlendOp = D3D12_BLEND_OP_ADD;
+	mTransparencyBlendDesc.SrcBlendAlpha = D3D12_BLEND_ONE;
+	mTransparencyBlendDesc.DestBlendAlpha = D3D12_BLEND_ZERO;
+	mTransparencyBlendDesc.BlendOpAlpha = D3D12_BLEND_OP_ADD;
+	mTransparencyBlendDesc.LogicOp = D3D12_LOGIC_OP_NOOP;
+	mTransparencyBlendDesc.RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
+}
+
 void Graphics::SetGraphicsRootDescriptorTable(ID3D12DescriptorHeap* descriptorHeap, int cbvIndex, int rootParameterIndex)
 {
 	auto cbvHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(descriptorHeap->GetGPUDescriptorHandleForHeapStart());
@@ -239,6 +253,8 @@ void Graphics::CreateRootSignature()
 
 void Graphics::CreatePSO()
 {
+	CreateBlendState();
+
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc;
 	ZeroMemory(&psoDesc, sizeof(D3D12_GRAPHICS_PIPELINE_STATE_DESC));
 	psoDesc.InputLayout = { mColourInputLayout.data(), (UINT)mColourInputLayout.size() };
@@ -331,21 +347,39 @@ void Graphics::CreatePSO()
 	// Otherwise, the normalized depth values at z = 1 (NDC) will
 	// fail the depth test if the depth buffer was cleared to 1.
 	psoDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
-	psoDesc.pRootSignature = mRootSignature.Get();
 	psoDesc.VS =
 	{
-	reinterpret_cast<BYTE*>(mSkyVSByteCode->GetBufferPointer()),
-	mSkyVSByteCode->GetBufferSize()
+		reinterpret_cast<BYTE*>(mSkyVSByteCode->GetBufferPointer()),
+		mSkyVSByteCode->GetBufferSize()
 	};
 	psoDesc.PS =
 	{
-	reinterpret_cast<BYTE*>(mSkyPSByteCode->GetBufferPointer()),
-	mSkyPSByteCode->GetBufferSize()
+		reinterpret_cast<BYTE*>(mSkyPSByteCode->GetBufferPointer()),
+		mSkyPSByteCode->GetBufferSize()
 	};
 	if (FAILED(D3DDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mSkyPSO))))
 	{
 		MessageBox(0, L"Sky Pipeline State Creation failed", L"Error", MB_OK);
 	}
+
+	psoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_BACK;
+	psoDesc.InputLayout = { mColourInputLayout.data(), (UINT)mColourInputLayout.size() };
+	psoDesc.BlendState.RenderTarget[0] = mTransparencyBlendDesc;
+	psoDesc.VS =
+	{
+		reinterpret_cast<BYTE*>(mColourVSByteCode->GetBufferPointer()),
+		mColourVSByteCode->GetBufferSize()
+	};
+	psoDesc.PS =
+	{
+		reinterpret_cast<BYTE*>(mColourPSByteCode->GetBufferPointer()),
+		mColourPSByteCode->GetBufferSize()
+	};
+	if (FAILED(D3DDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mWaterPSO))))
+	{
+		MessageBox(0, L"Water Pipeline State Creation failed", L"Error", MB_OK);
+	}
+
 }
 
 void Graphics::CreateShaders()
@@ -379,6 +413,9 @@ void Graphics::CreateShaders()
 
 	mSkyVSByteCode = CompileShader(L"Shaders\\skyshader.hlsl", nullptr, "VS", "vs_5_1");
 	mSkyPSByteCode = CompileShader(L"Shaders\\skyshader.hlsl", nullptr, "PS", "ps_5_1");
+
+
+
 
 }
 

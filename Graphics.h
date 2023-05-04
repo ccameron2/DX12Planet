@@ -87,7 +87,7 @@ public:
 	ComPtr<ID3D12PipelineState> mSimpleTexPSO = nullptr;
 	ComPtr<ID3D12PipelineState> mSkyPSO = nullptr;
 	ComPtr<ID3D12PipelineState> mPlanetPSO = nullptr;
-
+	ComPtr<ID3D12PipelineState> mWaterPSO = nullptr;
 
 	ComPtr<ID3DBlob> mColourVSByteCode = nullptr;
 	ComPtr<ID3DBlob> mColourPSByteCode = nullptr;
@@ -99,9 +99,13 @@ public:
 	ComPtr<ID3DBlob> mPlanetPSByteCode = nullptr;
 	ComPtr<ID3DBlob> mSkyVSByteCode = nullptr;
 	ComPtr<ID3DBlob> mSkyPSByteCode = nullptr;
+	ComPtr<ID3DBlob> mWaterVSByteCode = nullptr;
+	ComPtr<ID3DBlob> mWaterPSByteCode = nullptr;
 
 	std::vector<D3D12_INPUT_ELEMENT_DESC> mColourInputLayout;
 	std::vector<D3D12_INPUT_ELEMENT_DESC> mTexInputLayout;
+
+	D3D12_RENDER_TARGET_BLEND_DESC mTransparencyBlendDesc;
 
 	void ExecuteCommands();
 	void CycleFrameResources();
@@ -117,6 +121,7 @@ public:
 	void SetGraphicsRootDescriptorTable(ID3D12DescriptorHeap* descriptorHeap, int cbvIndex, int rootParameterIndex);
 	void CloseAndExecuteCommandList();
 	void SwapBackBuffers(bool vSync);
+	void CreateBlendState();
 };
 
 

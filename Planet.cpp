@@ -5,6 +5,7 @@ Planet::Planet(ID3D12GraphicsCommandList* commandList)
 	mCommandList = commandList;
 	mNoise = new FastNoiseLite();
 	mNoise->SetNoiseType(FastNoiseLite::NoiseType_Perlin);
+	mNoise->SetSeed(std::rand());
 }
 
 Planet::~Planet()
@@ -97,7 +98,7 @@ void Planet::ResetGeometry()
 
 	for (auto& sub : mTriangleTree->mSubnodes)
 	{
-		sub->mDistance = (mMaxDistance);
+		sub->mDistance = mMaxDistance;
 	}
 
 	for (auto& vertex : mVertices)
@@ -137,16 +138,23 @@ bool Planet::CheckNodes(Camera* camera, Node* parentNode)
 	{
 		if (node->mNumSubs == 0)
 		{
-			auto distance = CheckNodeDistance(node, camera->mPos);
-			if (distance < node->mDistance)
+			if (mCLOD)
 			{
-				ret = Subdivide(node, node->mLevel);	
-				//ret = true;
+				auto distance = CheckNodeDistance(node, camera->mPos);
+				if (distance < node->mDistance)
+				{
+					ret = Subdivide(node, node->mLevel);
+					//ret = true;
+				}
+				else if (distance > node->mDistance + mScale)
+				{
+					if (node->mLevel > 0) { node->mCombine = true; ret = true; }
+				}
 			}
-			else if (distance > node->mDistance + 2)
+			else
 			{
-				if (node->mLevel > 0) { node->mCombine = true; ret = true; }			
-			}
+				ret = Subdivide(node, node->mLevel);
+			}		
 		}
 		else
 		{
@@ -161,9 +169,12 @@ bool Planet::CombineNodes(Node* node)
 {
 	if (node->mCombine)
 	{
-		if (node->mTriangleChunk)
+		for (auto& subNode : node->mParent->mSubnodes)
 		{
-			node->mTriangleChunk->mCombine = true;
+			if (subNode->mTriangleChunk)
+			{
+				subNode->mTriangleChunk->mCombine = true;
+			}
 		}
 		node->mParent->mSubnodes.clear();
 		node->mParent->mNumSubs = 0;
@@ -220,11 +231,7 @@ bool Planet::Update(Camera* camera, Graphics* graphics)
 bool Planet::Subdivide(Node* node, int level)
 {
 	auto divLevel = level;
-	if (divLevel > mMaxLOD) 
-	{
-		//for (int i = 0; i < 3; i++) mVertices[node->mTriangle.Point[i]].Colour = XMFLOAT4{ 0,0,1,0 };
-		return false;
-	}
+	if (divLevel > mMaxLOD) return false;
 	if (divLevel == mMaxLOD)
 	{
 		if (node->mTriangleChunk == nullptr)
@@ -245,6 +252,7 @@ bool Planet::Subdivide(Node* node, int level)
 		node->AddSub(triangle);
 		//dont use pushback
 		mTriangles.push_back(triangle);
+		node->mNumSubs++;
 	}
 	for (auto& sub : node->mSubnodes)
 	{
@@ -390,59 +398,31 @@ void Planet::ApplyNoise(float frequency, int octaves, FastNoiseLite* noise, Vert
 	vertex.Pos.z *= 1 + (elevationValue / Radius);
 }
 
-float Planet::CheckNodeSize(Node* node, Camera* camera)
+float Planet::CheckNodeTriSize(Node* node, Camera* camera)
 {
 	auto A = mVertices[node->mTriangle.Point[0]].Pos;
 	auto B = mVertices[node->mTriangle.Point[1]].Pos;
 	auto C = mVertices[node->mTriangle.Point[2]].Pos;
 
-	// Calculate the projection of the triangle vertices onto the screen
-	auto projA = WorldToScreen(A, camera);
-	auto projB = WorldToScreen(B, camera);
-	auto projC = WorldToScreen(C, camera);
+	auto vA = XMLoadFloat3(&A);
+	auto vB = XMLoadFloat3(&B);
+	auto vC = XMLoadFloat3(&C);
+	auto mV = XMLoadFloat4x4(&camera->mViewMatrix);
+	auto mP = XMLoadFloat4x4(&camera->mProjectionMatrix);
 
-	XMFLOAT3 projA3 = {projA.x,projA.y,0};
-	XMFLOAT3 projB3 = {projB.x,projB.y,0};
-	XMFLOAT3 projC3 = {projC.x,projC.y,0};
+	auto viewA = XMVector3Transform(vA, mV);
+	auto viewB = XMVector3Transform(vB, mV);
+	auto viewC = XMVector3Transform(vC, mV);
 
-	// Calculate the distance between the projected vertices
-	auto distAB = Distance(projA3, projB3);
-	auto distBC = Distance(projB3, projC3);
-	auto distCA = Distance(projC3, projA3);
+	auto viewProjA = XMVector3Transform(viewA, mP);
+	auto viewProjB = XMVector3Transform(viewB, mP);
+	auto viewProjC = XMVector3Transform(viewC, mP);
 
-	// Calculate the average distance between the projected vertices, which is the size of the triangle on the screen
-	auto size = (distAB + distBC + distCA) / 3.0f;
+	XMStoreFloat3(&A, viewProjA);
+	XMStoreFloat3(&B, viewProjB);
+	XMStoreFloat3(&C, viewProjC);
 
-	return size;
-}
+	auto distance = Distance(A, B);
 
-XMFLOAT2 Planet::WorldToScreen(XMFLOAT3 worldPos, Camera* camera)
-{
-	// Calculate the world-space position of the vertex relative to the camera
-	auto relativePos = SubFloat3(worldPos, camera->mPos);
-
-	// Apply the perspective projection matrix to the vertex
-	auto projPos = XMVector3TransformCoord(XMLoadFloat3(&relativePos), XMLoadFloat4x4(&camera->mProjectionMatrix));
-
-	XMFLOAT4X4 viewportMatrix = {
-	camera->mWindowWidth * 0.5f, 0.0f, 0.0f, 0.0f,
-	0.0f, -camera->mWindowHeight * 0.5f, 0.0f, 0.0f,
-	0.0f, 0.0f, camera->FarZ - camera->NearZ, 0.0f,
-	camera->mWindowWidth * 0.5f,camera->mWindowHeight * 0.5f, camera->NearZ, 1.0f
-	};
-
-	// Normalize the projected vertex coordinates
-	XMVECTOR ndcPos = XMVector3TransformCoord(projPos, XMLoadFloat4x4(&viewportMatrix));
-	ndcPos /= XMVectorGetW(ndcPos);
-	
-	XMFLOAT3 ndcPosF;
-	XMStoreFloat3(&ndcPosF, ndcPos);
-
-	// Map the normalized device coordinates to screen space
-	auto screenPos = XMFLOAT2{
-		(ndcPosF.x + 1.0f) * 0.5f * camera->mWindowWidth,
-		(1.0f - ndcPosF.y) * 0.5f * camera->mWindowHeight
-	};
-
-	return screenPos;
+	return distance;
 }

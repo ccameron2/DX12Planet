@@ -47,14 +47,35 @@ float4 PS(VOut pIn) : SV_Target
 	float3 pos = normalize(pIn.PosW.xyz);
 	float steepness = dot(n, pos);
 	
-	// Assign colors based on steepness
+	float3 center = float3(0.0f, 0.0f, 0.0f); // center of the sphere
+	pos = normalize(pIn.PosW.xyz - center.xyz);
+	
+	// Assign colors based on elevation and steepness
+	float elevation = length(pIn.PosW.xyz - center.xyz) - 0.5f; // assuming sphere radius is 1.0f
 	float3 albedo;
-	if (steepness > 0.85f) // steep enough for grass
+	if (elevation > 0.6f) // high elevation, use snow
+		albedo = float3(1.0f, 1.0f, 1.0f); // white
+	else if (elevation > 0.59f) // high elevation, use dirt
+		albedo = float3(0.7f, 0.4f, 0.1f); // dirt
+	else if (elevation < 0.49f) // low elevation, use dark sand
+		albedo = float3(0.6f, 0.45f, 0.3f); // dark beige
+	else if (elevation < 0.51f) // low elevation, use sand
+		albedo = float3(1.0f, 0.9f, 0.7f); // beige
+	else if (steepness > 0.85f) // steep enough for grass
 		albedo = float3(0.2f, 0.6f, 0.2f); // green
-	else if (steepness < 0.75f) // steep enough for stone
+	else if (steepness < 0.77f) // steep enough for stone
 		albedo = float3(0.5f, 0.5f, 0.5f); // grey
 	else // in between, use dirt
 		albedo = float3(0.7f, 0.4f, 0.1f); // brown
+	
+	//// Assign colors based on steepness
+	//float3 albedo;
+	//if (steepness > 0.85f) // steep enough for grass
+	//	albedo = float3(0.2f, 0.6f, 0.2f); // green
+	//else if (steepness < 0.75f) // steep enough for stone
+	//	albedo = float3(0.5f, 0.5f, 0.5f); // grey
+	//else // in between, use dirt
+	//	albedo = float3(0.7f, 0.4f, 0.1f); // brown
 	
 	// Set roughness, metalness, and AO to constant values
 	float roughness = 0.95f;

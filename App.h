@@ -82,6 +82,7 @@ private:
 	vector<Texture*> mTextures;
 	vector<Material*> mMaterials;
 	Model* mSkyModel;
+	Model* mWaterModel;
 
 	unique_ptr<Graphics> mGraphics;
 	unique_ptr<Window> mWindow;
@@ -123,4 +124,7 @@ private:
 	void DrawModels(ID3D12GraphicsCommandList* commandList);
 	void StartFrame();
 	void EndFrame();
+
+
+
 };

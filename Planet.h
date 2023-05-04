@@ -61,6 +61,7 @@ public:
 	Mesh* mMesh;	
 	int mMaxLOD = 0;
 	int mScale = 1;
+	bool mCLOD = false;
 	std::vector<TriangleChunk*> mTriangleChunks;
 private:
 	ID3D12GraphicsCommandList* mCommandList;
@@ -70,7 +71,6 @@ private:
 	unique_ptr<Node> mTriangleTree;
 	std::map<std::pair<int, int>, int> mVertexMap;
 	std::vector<Vertex> mVertices;
-	std::vector<XMFLOAT3> mOriginalPositions;
 	std::vector<uint32_t> mIndices;
 	float mRadius = 0.5f;
 	float mMaxDistance = 0.0f;
@@ -88,8 +88,12 @@ private:
 	bool CheckNodes(Camera* camera, Node* parentNode);
 	bool CombineNodes(Node* node);
 	void ApplyNoise(float frequency, int octaves, FastNoiseLite* noise, Vertex& vertex);
-	float CheckNodeSize(Node* node, Camera* camera);
-	XMFLOAT2 WorldToScreen(XMFLOAT3 worldPos, Camera* camera);
+	float CheckNodeTriSize(Node* node, Camera* camera);
+
+	// Threading
+
+
+
 
 };
 
