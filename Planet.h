@@ -52,11 +52,11 @@ public:
 class Planet
 {
 public:
-	Planet(ID3D12GraphicsCommandList* commandList);
+	Planet(Graphics* graphics);
 	~Planet();
 	void CreatePlanet(float frequency, int octaves, int lod, int scale);
 	void ResetGeometry();
-	bool Update(Camera* camera, Graphics* graphics);
+	bool Update(Camera* camera, ID3D12GraphicsCommandList* commandList);
 
 	Mesh* mMesh;	
 	int mMaxLOD = 0;
@@ -64,8 +64,8 @@ public:
 	bool mCLOD = false;
 	std::vector<TriangleChunk*> mTriangleChunks;
 private:
-	ID3D12GraphicsCommandList* mCommandList;
-
+	Graphics* mGraphics;
+	ID3D12GraphicsCommandList* mCurrentCommandList;
 	std::vector<Triangle> mTriangles;
 	std::vector<XMFLOAT3> mNormals;
 	unique_ptr<Node> mTriangleTree;

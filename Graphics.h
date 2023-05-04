@@ -26,14 +26,23 @@ public:
 	~Graphics();
 	
 	ComPtr<ID3D12GraphicsCommandList> mCommandList;
-
+	ComPtr<ID3D12CommandAllocator> mCommandAllocator;
 	ComPtr<IDXGIFactory4> mDXGIFactory;
 	ComPtr<IDXGISwapChain> mSwapChain;
 
 	ComPtr<ID3D12Fence1> mFence;
 	UINT64 mCurrentFence = 0;
 
-	ComPtr<ID3D12CommandAllocator> mCommandAllocator;
+	static const unsigned int mNumFrameResources = 3;
+
+	static const unsigned int mMaxThreads = 64;
+	static const unsigned int mMaxCommandListsPerThread = 2;
+
+	ComPtr<ID3D12CommandAllocator> mCommandAllocators[mNumFrameResources][mMaxThreads]; //*** Multithreading - command allocators handle memory for command lists - need one per-frame / per-thread so
+	//                     so that commands from different threads / frames can all run simultaneously
+	ComPtr<ID3D12GraphicsCommandList> mCommandLists[mMaxThreads][mMaxCommandListsPerThread]; //*** Multithreading - allowing each thread to have multiple command lists, e.g. the main thread 
+	//                     uses two, one for work prior to threaded part, one for work after it
+	//                     No need for one per frame because once commited command lists can be instantly reused
 
 	const static int mSwapChainBufferCount = 2;
 	DXGI_FORMAT mBackBufferFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
@@ -60,7 +69,6 @@ public:
 	ComPtr<ID3D12DescriptorHeap> mDSVHeap;
 	ComPtr<ID3D12RootSignature> mRootSignature;
 	FrameResource* mCurrentFrameResource = nullptr;
-	const static int mNumFrameResources = 3;
 
 	XMVECTORF32 mBackgroundColour = DirectX::Colors::Purple;
 
@@ -74,6 +82,10 @@ public:
 
 	void Resize(int width, int height);
 	void EmptyCommandQueue();
+
+	void ResetCommandAllocator(int thread);
+
+	ID3D12GraphicsCommandList* StartCommandList(int thread, int list);
 
 	ID3D12Resource* CurrentBackBuffer(); // Returns current back buffer in swap chain
 	D3D12_CPU_DESCRIPTOR_HANDLE CurrentBackBufferView(); // Returns Render Target View to current back buffer
@@ -110,16 +122,18 @@ public:
 	void ExecuteCommands();
 	void CycleFrameResources();
 	void CreateDescriptorHeaps();
-	void ResolveMSAAToBackBuffer();
+	void ResolveMSAAToBackBuffer(ID3D12GraphicsCommandList* commandList);
 	void ResetCommandAllocator(ID3D12CommandAllocator* commandAllocator);
 	void ResetCommandList(ID3D12CommandAllocator* commandAllocator, ID3D12PipelineState* pipeline);
-	void SetViewportAndScissorRects();
-	void ClearBackBuffer();
-	void ClearDepthBuffer();
-	void SetMSAARenderTarget();
+	void SetViewportAndScissorRects(ID3D12GraphicsCommandList* commandList);
+	void ClearBackBuffer(ID3D12GraphicsCommandList* commandList);
+	void ClearDepthBuffer(ID3D12GraphicsCommandList* commandList);
+	void SetMSAARenderTarget(ID3D12GraphicsCommandList* commandList);
 	void SetDescriptorHeap(ID3D12DescriptorHeap* descriptorHeap);
 	void SetGraphicsRootDescriptorTable(ID3D12DescriptorHeap* descriptorHeap, int cbvIndex, int rootParameterIndex);
 	void CloseAndExecuteCommandList();
+	void CloseAndExecuteCommandList(int thread, int list);
+	void SetDescriptorHeapsAndRootSignature(int thread, int list);
 	void SwapBackBuffers(bool vSync);
 	void CreateBlendState();
 };

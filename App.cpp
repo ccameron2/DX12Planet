@@ -48,7 +48,7 @@ void App::Initialize()
 
 	mCamera->Update();
 
-	mPlanet = std::make_unique<Planet>(mGraphics->mCommandList.Get());
+	mPlanet = std::make_unique<Planet>(mGraphics.get());
 	mPlanet->CreatePlanet(0.1, 1, 1, 1);
 
 	auto planetModel = new Model("", mGraphics->mCommandList.Get(), mPlanet->mMesh);
@@ -78,6 +78,16 @@ void App::Initialize()
 
 	mGUI = make_unique<GUI>(SrvDescriptorHeap.get(), mWindow->mSDLWindow, D3DDevice.Get(),
 		mGraphics->mNumFrameResources, mGraphics->mBackBufferFormat);
+
+	////// Start worker threads
+
+	//mNumRenderWorkers = std::thread::hardware_concurrency(); // Gives a hint about level of thread concurrency supported by system (0 means no hint given)
+	//if (mNumRenderWorkers == 0)  mNumRenderWorkers = 8;
+	//for (int i = 0; i < mNumRenderWorkers; ++i)
+	//{
+	//	mRenderWorkers[i].first.thread = std::thread(&App::RenderThread, this, i);
+	//}
+
 }
 
 void App::CreateSkybox()
@@ -323,12 +333,16 @@ void App::Update(float frameTime)
 	if (mWindow->mDown)	mCamera->MoveDown();
 
 	//Reset command allocator and list before planet updates as meshes can be spawned
-	auto commandAllocator = mGraphics->mCurrentFrameResource->mCommandAllocator.Get();
-	auto commandList = mGraphics->mCommandList;
-	mGraphics->ResetCommandAllocator(commandAllocator);
-	mGraphics->ResetCommandList(commandAllocator, mCurrentPSO);
+	//auto commandAllocator = mGraphics->mCurrentFrameResource->mCommandAllocator.Get();
+	//auto commandList = mGraphics->mCommandList;
+	//mGraphics->ResetCommandAllocator(commandAllocator);
+	//mGraphics->ResetCommandList(commandAllocator, mCurrentPSO);
 
-	if (mPlanet->Update(mCamera.get(), mGraphics.get()))
+	// Reset allocator and start new command list on it
+	mGraphics->ResetCommandAllocator(0);
+	mCurrentMainCommandList = mGraphics->StartCommandList(0, 0);
+
+	if (mPlanet->Update(mCamera.get(), mCurrentMainCommandList))
 	{
 		mModels[0]->mNumDirtyFrames += mGraphics->mNumFrameResources;
 		mModels[0]->mConstructorMesh = mPlanet->mMesh;
@@ -455,25 +469,22 @@ void App::UpdatePerMaterialConstantBuffers()
 
 void App::Draw(float frameTime)
 {
-	auto commandAllocator = mGraphics->mCurrentFrameResource->mCommandAllocator.Get();
-	auto commandList = mGraphics->mCommandList;
+	auto commandList = mCurrentMainCommandList;
 
 	//mGraphics->ResetCommandAllocator(commandAllocator);
 
 	//mGraphics->ResetCommandList(commandAllocator, mCurrentPSO);
 
-	mGraphics->SetViewportAndScissorRects();
+	mGraphics->SetViewportAndScissorRects(commandList);
 
 	// Clear the back buffer and depth buffer.
-	mGraphics->ClearBackBuffer();
-	mGraphics->ClearDepthBuffer();
+	mGraphics->ClearBackBuffer(commandList);
+	mGraphics->ClearDepthBuffer(commandList);
 
 	// Select MSAA texture as render target
-	mGraphics->SetMSAARenderTarget();
+	mGraphics->SetMSAARenderTarget(commandList);
 
-	mGraphics->SetDescriptorHeap(SrvDescriptorHeap->mHeap.Get());
-
-	commandList->SetGraphicsRootSignature(mGraphics->mRootSignature.Get());
+	mGraphics->SetDescriptorHeapsAndRootSignature(0, 0);
 
 	auto srvHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(SrvDescriptorHeap->mHeap->GetGPUDescriptorHandleForHeapStart());
 	commandList->SetGraphicsRootDescriptorTable(0, srvHandle);
@@ -485,24 +496,39 @@ void App::Draw(float frameTime)
 	cubeTex.Offset(mSkyMat->DiffuseSRVIndex, CbvSrvUavDescriptorSize);
 	commandList->SetGraphicsRootDescriptorTable(4, cubeTex);
 
-	DrawPlanet(commandList.Get());
+	DrawModels(commandList);
 
-	DrawModels(commandList.Get());
+	//close here
+
+	// Do Threading
+	DrawPlanet(commandList);
+
+	// All opening commands added to first main thread command list, now execute it
+	mGraphics->CloseAndExecuteCommandList(0, 0);
+	//^temp for planet view
+
+	commandList = mGraphics->StartCommandList(0, 1);
+
+	mGraphics->SetDescriptorHeapsAndRootSignature(0, 1);
+	mGraphics->SetViewportAndScissorRects(commandList);
+	mGraphics->SetMSAARenderTarget(commandList);
 
 	commandList->SetPipelineState(mGraphics->mWaterPSO.Get());
 
-	mWaterModel->Draw(commandList.Get());
+	mWaterModel->Draw(commandList);
 
 	commandList->SetPipelineState(mGraphics->mSkyPSO.Get());
 
-	mSkyModel->Draw(commandList.Get());
+	mSkyModel->Draw(commandList);
 
+	mGraphics->ResolveMSAAToBackBuffer(commandList);
 
-	mGraphics->ResolveMSAAToBackBuffer();
+	mGUI->Render(commandList, mGraphics->CurrentBackBuffer(), mGraphics->CurrentBackBufferView(), mGraphics->mDSVHeap.Get(), mGraphics->mDsvDescriptorSize);
 
-	mGUI->Render(mGraphics->mCommandList.Get(), mGraphics->CurrentBackBuffer(), mGraphics->CurrentBackBufferView(), mGraphics->mDSVHeap.Get(), mGraphics->mDsvDescriptorSize);
+	// All commands added to post threading command list, now execute it
+	mGraphics->CloseAndExecuteCommandList(0, 1);
 
-	mGraphics->CloseAndExecuteCommandList();
+	//mGraphics->CloseAndExecuteCommandList();
 
 	mGraphics->SwapBackBuffers(mGUI->mVSync);
 }
@@ -618,6 +644,12 @@ App::~App()
 {
 	// Empty the command queue
 	if (D3DDevice != nullptr) { mGraphics->EmptyCommandQueue(); }
+
+	// Need to close off worker threads - they are in an infinite loop so cannot wait for them with join, so detach them - will be destroyed when app closes (should do better than this)
+	for (int i = 0; i < mNumRenderWorkers; ++i)
+	{
+		mRenderWorkers[i].first.thread.detach();
+	}
 
 	for (auto& model : mModels)
 	{

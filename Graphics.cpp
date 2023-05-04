@@ -1,6 +1,7 @@
 #include "Graphics.h"
 #include "Utility.h"
 #include <DirectXMath.h>
+#include <stdexcept>
 
 UINT CbvSrvUavDescriptorSize = 0;
 int CurrentFrameResourceIndex = 0;
@@ -31,6 +32,7 @@ Graphics::Graphics(HWND hWND, int width, int height)
 
 	Resize(width, height);
 
+	//StartCommandList(0, 0);
 	if (FAILED(mCommandList->Reset(mCommandAllocator.Get(), nullptr)))
 	{
 		MessageBox(0, L"Command List reset failed", L"Error", MB_OK);
@@ -42,25 +44,25 @@ Graphics::~Graphics()
 
 }
 
-void Graphics::ResolveMSAAToBackBuffer()
+void Graphics::ResolveMSAAToBackBuffer(ID3D12GraphicsCommandList* commandList)
 {
 	// Transition MSAA texture to resolve source
-	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(mMSAARenderTarget.Get(),
+	commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(mMSAARenderTarget.Get(),
 		D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_RESOLVE_SOURCE));
 
 	// Transition Back buffer to resolve destination
-	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
+	commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
 		D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RESOLVE_DEST));
 
 	// Resolve MSAA to back buffer
-	mCommandList->ResolveSubresource(CurrentBackBuffer(), 0, mMSAARenderTarget.Get(), 0, mBackBufferFormat);
+	commandList->ResolveSubresource(CurrentBackBuffer(), 0, mMSAARenderTarget.Get(), 0, mBackBufferFormat);
 
 	// Transition back buffer to present
-	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
+	commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(CurrentBackBuffer(),
 		D3D12_RESOURCE_STATE_RESOLVE_DEST, D3D12_RESOURCE_STATE_PRESENT));
 
 	// Transition MSAA texture to render target for use next frame
-	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(mMSAARenderTarget.Get(),
+	commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(mMSAARenderTarget.Get(),
 		D3D12_RESOURCE_STATE_RESOLVE_SOURCE, D3D12_RESOURCE_STATE_RENDER_TARGET));
 }
 
@@ -82,32 +84,43 @@ void Graphics::ResetCommandList(ID3D12CommandAllocator* commandAllocator, ID3D12
 	}
 }
 
-void Graphics::SetViewportAndScissorRects()
+void Graphics::SetViewportAndScissorRects(ID3D12GraphicsCommandList* commandList)
 {
 	// Set the viewport and scissor rect.  This needs to be reset whenever the command list is reset.
-	mCommandList->RSSetViewports(1, &mViewport);
-	mCommandList->RSSetScissorRects(1, &mScissorRect);
+	commandList->RSSetViewports(1, &mViewport);
+	commandList->RSSetScissorRects(1, &mScissorRect);
 }
 
-void Graphics::ClearBackBuffer()
+void Graphics::ClearBackBuffer(ID3D12GraphicsCommandList* commandList)
 {
-	mCommandList->ClearRenderTargetView(MSAAView(), mBackgroundColour, 0, nullptr);
+	commandList->ClearRenderTargetView(MSAAView(), mBackgroundColour, 0, nullptr);
 }
 
-void Graphics::ClearDepthBuffer()
+void Graphics::ClearDepthBuffer(ID3D12GraphicsCommandList* commandList)
 {
-	mCommandList->ClearDepthStencilView(DepthStencilView(), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
+	commandList->ClearDepthStencilView(DepthStencilView(), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
 }
 
-void Graphics::SetMSAARenderTarget()
+void Graphics::SetMSAARenderTarget(ID3D12GraphicsCommandList* commandList)
 {
-	mCommandList->OMSetRenderTargets(1, &MSAAView(), true, &DepthStencilView());
+	commandList->OMSetRenderTargets(1, &MSAAView(), true, &DepthStencilView());
 }
 
 void Graphics::SetDescriptorHeap(ID3D12DescriptorHeap* descriptorHeap)
 {
 	ID3D12DescriptorHeap* descriptorHeaps[] = { descriptorHeap };
 	mCommandList->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
+}
+
+// Specify the root signature and descriptor heaps it references, on the given thread and list
+void Graphics::SetDescriptorHeapsAndRootSignature(int thread, int list)
+{
+	//****** IMPORTANT When using shader model 6.6 for shader access to descriptor heaps then the call to SetDescriptorHeaps must come before SetGraphicsRootSignature
+	ID3D12DescriptorHeap* heaps[] = { SrvDescriptorHeap->mHeap.Get() };
+	mCommandLists[thread][list]->SetDescriptorHeaps(1, heaps);
+
+	// Set global state
+	mCommandLists[thread][list]->SetGraphicsRootSignature(mRootSignature.Get());
 }
 
 void Graphics::SwapBackBuffers(bool vSync)
@@ -154,6 +167,15 @@ void Graphics::CloseAndExecuteCommandList()
 	CommandQueue->ExecuteCommandLists(_countof(cmdLists), cmdLists);
 }
 
+// Close a given thread's command list and commit its work to the GPU
+void Graphics::CloseAndExecuteCommandList(int thread, int list)
+{
+	HRESULT hr = mCommandLists[thread][list]->Close();
+	if (FAILED(hr))  throw std::runtime_error("Error closing command list");
+
+	ID3D12CommandList* commandLists[] = { mCommandLists[thread][list].Get() };
+	CommandQueue->ExecuteCommandLists(1, commandLists);
+}
 
 bool Graphics::CreateDeviceAndFence()
 {
@@ -465,6 +487,30 @@ void Graphics::CreateCommandObjects()
 		MessageBox(0, L"Command List creation failed", L"Error", MB_OK);
 	}
 
+	// Create command allocators per-thread / per-frame. The command lists live in the memory created by these allocators, so we need to maintain many so all the threads/frames can run at the same time
+	for (int frame = 0; frame < mNumFrameResources; ++frame)
+	{
+		for (int thread = 0; thread < mMaxThreads; ++thread)
+		{
+			if (FAILED(D3DDevice->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&mCommandAllocators[frame][thread]))))
+				MessageBox(0, L"Command Allocator creation failed", L"Error", MB_OK);
+		}
+	}
+
+	// Create multiple command lists per-thread. Don't need per-frame since once they are commited to the queue they can be immediately reused
+	for (int thread = 0; thread < mMaxThreads; ++thread)
+	{
+		for (int list = 0; list < mMaxCommandListsPerThread; ++list)
+		{
+			if (FAILED(D3DDevice->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, mCommandAllocators[mCurrentBackBuffer][thread].Get(), NULL, IID_PPV_ARGS(&mCommandLists[thread][list]))))
+			{
+				MessageBox(0, L"Command Allocator creation failed", L"Error", MB_OK);
+				throw std::runtime_error("Error creating command list");
+			}
+			mCommandLists[thread][list]->Close();
+		}
+	}
+
 	// Close the command list 
 	mCommandList->Close();
 }
@@ -736,6 +782,23 @@ void Graphics::EmptyCommandQueue()
 		CloseHandle(eventHandle);
 	}
 
+}
+
+// Reset the current frame's allocator for the given thread
+void Graphics::ResetCommandAllocator(int thread)
+{
+	// Only reset a command allocator when any command lists it created have finished running
+	HRESULT hr = mCommandAllocators[mCurrentBackBuffer][thread]->Reset();
+	if (FAILED(hr))  throw std::runtime_error("Error reseting command allocator");
+}
+
+// Reset the given thread's command lists so it is ready to record commands again - lists can be can be reset any time after commiting them
+// Returns command list ready to record
+ID3D12GraphicsCommandList* Graphics::StartCommandList(int thread, int list)
+{
+	HRESULT hr = mCommandLists[thread][list]->Reset(mCommandAllocators[mCurrentBackBuffer][thread].Get(), NULL);
+	if (FAILED(hr))  throw std::runtime_error("Error reseting command list");
+	return mCommandLists[thread][list].Get();
 }
 
 // Return current back buffer

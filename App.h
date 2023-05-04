@@ -23,6 +23,9 @@
 #include <memory>
 #include "Common.h"
 
+#include <thread>
+#include <condition_variable>
+
 #include "Planet.h"
 #include "Model.h"
 
@@ -125,6 +128,28 @@ private:
 	void StartFrame();
 	void EndFrame();
 
+	// A worker thread wakes up when work is signalled to be ready, and signals back when the work is complete.
+	// Same condition variable is used for signalling in both directions. A mutex is used to guard data shared between threads
+	struct WorkerThread
+	{
+		std::thread             thread;
+		std::condition_variable workReady;
+		std::mutex              lock;
+	};
 
+	// Data describing work to do by a worker thread - render a lot of boats here
+	struct RenderWork
+	{
+		bool complete = true;
+		int  start = 0;
+		int  end = 0;
+	};
 
+	// A pool of worker threads, each with its associated work
+	// A more flexible system could generalise the type of work that worker threads can do
+	static const int MAX_WORKERS = 128;
+	std::pair<WorkerThread, RenderWork> mRenderWorkers[MAX_WORKERS];
+	int mNumRenderWorkers = 0;
+
+	ID3D12GraphicsCommandList* mCurrentMainCommandList;
 };

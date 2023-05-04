@@ -1,8 +1,8 @@
 #include "Planet.h"
 
-Planet::Planet(ID3D12GraphicsCommandList* commandList)
+Planet::Planet(Graphics* graphics)
 {
-	mCommandList = commandList;
+	mGraphics = graphics;
 	mNoise = new FastNoiseLite();
 	mNoise->SetNoiseType(FastNoiseLite::NoiseType_Perlin);
 	mNoise->SetSeed(std::rand());
@@ -10,6 +10,7 @@ Planet::Planet(ID3D12GraphicsCommandList* commandList)
 
 Planet::~Planet()
 {
+	mGraphics = nullptr;
 }
 
 void Planet::CreatePlanet(float frequency, int octaves, int lod, int scale)
@@ -190,10 +191,11 @@ bool Planet::CombineNodes(Node* node)
 	return false;
 }
 
-bool Planet::Update(Camera* camera, Graphics* graphics)
+bool Planet::Update(Camera* camera, ID3D12GraphicsCommandList* commandList)
 {
 	SortBaseNodes(camera->mPos);
 
+	mCurrentCommandList = commandList;
 	if (CheckNodes(camera, mTriangleTree.get()))
 	{
 		//log2(distance) > something 
@@ -209,7 +211,7 @@ bool Planet::Update(Camera* camera, Graphics* graphics)
 
 		if (combine)
 		{
-			graphics->EmptyCommandQueue();			
+			mGraphics->EmptyCommandQueue();			
 		}
 
 		for (auto& chunk : mTriangleChunks)
@@ -239,7 +241,7 @@ bool Planet::Subdivide(Node* node, int level)
 			node->mTriangleChunk = new TriangleChunk(mVertices[node->mTriangle.Point[0]],
 				mVertices[node->mTriangle.Point[1]],
 				mVertices[node->mTriangle.Point[2]],
-				mFrequency, mOctaves, mNoise, mCommandList);
+				mFrequency, mOctaves, mNoise, mCurrentCommandList);
 			mTriangleChunks.push_back(node->mTriangleChunk);
 			return true;
 		}
