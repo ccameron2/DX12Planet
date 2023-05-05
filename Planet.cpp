@@ -3,6 +3,8 @@
 Planet::Planet(Graphics* graphics)
 {
 	mGraphics = graphics;
+
+	// Create new noise object with random seed
 	mNoise = new FastNoiseLite();
 	mNoise->SetNoiseType(FastNoiseLite::NoiseType_Perlin);
 	mNoise->SetSeed(std::rand());
@@ -15,39 +17,45 @@ Planet::~Planet()
 
 void Planet::CreatePlanet(float frequency, int octaves, int lod, int scale, int seed)
 {
+	// Set data from params
 	mNoise->SetSeed(seed);
 	mMaxLOD = lod;
-	if (mMesh) delete mMesh;
 	mFrequency = frequency;
 	mOctaves = octaves;
 	mScale = scale;
 	mRadius = 0.5 * scale;
 	mMaxDistance = mRadius * (mMaxLOD + 1);
+
+	// Clear old mesh
+	if (mMesh) delete mMesh;
+
+	// Reserve memory
 	mVertices.reserve(sizeof(Vertex) * MAX_PLANET_VERTS);
 	mTriangles.reserve(sizeof(Triangle) * MAX_PLANET_VERTS);
 	mIndices.reserve(sizeof(int) * MAX_PLANET_VERTS * 3);
 
+	// Reset geometry to icosahedron
 	ResetGeometry();
 
 	BuildIndices();
 
+	// Calculate normals
 	auto normals = CalculateNormals(mVertices,mIndices);
-
 	for (int i = 0; i < mVertices.size(); i++)
 	{
 		mVertices[i].Normal = normals[i];
 	}
 
+	// Make a new mesh and calculate dynamic buffer data
 	mMesh = new Mesh();
-
 	mMesh->mVertices = mVertices;
 	mMesh->mIndices = mIndices;
-
 	mMesh->CalculateDynamicBufferData();
 }
 
 void Planet::ResetGeometry()
 {
+	// Clear old data
 	mVertices.clear();
 	mIndices.clear();
 	mTriangles.clear();
@@ -55,6 +63,7 @@ void Planet::ResetGeometry()
 	mTriangleTree.reset();
 	mTriangleChunks.clear();
 
+	// Base Icosahedron
 	const float X = 0.525731112119133606f;
 	const float Z = 0.850650808352039932f;
 	const float N = 0.0f;
@@ -92,30 +101,36 @@ void Planet::ResetGeometry()
 		mTriangles.push_back(Triangle{ mIndices[i],mIndices[i + 1],mIndices[i + 2] });
 	}
 
+	// Make quadtree and add triangles to it
 	mTriangleTree = make_unique<Node>();
 	for (auto& triangle : mTriangles)
 	{
 		mTriangleTree->AddSub(triangle);
 	}
 
+	// Set subdivision distances to max on base nodes
 	for (auto& sub : mTriangleTree->mSubnodes)
 	{
 		sub->mDistance = mMaxDistance;
 	}
 
+	// Apply noise to the vertices
 	for (auto& vertex : mVertices)
 	{
 		ApplyNoise(mFrequency, mOctaves, mNoise, vertex);
 	}
 
+	// Clear the triangles list
 	mTriangles.clear();
 
 }
 
 void Planet::GetTriangles(Node* node)
 {
+	// If the node has subnodes
 	if (node->mNumSubs > 0)
 	{
+		// Call this function on each subnode
 		for (auto& subNode : node->mSubnodes)
 		{
 			GetTriangles(subNode);
@@ -123,12 +138,14 @@ void Planet::GetTriangles(Node* node)
 	}
 	else 
 	{
+		// Push triangle indices
 		if (node->mLevel < mMaxLOD) mTriangles.push_back(node->mTriangle);
 		else
 		{
+			// If the node has a triangle chunk, push it onto the chunks list
 			if (node->mTriangleChunk) 
 				mTriangleChunks.push_back(node->mTriangleChunk);
-			else 
+			else // Push back the triangle indices instead
 				mTriangles.push_back(node->mTriangle);			
 		}
 	}
@@ -138,30 +155,40 @@ bool Planet::CheckNodes(Camera* camera, Node* parentNode)
 {
 	bool ret = false;
 	bool combine = false;
+
+	// For each subnode in this node
 	for (auto node : parentNode->mSubnodes)
 	{
+		// If the node has no subnodes
 		if (node->mNumSubs == 0)
 		{
+			// If CLOD is enabled
 			if (mCLOD)
 			{
+				// Check distance from the camera to the centre of the triangle
 				auto distance = CheckNodeDistance(node, camera->mPos);
+
+				// If distance is less than the nodes subdivide distance
 				if (distance < node->mDistance)
 				{
+					// Subdivide the node
 					ret = Subdivide(node, node->mLevel);
-					//ret = true;
 				}
 				else if (distance > node->mDistance + mScale)
 				{
+					// Combine the node
 					if (node->mLevel > 0) { node->mCombine = true; ret = true; }
 				}
 			}
 			else
 			{
+				// Subdivide the nodes to the max LOD
 				ret = Subdivide(node, node->mLevel);
 			}		
 		}
 		else
 		{
+			// Check the next node
 			ret = ret || CheckNodes(camera, node);
 		}
 	}
@@ -171,8 +198,10 @@ bool Planet::CheckNodes(Camera* camera, Node* parentNode)
 
 bool Planet::CombineNodes(Node* node)
 {
+	// If node should be combined
 	if (node->mCombine)
 	{
+		// Delete this node and its neighbours 
 		for (auto& subNode : node->mParent->mSubnodes)
 		{
 			if (subNode->mTriangleChunk)
@@ -180,12 +209,15 @@ bool Planet::CombineNodes(Node* node)
 				subNode->mTriangleChunk->mCombine = true;
 			}
 		}
+
+		// Clear the subnodes list
 		node->mParent->mSubnodes.clear();
 		node->mParent->mNumSubs = 0;
 		return true;
 	}
 	else
 	{
+		// Check each subnode
 		for (auto& subNode : node->mSubnodes)
 		{
 			CombineNodes(subNode);
@@ -196,34 +228,40 @@ bool Planet::CombineNodes(Node* node)
 
 bool Planet::Update(Camera* camera, ID3D12GraphicsCommandList* commandList)
 {
+	// Sort nodes based on distance to camera
 	SortBaseNodes(camera->mPos);
-
 	mCurrentCommandList = commandList;
+
+	// If a node has been updated
 	if (CheckNodes(camera, mTriangleTree.get()))
 	{
-		//log2(distance) > something 
-		//; log2(distance) > MaxLOD
+		// Check if any should be combined
 		bool combine = false;
 		for (auto& subNode : mTriangleTree->mSubnodes) { CombineNodes(subNode); }
 
+		// If a chunk has been combined
 		for (auto& chunk : mTriangleChunks)
 		{
 			if (chunk->mCombine)
 				combine = true;
 		}
 
+		// Empty the command queue
 		if (combine)
 		{
 			mGraphics->EmptyCommandQueue();			
 		}
 
+		// Delete the chunk that should be combined
 		for (auto& chunk : mTriangleChunks)
 		{
 			if (chunk->mCombine) delete chunk;
 		}
 
+		// Build the indices for the planet to render
 		BuildIndices();
 
+		// Calculate dynamic buffer data and set mesh geometry
 		mMesh->mVertices = mVertices;
 		mMesh->mIndices = mIndices;
 		mMesh->CalculateDynamicBufferData();
@@ -236,7 +274,11 @@ bool Planet::Update(Camera* camera, ID3D12GraphicsCommandList* commandList)
 bool Planet::Subdivide(Node* node, int level)
 {
 	auto divLevel = level;
+
+	// If greater than max LOD, do nothing and return false
 	if (divLevel > mMaxLOD) return false;
+
+	// If at max LOD, spawn a triangle chunk
 	if (divLevel == mMaxLOD)
 	{
 		if (node->mTriangleChunk == nullptr)
@@ -251,14 +293,22 @@ bool Planet::Subdivide(Node* node, int level)
 		}
 		return false;		
 	}
+
+	// Subdivide the node's triangle
 	std::vector<Triangle> newTriangles = SubdivideTriangle(node->mTriangle);
+
+	// Increment division level
 	divLevel++;
+
+	// Add triangles to quadtree
 	for (auto& triangle : newTriangles)
 	{
 		node->AddSub(triangle);
 		mTriangles.push_back(triangle);
 		node->mNumSubs++;
 	}
+
+	// Set subdivision distances
 	for (auto& sub : node->mSubnodes)
 	{
 		sub->mLevel = divLevel;
@@ -269,7 +319,6 @@ bool Planet::Subdivide(Node* node, int level)
 
 int Planet::GetVertexForEdge(int v1, int v2)
 {
-	//mTriangles.reserve(num pushbacks)
 	// Create pair to use as key in map and normalise edge direction to prevent duplication
 	std::pair<int, int> vertexPair(v1, v2);
 	if (vertexPair.first > vertexPair.second) { std::swap(vertexPair.first, vertexPair.second); }
@@ -282,11 +331,6 @@ int Planet::GetVertexForEdge(int v1, int v2)
 		auto& edge2 = mVertices[v1];
 		auto newPoint = AddFloat3(edge1.Pos, edge2.Pos);
 		Normalize(&newPoint.Pos);
-
-		//// Set colours
-		//newPoint.Colour.x = std::lerp(edge1.Colour.x, edge2.Colour.x, 0.5);
-		//newPoint.Colour.y = std::lerp(edge1.Colour.y, edge2.Colour.y, 0.5);
-		//newPoint.Colour.z = std::lerp(edge1.Colour.z, edge2.Colour.z, 0.5);
 		
 		ApplyNoise(mFrequency, mOctaves, mNoise, newPoint);
 
@@ -312,18 +356,21 @@ float Planet::CheckNodeDistance(Node* node, XMFLOAT3 cameraPos)
 
 void Planet::SortBaseNodes(XMFLOAT3 cameraPos)
 {
+	// Get list of distances
 	float distArray[20];
 	for (int i = 0; i < 20; i++)
 	{
 		distArray[i] = CheckNodeDistance(mTriangleTree->mSubnodes[i], cameraPos);
 	}
 
+	// Get list of indices to sort
 	int subnodeIndices[20];
 	for (int i = 0; i < 20; i++)
 	{
 		subnodeIndices[i] = i;
 	}
 
+	// Sort nodes
 	for (int i = 0; i < 19; i++)
 	{
 		int minIndex = i;
@@ -340,6 +387,7 @@ void Planet::SortBaseNodes(XMFLOAT3 cameraPos)
 		subnodeIndices[i] = temp;
 	}
 
+	// Get list of sorted nodes
 	std::vector<Node*> sortedSubnodes;
 	for (int i = 0; i < 20; i++)
 	{
@@ -374,11 +422,13 @@ void Planet::BuildIndices()
 	mTriangles.clear();
 	std::vector<TriangleChunk*> triangleChunks;
 	mTriangleChunks = triangleChunks;
+
 	for (auto& node : mTriangleTree->mSubnodes)
 	{
 		GetTriangles(node);
 	}
 
+	// Get indices from trinagles
 	mIndices.clear();
 	for (int i = 0; i < mTriangles.size(); i++)
 	{
@@ -390,13 +440,17 @@ void Planet::BuildIndices()
 
 void Planet::ApplyNoise(float frequency, int octaves, FastNoiseLite* noise, Vertex& vertex)
 {
-	XMVECTOR pos = XMLoadFloat3(&vertex.Pos);
-	pos = XMVectorMultiply(pos, { 200,200,200 });
-	XMFLOAT3 position; XMStoreFloat3(&position, pos);
+	// Sample noise at position
+	auto position = MulFloat3(vertex.Pos, { 200,200,200 });
 	auto elevationValue = FractalBrownianMotion(noise, position, octaves, frequency);
-	//auto ElevationValue = 1 + noise.GetNoise(0.5 * vertex.Pos.x * 100, 0.5 * vertex.Pos.y * 100, 0.5 * vertex.Pos.z * 100);
+
+	// Modify elevation slightly
 	elevationValue *= 0.3;
+
+	// Get distance from vertex to planet centre
 	auto Radius = Distance(vertex.Pos, XMFLOAT3{ 0,0,0 });
+
+	// Apply noise
 	vertex.Pos.x *= 1 + (elevationValue / Radius);
 	vertex.Pos.y *= 1 + (elevationValue / Radius);
 	vertex.Pos.z *= 1 + (elevationValue / Radius);
@@ -404,29 +458,34 @@ void Planet::ApplyNoise(float frequency, int octaves, FastNoiseLite* noise, Vert
 
 float Planet::CheckNodeTriSize(Node* node, Camera* camera)
 {
+	// Get triangle positions
 	auto A = mVertices[node->mTriangle.Point[0]].Pos;
 	auto B = mVertices[node->mTriangle.Point[1]].Pos;
 	auto C = mVertices[node->mTriangle.Point[2]].Pos;
 
+	// Set up DirectX math
 	auto vA = XMLoadFloat3(&A);
 	auto vB = XMLoadFloat3(&B);
 	auto vC = XMLoadFloat3(&C);
 	auto mV = XMLoadFloat4x4(&camera->mViewMatrix);
 	auto mP = XMLoadFloat4x4(&camera->mProjectionMatrix);
 
+	// Multiply each point by the view matrix
 	auto viewA = XMVector3Transform(vA, mV);
 	auto viewB = XMVector3Transform(vB, mV);
 	auto viewC = XMVector3Transform(vC, mV);
 
+	// Multiply each point by the projection matrix
 	auto viewProjA = XMVector3Transform(viewA, mP);
 	auto viewProjB = XMVector3Transform(viewB, mP);
 	auto viewProjC = XMVector3Transform(viewC, mP);
 
+	// Store the new positions
 	XMStoreFloat3(&A, viewProjA);
 	XMStoreFloat3(&B, viewProjB);
 	XMStoreFloat3(&C, viewProjC);
 
+	// Measure the distance of a side and return
 	auto distance = Distance(A, B);
-
 	return distance;
 }

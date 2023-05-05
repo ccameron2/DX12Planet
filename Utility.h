@@ -16,8 +16,7 @@ using namespace std;
 using namespace DirectX;
 using Microsoft::WRL::ComPtr;
 
-//extern std::vector<std::unique_ptr<FrameResource>> mFrameResources;
-
+// Make identity matrix
 static XMFLOAT4X4 MakeIdentity4x4()
 {
 	XMFLOAT4X4 I(
@@ -33,6 +32,7 @@ struct Triangle
 	std::uint32_t Point[3];
 };
 
+// Light data
 const static int mMaxLights = 16;
 struct mLight
 {
@@ -46,6 +46,7 @@ struct mLight
 	float SpotPower = 64.0f;
 };
 
+// Vertex struct
 struct Vertex
 {
 	XMFLOAT3 Pos = XMFLOAT3{ 0,0,0 };
@@ -55,6 +56,7 @@ struct Vertex
 	XMFLOAT3 Tangent = XMFLOAT3{ 0,0,0 };
 };
 
+// Buffer structs
 struct PerMaterialConstants
 {
 	XMFLOAT4 DiffuseAlbedo = { 1.0f, 1.0f, 1.0f, 1.0f };
@@ -64,14 +66,12 @@ struct PerMaterialConstants
 	XMFLOAT3 padding;
 	XMFLOAT4X4 MatTransform = MakeIdentity4x4();
 };
-
 struct PerObjectConstants
 {
 	XMFLOAT4X4 WorldMatrix;
 	bool parallax;
 	XMFLOAT3 padding;
 };
-
 struct PerFrameConstants
 {
 	XMFLOAT4X4 ViewMatrix = MakeIdentity4x4();
@@ -90,6 +90,7 @@ struct PerFrameConstants
 	mLight Lights[mMaxLights];
 };
 
+// Material struct
 struct Material
 {
 	aiString AiName;
@@ -107,6 +108,7 @@ struct Material
 	XMFLOAT4X4 MatTransform = MakeIdentity4x4();
 };
 
+// Texture struct
 struct Texture
 {
 	int ID;
@@ -117,12 +119,13 @@ struct Texture
 	Microsoft::WRL::ComPtr<ID3D12Resource> UploadHeap = nullptr;
 };
 
+// Helper function to create a bufferf
 static ComPtr<ID3D12Resource> CreateDefaultBuffer(const void* initData, UINT64 byteSize, ComPtr<ID3D12Resource>& uploadBuffer, 
 													ComPtr<ID3D12Device> d3DDevice, ComPtr<ID3D12GraphicsCommandList> commandList)
 {
 	ComPtr<ID3D12Resource> defaultBuffer;
 
-	// Create the default buffer resource.
+	// Create the default buffer resource
 	d3DDevice->CreateCommittedResource(
 		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
 		D3D12_HEAP_FLAG_NONE,
@@ -147,7 +150,7 @@ static ComPtr<ID3D12Resource> CreateDefaultBuffer(const void* initData, UINT64 b
 	subResourceData.RowPitch = byteSize;
 	subResourceData.SlicePitch = subResourceData.RowPitch;
 
-	// Schedule to copy the data to the default buffer resource.
+	// Schedule to copy the data to the default buffer resource
 	commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(defaultBuffer.Get(),
 		D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COPY_DEST));
 
@@ -156,18 +159,13 @@ static ComPtr<ID3D12Resource> CreateDefaultBuffer(const void* initData, UINT64 b
 	commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(defaultBuffer.Get(),
 		D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_GENERIC_READ));
 
-	// Note: uploadBuffer has to be kept alive after the above function calls because
-	// the command list has not been executed yet that performs the actual copy.
 
 	return defaultBuffer;
 }
 
 static UINT CalculateConstantBufferSize(UINT size)
 {
-	// Constant buffers must be a multiple of 256.  
-	// So round up to nearest multiple of 256.
-	// We do this by adding 255 and then masking off
-	// the lower 2 bytes which store all bits < 256.
+    // Round to nearest 256
 	return (size + 255) & ~255;
 }
 
@@ -180,6 +178,7 @@ static DirectX::XMVECTOR SphericalToCartesian(float radius, float theta, float p
 		1.0f);
 }
 
+// Distance between two points
 static float Distance(XMFLOAT3 p1, XMFLOAT3 p2)
 {
 	auto x = (p1.x - p2.x) * (p1.x - p2.x);
@@ -188,6 +187,7 @@ static float Distance(XMFLOAT3 p1, XMFLOAT3 p2)
 	return std::sqrt(x + y + z);
 }
 
+// Add two float3 variables
 static Vertex AddFloat3(XMFLOAT3 a, XMFLOAT3 b)
 {
 	Vertex result;
@@ -199,6 +199,7 @@ static Vertex AddFloat3(XMFLOAT3 a, XMFLOAT3 b)
 	return result;
 }
 
+// Sub two float3 variables
 static XMFLOAT3 SubFloat3(XMFLOAT3 a, XMFLOAT3 b)
 {
 	XMFLOAT3 result;
@@ -210,6 +211,7 @@ static XMFLOAT3 SubFloat3(XMFLOAT3 a, XMFLOAT3 b)
 	return result;
 }
 
+// Multiply two float3 variables
 static XMFLOAT3 MulFloat3(XMFLOAT3 a, XMFLOAT3 b)
 {
 	XMFLOAT3 result;
@@ -221,6 +223,7 @@ static XMFLOAT3 MulFloat3(XMFLOAT3 a, XMFLOAT3 b)
 	return result;
 }
 
+// Dot product between two float3s
 static float DotProduct(XMFLOAT3 v1, XMFLOAT3 v2)
 {
 	auto x = v1.x * v2.x;
@@ -230,6 +233,7 @@ static float DotProduct(XMFLOAT3 v1, XMFLOAT3 v2)
 	return result;
 }
 
+// Normalise float3
 static void Normalize(XMFLOAT3* p)
 {
 	float w = sqrt(p->x * p->x + p->y * p->y + p->z * p->z);
@@ -238,6 +242,7 @@ static void Normalize(XMFLOAT3* p)
 	p->z /= w;
 }
 
+// Cross product of two float3s
 static XMFLOAT3 CrossProduct(XMFLOAT3 v1, XMFLOAT3 v2)
 {
 	XMFLOAT3 product = XMFLOAT3{ 0,0,0 };
@@ -247,6 +252,7 @@ static XMFLOAT3 CrossProduct(XMFLOAT3 v1, XMFLOAT3 v2)
 	return product;
 }
 
+// Are two float3s the same
 static bool Float3IsSame(XMFLOAT3 a, XMFLOAT3 b)
 {
 	if (a.x == b.x && a.y == b.y && a.z == b.z)
@@ -259,6 +265,7 @@ static bool Float3IsSame(XMFLOAT3 a, XMFLOAT3 b)
 	}
 }
 
+// Midpoint between two float3s
 static XMFLOAT3 Midpoint(XMFLOAT3 p1, XMFLOAT3 p2)
 {
 	XMFLOAT3 mid;
@@ -268,6 +275,7 @@ static XMFLOAT3 Midpoint(XMFLOAT3 p1, XMFLOAT3 p2)
 	return mid;
 }
 
+// Return centre of triangle
 static XMFLOAT3 Center(XMFLOAT3 A, XMFLOAT3 B, XMFLOAT3 C)
 {
 	XMFLOAT3 center;
@@ -277,7 +285,7 @@ static XMFLOAT3 Center(XMFLOAT3 A, XMFLOAT3 B, XMFLOAT3 C)
 	return center;
 }
 
-
+// Fractal brownian motion noise function
 static float FractalBrownianMotion(FastNoiseLite* fastNoise, XMFLOAT3 fractalInput, float octaves, float frequency)
 {
 	float result = 0;
@@ -296,7 +304,7 @@ static float FractalBrownianMotion(FastNoiseLite* fastNoise, XMFLOAT3 fractalInp
 	return result;
 }
 
-
+// Calculate normals on an array of vertices and indices
 static std::vector<XMFLOAT3> CalculateNormals(std::vector<Vertex> vertices, std::vector<uint32_t> indices)
 {
 	std::vector<XMFLOAT3> normals;

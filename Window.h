@@ -13,10 +13,14 @@ private:
 public:
 	Window(int width, int height);
 	~Window();
+	
 	void ProcessEvents(SDL_Event& event);
 	HWND GetHWND();
+
 	SDL_Window* mSDLWindow;
 	std::string mMainCaption = "D3D12 Engine Masters";
+
+	// Input flags
 	bool mAppPaused = false;
 	bool mResized = false;
 	bool mFullscreen = false;
@@ -36,6 +40,8 @@ public:
 	bool mDown = false;
 	bool mWireframe = false;
 	float mScrollValue = 0.0f;
+
+	// Window resolution
 	int mWidth;
 	int mHeight;
 

@@ -115,41 +115,42 @@ void App::LoadModels()
 	auto commandList = mGraphics->mCommandList.Get();
 
 	// Multiple meshes, full PBR textured per mesh
+
 	Model* boatModel = new Model("Models/Boat1.fbx", commandList);
 
-	boatModel->SetPosition(XMFLOAT3{ -20.0f, 0.0f, 0.0f });
+	boatModel->SetPosition(XMFLOAT3{ -18.0f, 0.0f, 0.0f });
 	boatModel->SetRotation(XMFLOAT3{ 0.0f, 0.0f, 0.0f });
-	boatModel->SetScale(XMFLOAT3{ 0.1f, 0.1f, 0.1f });
+	boatModel->SetScale(XMFLOAT3{ 0.2f, 0.2f, 0.2f });
 	mModels.push_back(boatModel);
-
-	//Model* roboModel = new Model("Models/snow2.fbx", commandList);
-
-	//roboModel->SetPosition(XMFLOAT3{ -6.0f, 0.0f, 0.0f });
-	//roboModel->SetRotation(XMFLOAT3{ 0.0f, 0.0f, 0.0f });
-	//roboModel->SetScale(XMFLOAT3{ 0.005f, 0.005f, 0.005f });
-	//mModels.push_back(roboModel);
-
-	//Model* bladeModel = new Model("Models/robo_bun.fbx", commandList);
-
-	//bladeModel->SetPosition(XMFLOAT3{ -14.0f, 0.0f, 0.0f });
-	//bladeModel->SetRotation(XMFLOAT3{ 0.0f, 0.0f, 0.0f });
-	//bladeModel->SetScale(XMFLOAT3{ 0.01f, 0.01f, 0.01f });
-	//mModels.push_back(bladeModel);
 
 	Model* plasmaModel = new Model("Models/plasmarifle.fbx", commandList);
 
-	plasmaModel->SetPosition(XMFLOAT3{ -16.0f, 0.0f, 0.0f });
+	plasmaModel->SetPosition(XMFLOAT3{ -14.0f, 0.0f, 0.0f });
 	plasmaModel->SetRotation(XMFLOAT3{ 0.0f, 0.0f, 0.0f });
-	plasmaModel->SetScale(XMFLOAT3{ 0.01f, 0.01f, 0.01f });
+	plasmaModel->SetScale(XMFLOAT3{ 0.005f, 0.005f, 0.005f });
 	mModels.push_back(plasmaModel);
 
-	// PBR per model texture display model
+	// PBR per model texture display models
 	Model* octoModel = new Model("Models/octopus.x", commandList, nullptr, "pjemy");
 
-	octoModel->SetPosition(XMFLOAT3{ -10.0f, 0.0f, 0.0f });
+	octoModel->SetPosition(XMFLOAT3{ -6.0f, 0.0f, 0.0f });
 	octoModel->SetRotation(XMFLOAT3{ -1.2f, 0.0f, 0.0f });
 	octoModel->SetScale(XMFLOAT3{ 0.5f, 0.5f, 0.5f });
 	mModels.push_back(octoModel);
+
+	Model* octoModel2 = new Model("Models/octopus.x", commandList, nullptr, "tufted-leather");
+
+	octoModel2->SetPosition(XMFLOAT3{ -10.0f, 0.0f, 0.0f });
+	octoModel2->SetRotation(XMFLOAT3{ -1.2f, 0.0f, 0.0f });
+	octoModel2->SetScale(XMFLOAT3{ 0.5f, 0.5f, 0.5f });
+	mModels.push_back(octoModel2);
+
+	Model* rockModel = new Model("Models/Rock.fbx", commandList);
+
+	rockModel->SetPosition(XMFLOAT3{ -22.0f, 0.0f, 0.0f });
+	rockModel->SetRotation(XMFLOAT3{ 0.0f, 0.0f, 0.0f });
+	rockModel->SetScale(XMFLOAT3{ 0.05f, 0.05f, 0.05f });
+	mModels.push_back(rockModel);
 
 	// Base material colour models
 	Model* foxModel = new Model("Models/polyfox.fbx", commandList);
@@ -169,9 +170,9 @@ void App::LoadModels()
 
 	Model* slimeModel = new Model("Models/PolyFrog.fbx", commandList);
 
-	slimeModel->SetPosition(XMFLOAT3{ 8.0f, 0.0f, 0.0f });
+	slimeModel->SetPosition(XMFLOAT3{ 9.0f, 0.0f, 0.0f });
 	slimeModel->SetRotation(XMFLOAT3{ 0.0f, 0.0f, 0.0f });
-	slimeModel->SetScale(XMFLOAT3{ 0.002f, 0.002f, 0.002f });
+	slimeModel->SetScale(XMFLOAT3{ 0.0015f, 0.0015f, 0.0015f });
 
 	mModels.push_back(slimeModel);
 
@@ -261,7 +262,7 @@ void App::CreateSkybox()
 	// Create new sky material
 	mSkyMat = new Material();
 	mSkyMat->DiffuseSRVIndex = CurrentSRVOffset;
-	mSkyMat->Name = L"Models/4knebula.dds";
+	mSkyMat->Name = L"Models/2knebula.dds";
 
 	// Create cube texture
 	Texture* cubeTex = new Texture();
@@ -644,10 +645,6 @@ void App::DrawPlanet(ID3D12GraphicsCommandList* commandList)
 	mModels[0]->mConstructorMesh->Draw(commandList);
 
 	// Chunks are multithreaded
-	/*for (auto& chunk : mPlanet->mTriangleChunks)
-	{
-		chunk->mMesh->Draw(commandList);
-	}*/
 }
 
 void App::DrawModels(ID3D12GraphicsCommandList* commandList)

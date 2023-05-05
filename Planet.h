@@ -54,46 +54,86 @@ class Planet
 public:
 	Planet(Graphics* graphics);
 	~Planet();
+
+	// Create a new planet
 	void CreatePlanet(float frequency, int octaves, int lod, int scale, int seed);
+
+	// Reset planet geometry to icosahedron
 	void ResetGeometry();
+
+	// Update planet
 	bool Update(Camera* camera, ID3D12GraphicsCommandList* commandList);
 
-	Mesh* mMesh;	
+	// Planet mesh
+	Mesh* mMesh;
+
+	// Max LOD to subdivide to
 	int mMaxLOD = 0;
+
+	// Scale of planet
 	int mScale = 1;
+
+	// Enable CLOD
 	bool mCLOD = false;
+
+	// List of chunks
 	std::vector<TriangleChunk*> mTriangleChunks;
 private:
+	
+	// Reference to the graphics class
 	Graphics* mGraphics;
 	ID3D12GraphicsCommandList* mCurrentCommandList;
-	std::vector<Triangle> mTriangles;
-	std::vector<XMFLOAT3> mNormals;
-	unique_ptr<Node> mTriangleTree;
-	std::map<std::pair<int, int>, int> mVertexMap;
+
+	// Geometry
 	std::vector<Vertex> mVertices;
 	std::vector<uint32_t> mIndices;
+	std::vector<Triangle> mTriangles;
+	std::vector<XMFLOAT3> mNormals;
+	std::map<std::pair<int, int>, int> mVertexMap;
+
+	// Geometry Quadtree
+	unique_ptr<Node> mTriangleTree;
+
+	// Radius of planet
 	float mRadius = 0.5f;
 	float mMaxDistance = 0.0f;
+
+	// Noise variables
 	float mFrequency;
 	int mOctaves;
-	int mCombineLOD = mMaxLOD;
 	FastNoiseLite* mNoise;
+
+	// Build indices to render the planet
 	void BuildIndices();
-	void SortBaseNodes(XMFLOAT3 cameraPos);
-	float CheckNodeDistance(Node* node, XMFLOAT3 cameraPos);
-	bool Subdivide(Node* node, int level = 0);
-	int GetVertexForEdge(int v1, int v2);
-	std::vector<Triangle> SubdivideTriangle(Triangle triangle);
+
+	// Get triangles for indexing or chunks from maxLOD nodes
 	void GetTriangles(Node* node);
+
+	// Sort nodes by distance to the camera
+	void SortBaseNodes(XMFLOAT3 cameraPos);
+
+	// Check node distance to camera
+	float CheckNodeDistance(Node* node, XMFLOAT3 cameraPos);
+
+	// Subdivide node
+	bool Subdivide(Node* node, int level = 0);
+
+	// Get a vertex for triangle edge
+	int GetVertexForEdge(int v1, int v2);
+	
+	// Subdivide triangle
+	std::vector<Triangle> SubdivideTriangle(Triangle triangle);
+
+	// Check each node for updates
 	bool CheckNodes(Camera* camera, Node* parentNode);
+
+	// Combine nodes if flagged
 	bool CombineNodes(Node* node);
+	
+	// Apply noise to the geometry
 	void ApplyNoise(float frequency, int octaves, FastNoiseLite* noise, Vertex& vertex);
+
+	// Get size of triangle on screen UNUSED
 	float CheckNodeTriSize(Node* node, Camera* camera);
-
-	// Threading
-
-
-
-
 };
 

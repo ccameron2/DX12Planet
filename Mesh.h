@@ -38,17 +38,23 @@ public:
 	UINT mIndexBufferByteSize = 0;
 	int  mIndicesCount = 0;
 
+	// Geometry
 	std::vector<Vertex> mVertices;
 	std::vector<uint32_t> mIndices;
+
+	// Material and texture array
 	std::vector<Texture*> mTextures;
 	Material* mMaterial;
-
+	
 	D3D12_VERTEX_BUFFER_VIEW GetVertexBufferView();
 	D3D12_INDEX_BUFFER_VIEW GetIndexBufferView();
 	void EmptyUploaders();
+
+	// Calculate buffer data for geometry
 	void CalculateBufferData(ID3D12Device* d3DDevice, ID3D12GraphicsCommandList* commandList);
+
+	// Calculates buffer data for if being used in dynamic vertex + index buffers
 	void CalculateDynamicBufferData();
+
 	void Draw(ID3D12GraphicsCommandList* commandList);
-
-
 };

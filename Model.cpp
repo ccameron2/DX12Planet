@@ -73,10 +73,6 @@ Model::~Model()
 	{
 		delete mesh;
 	}
-	//for (auto& texture : mLoadedTextures)
-	//{
-	//	delete texture;
-	//}
 }
 
 void Model::Draw(ID3D12GraphicsCommandList* commandList)

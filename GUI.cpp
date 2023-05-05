@@ -48,20 +48,21 @@ void GUI::Update(int numModels)
 		mPlanetUpdated = true;
 	}
 
+	if (ImGui::Checkbox("CLOD", &mCLOD))
+	{
+		mPlanetUpdated = true;
+
+	}
+
+	if (mCLOD) mMaxLOD = 6;
+	else mMaxLOD = 4;
+
+	if (mLOD > mMaxLOD) mLOD = mMaxLOD;
+
 	if (ImGui::SliderInt("LOD", &mLOD, 0, mMaxLOD))
 	{
 		mPlanetUpdated = true;
 	};
-
-	if (ImGui::Checkbox("CLOD", &mCLOD))
-	{
-		mPlanetUpdated = true;
-	}
-
-	//if (ImGui::Checkbox("Tesselation", &mTesselation))
-	//{
-	//	mUpdated = true;
-	//};
 
 	ImGui::Text("Noise");
 
