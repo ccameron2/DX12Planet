@@ -51,13 +51,13 @@ void App::Initialize()
 	mPlanet = std::make_unique<Planet>(mGraphics.get());
 	mPlanet->CreatePlanet(0.1, 1, 1, 1,rand());
 
-	auto planetModel = new Model("", mGraphics->mCommandList.Get(), mPlanet->mMesh);
-	planetModel->SetPosition(XMFLOAT3{ 0, 0, 0 },false);
-	planetModel->SetRotation(XMFLOAT3{ 0, 0, 0 }, false);
-	planetModel->SetScale(XMFLOAT3{ float(mPlanet->mScale), float(mPlanet->mScale), float(mPlanet->mScale) }, true);
-	planetModel->mParallax = false;
+	mPlanetModel = new Model("", mGraphics->mCommandList.Get(), mPlanet->mMesh);
+	mPlanetModel->SetPosition(XMFLOAT3{ 0, 0, 0 },false);
+	mPlanetModel->SetRotation(XMFLOAT3{ 0, 0, 0 }, false);
+	mPlanetModel->SetScale(XMFLOAT3{ float(mPlanet->mScale), float(mPlanet->mScale), float(mPlanet->mScale) }, true);
+	mPlanetModel->mParallax = false;
 
-	mModels.push_back(planetModel);
+	mModels.push_back(mPlanetModel);
 
 	LoadModels();
 
@@ -69,10 +69,6 @@ void App::Initialize()
 
 	mNumModels = mModels.size();
 
-	mGraphics->CreateRootSignature();
-
-	mGraphics->CreateShaders();
-	mGraphics->CreatePSO();
 
 	mGraphics->ExecuteCommands();
 
@@ -250,9 +246,9 @@ void App::LoadModels()
 		}
 		else
 		{
-			mColourModels.push_back(model);
+			if(model != mPlanetModel) mColourModels.push_back(model);
 		}		
-			index++;
+		index++;
 	}
 
 	// Water
@@ -521,7 +517,7 @@ void App::Draw(float frameTime)
 	CD3DX12_GPU_DESCRIPTOR_HANDLE cubeTex(SrvDescriptorHeap->mHeap->GetGPUDescriptorHandleForHeapStart());
 	cubeTex.Offset(mSkyMat->DiffuseSRVIndex, CbvSrvUavDescriptorSize);
 	commandList->SetGraphicsRootDescriptorTable(4, cubeTex);
-
+	
 	DrawModels(commandList);
 
 	DrawPlanet(commandList);

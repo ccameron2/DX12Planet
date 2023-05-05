@@ -77,7 +77,7 @@ void GUI::Update(int numModels)
 
 	ImGui::Text("World Matrix");
 
-	if (ImGui::SliderInt("Model", &mSelectedModel, 0, numModels - 1))
+	if (ImGui::SliderInt("Model", &mSelectedModel, 1, numModels - 1))
 	{
 
 	};

@@ -92,7 +92,7 @@ private:
 	SDL_Surface mScreenSurface;
 
 	unique_ptr<Planet> mPlanet;
-
+	Model* mPlanetModel;
 	// If diffent PSOs needed then use different lists
 	vector<Model*> mModels;
 	vector<Model*> mTexModels;

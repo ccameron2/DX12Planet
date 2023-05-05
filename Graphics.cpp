@@ -32,6 +32,11 @@ Graphics::Graphics(HWND hWND, int width, int height)
 
 	Resize(width, height);
 
+	CreateRootSignature();
+
+	CreateShaders();
+	CreatePSO();
+
 	//StartCommandList(0, 0);
 	if (FAILED(mCommandList->Reset(mBaseCommandAllocators[CurrentFrameResourceIndex].Get(), nullptr)))
 	{

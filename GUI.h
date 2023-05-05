@@ -21,9 +21,9 @@ public:
 	bool ProcessEvents(SDL_Event& event);
 	bool mPlanetUpdated = false;
 	float mFrequency = 0.5f;
-	int mLOD = 4;
+	int mLOD = 2;
 	int mSeed = rand();
-	int mMaxLOD = 8;
+	int mMaxLOD = 6;
 	int mOctaves = 8;
 	float mPos[3] = {0,0,0};
 	float mRot[3] = {0,0,0};
@@ -40,7 +40,7 @@ public:
 
 	bool mWMatrixChanged = false;
 	bool mTesselation = false;
-	int mSelectedModel = 0;
+	int mSelectedModel = 1;
 	bool mVSync = false;
 	float mLightDir[3] = { -0.577f, -0.577f, 0.577f };
 };
