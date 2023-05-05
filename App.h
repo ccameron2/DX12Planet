@@ -62,59 +62,71 @@ class App
 public:
 	App();
 
-	// Flush command queue to prevent GPU crash on exit
 	~App();
-
+private:
 	void Run();
 
 	void Initialize();
 
-
-private:
 	Timer mTimer;
 
 	void Update(float frameTime);
 	void Draw(float frameTime);
 
 	void RecreatePlanetGeometry();
+
 	void UpdatePlanetBuffers();
+
 	void ProcessEvents(SDL_Event& e);
+
 	void CreateMaterials();
+
 	void CreateSkybox();
 
-	vector<Texture*> mTextures;
+	// List of materials
 	vector<Material*> mMaterials;
+	
+	// Sky and water models
 	Model* mSkyModel;
 	Model* mWaterModel;
 
-	unique_ptr<Graphics> mGraphics;
-	unique_ptr<Window> mWindow;
-	SDL_Surface mScreenSurface;
+	// Sky material
+	Material* mSkyMat;
 
+	// Graphics object
+	unique_ptr<Graphics> mGraphics;
+	
+	// Window object
+	unique_ptr<Window> mWindow;
+
+	// Planet object and model
 	unique_ptr<Planet> mPlanet;
 	Model* mPlanetModel;
-	// If diffent PSOs needed then use different lists
+
+	// Lists of models by PSO
 	vector<Model*> mModels;
 	vector<Model*> mTexModels;
 	vector<Model*> mSimpleTexModels;
 	vector<Model*> mColourModels;
+	int mNumModels = 0;
 
+	// Camera object
 	unique_ptr<Camera> mCamera;
+
+	// GUI object
 	unique_ptr<GUI> mGUI;
 
+	// Light values
 	float mSunTheta = 1.25f * XM_PI;
 	float mSunPhi = XM_PIDIV4;
 
-	int mNumModels = 0;
-
+	// Wireframe mode
 	bool mWireframe = false;
 
+	// Current material index
 	int mCurrentMatCBIndex = 0;
 
-	Material* mSkyMat;
-
-	ID3D12PipelineState* mCurrentPSO = nullptr;
-
+	void LoadModels();
 	void UpdateSelectedModel();
 	void UpdatePerObjectConstantBuffers();
 	void UpdatePerFrameConstantBuffer();
@@ -123,7 +135,6 @@ private:
 	void BuildFrameResources();
 
 	void DrawPlanet(ID3D12GraphicsCommandList* commandList);
-	void LoadModels();
 	void DrawModels(ID3D12GraphicsCommandList* commandList);
 	void StartFrame();
 	void EndFrame();
@@ -131,8 +142,6 @@ private:
 	void RenderThread(int thread);
 	void RenderChunks(int thread, int start, int end);
 
-	// A worker thread wakes up when work is signalled to be ready, and signals back when the work is complete.
-	// Same condition variable is used for signalling in both directions. A mutex is used to guard data shared between threads
 	struct WorkerThread
 	{
 		std::thread             thread;
@@ -140,7 +149,6 @@ private:
 		std::mutex              lock;
 	};
 
-	// Data describing work to do by a worker thread - render a lot of boats here
 	struct RenderWork
 	{
 		bool complete = true;
@@ -148,8 +156,6 @@ private:
 		int  end = 0;
 	};
 
-	// A pool of worker threads, each with its associated work
-	// A more flexible system could generalise the type of work that worker threads can do
 	static const int MAX_WORKERS = 128;
 	std::pair<WorkerThread, RenderWork> mRenderWorkers[MAX_WORKERS];
 	int mNumRenderWorkers = 0;

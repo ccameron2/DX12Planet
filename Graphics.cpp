@@ -27,17 +27,19 @@ Graphics::Graphics(HWND hWND, int width, int height)
 	CreateCommandObjects();
 	CreateSwapChain(hWND, width, height);
 	CreateDescriptorHeaps();
-
+	
+	// Create SRV heap
 	SrvDescriptorHeap = make_unique<SRVDescriptorHeap>(D3DDevice.Get(), CbvSrvUavDescriptorSize);
 
+	// Initially resize
 	Resize(width, height);
 
+	// Create shaders and root sig
 	CreateRootSignature();
-
 	CreateShaders();
 	CreatePSO();
 
-	//StartCommandList(0, 0);
+	// Reset command list
 	if (FAILED(mCommandList->Reset(mBaseCommandAllocators[CurrentFrameResourceIndex].Get(), nullptr)))
 	{
 		MessageBox(0, L"Command List reset failed", L"Error", MB_OK);
@@ -117,14 +119,11 @@ void Graphics::SetDescriptorHeap(ID3D12DescriptorHeap* descriptorHeap)
 	mCommandList->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
 }
 
-// Specify the root signature and descriptor heaps it references, on the given thread and list
 void Graphics::SetDescriptorHeapsAndRootSignature(int thread, int list)
 {
-	//****** IMPORTANT When using shader model 6.6 for shader access to descriptor heaps then the call to SetDescriptorHeaps must come before SetGraphicsRootSignature
 	ID3D12DescriptorHeap* heaps[] = { SrvDescriptorHeap->mHeap.Get() };
 	mCommandLists[thread][list]->SetDescriptorHeaps(1, heaps);
 
-	// Set global state
 	mCommandLists[thread][list]->SetGraphicsRootSignature(mRootSignature.Get());
 }
 
@@ -236,9 +235,11 @@ bool Graphics::CreateDeviceAndFence()
 
 void Graphics::CreateRootSignature()
 {
+	// Mesh Textures
 	CD3DX12_DESCRIPTOR_RANGE texTable;
 	texTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV,7,0,0); // register t0
 
+	// Cube map
 	CD3DX12_DESCRIPTOR_RANGE texTable1;
 	texTable1.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV,6,0,1); // register t0 space 1
 
@@ -246,19 +247,16 @@ void Graphics::CreateRootSignature()
 	CD3DX12_ROOT_PARAMETER slotRootParameter[5];
 
 	slotRootParameter[0].InitAsDescriptorTable(1, &texTable, D3D12_SHADER_VISIBILITY_PIXEL);
-	slotRootParameter[1].InitAsConstantBufferView(0);
-	slotRootParameter[2].InitAsConstantBufferView(1);
-	slotRootParameter[3].InitAsConstantBufferView(2);
+	slotRootParameter[1].InitAsConstantBufferView(0); // Frame
+	slotRootParameter[2].InitAsConstantBufferView(1); // Obj
+	slotRootParameter[3].InitAsConstantBufferView(2); // Mat
 	slotRootParameter[4].InitAsDescriptorTable(1, &texTable1, D3D12_SHADER_VISIBILITY_PIXEL);
-
 
 	auto staticSamplers = GetStaticSamplers();
 
-	// A root signature is an array of root parameters.
 	CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(5, slotRootParameter, (UINT)staticSamplers.size(), staticSamplers.data(),
 		D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 
-	// create a root signature
 	ComPtr<ID3DBlob> serializedRootSignature = nullptr;
 	ComPtr<ID3DBlob> errorBlob = nullptr;
 
@@ -280,25 +278,28 @@ void Graphics::CreateRootSignature()
 
 void Graphics::CreatePSO()
 {
+	// Create transparency state
 	CreateBlendState();
 
+	// Create PSO description
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc;
 	ZeroMemory(&psoDesc, sizeof(D3D12_GRAPHICS_PIPELINE_STATE_DESC));
 	psoDesc.InputLayout = { mColourInputLayout.data(), (UINT)mColourInputLayout.size() };
 	psoDesc.pRootSignature = mRootSignature.Get();
 	psoDesc.VS =
 	{
+		// Set vertex shader
 		reinterpret_cast<BYTE*>(mColourVSByteCode->GetBufferPointer()),
 		mColourVSByteCode->GetBufferSize()
 	};
 	psoDesc.PS =
 	{
+		// Set pixel shader
 		reinterpret_cast<BYTE*>(mColourPSByteCode->GetBufferPointer()),
 		mColourPSByteCode->GetBufferSize()
 	};
 
 	psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
-
 	psoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
 	psoDesc.RasterizerState.MultisampleEnable = true;
 	psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
@@ -310,16 +311,23 @@ void Graphics::CreatePSO()
 	psoDesc.SampleDesc.Count = mMSAASampleCount;
 	psoDesc.SampleDesc.Quality = mMSAAQuality - 1;
 	psoDesc.DSVFormat = mDepthStencilFormat;
+	
+	// Create BaseColour PSO
 	if (FAILED(D3DDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mSolidPSO))))
 	{
 		MessageBox(0, L"Solid Pipeline State Creation failed", L"Error", MB_OK);
 	}
 
+	// Set fillmode to wireframe
 	psoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_WIREFRAME;
+
+	// Create Wireframe PSO
 	if (FAILED(D3DDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mWireframePSO))))
 	{
 		MessageBox(0, L"Wireframe Pipeline State Creation failed", L"Error", MB_OK);
 	}
+
+	// Set planet shaders
 	psoDesc.VS =
 	{
 		reinterpret_cast<BYTE*>(mPlanetVSByteCode->GetBufferPointer()),
@@ -330,12 +338,17 @@ void Graphics::CreatePSO()
 		reinterpret_cast<BYTE*>(mPlanetPSByteCode->GetBufferPointer()),
 		mPlanetPSByteCode->GetBufferSize()
 	};
+
+	// Set fillmode back to solid
 	psoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
+
+	// Create Planet PSO
 	if (FAILED(D3DDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mPlanetPSO))))
 	{
 		MessageBox(0, L"Planet Pipeline State Creation failed", L"Error", MB_OK);
 	}
 
+	// Set PBR shaders
 	psoDesc.VS =
 	{
 		reinterpret_cast<BYTE*>(mTexVSByteCode->GetBufferPointer()),
@@ -347,34 +360,36 @@ void Graphics::CreatePSO()
 		reinterpret_cast<BYTE*>(mTexPSByteCode->GetBufferPointer()),
 		mTexPSByteCode->GetBufferSize()
 	};
+	
+	// Create PBR PSO
 	if (FAILED(D3DDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mTexPSO))))
 	{
 		MessageBox(0, L"PBR Pipeline State Creation failed", L"Error", MB_OK);
 	}
 
+	// Set albedo shaders
 	psoDesc.VS =
 	{
 		reinterpret_cast<BYTE*>(mSimpleTexVSByteCode->GetBufferPointer()),
 		mSimpleTexVSByteCode->GetBufferSize()
 	};
-	//psoDesc.InputLayout = { mTexInputLayout.data(), (UINT)mTexInputLayout.size() };
 	psoDesc.PS =
 	{
 		reinterpret_cast<BYTE*>(mSimpleTexPSByteCode->GetBufferPointer()),
 		mSimpleTexPSByteCode->GetBufferSize()
 	};
+
+	// Create albedo PSO
 	if (FAILED(D3DDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mSimpleTexPSO))))
 	{
 		MessageBox(0, L"Simple Pipeline State Creation failed", L"Error", MB_OK);
 	}
 
-	// The camera is inside the sky sphere, so just turn off culling.
+	// Disable culling
 	psoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
-
-	// Make sure the depth function is LESS_EQUAL and not just LESS.
-	// Otherwise, the normalized depth values at z = 1 (NDC) will
-	// fail the depth test if the depth buffer was cleared to 1.
 	psoDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
+
+	// Set sky shaders
 	psoDesc.VS =
 	{
 		reinterpret_cast<BYTE*>(mSkyVSByteCode->GetBufferPointer()),
@@ -385,14 +400,23 @@ void Graphics::CreatePSO()
 		reinterpret_cast<BYTE*>(mSkyPSByteCode->GetBufferPointer()),
 		mSkyPSByteCode->GetBufferSize()
 	};
+
+	// Create PSO
 	if (FAILED(D3DDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mSkyPSO))))
 	{
 		MessageBox(0, L"Sky Pipeline State Creation failed", L"Error", MB_OK);
 	}
 
+	// Set cull mode to back
 	psoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_BACK;
+	
+	// Change input layout
 	psoDesc.InputLayout = { mColourInputLayout.data(), (UINT)mColourInputLayout.size() };
+
+	// Set transparency blending
 	psoDesc.BlendState.RenderTarget[0] = mTransparencyBlendDesc;
+
+	// Set water shaders
 	psoDesc.VS =
 	{
 		reinterpret_cast<BYTE*>(mColourVSByteCode->GetBufferPointer()),
@@ -403,6 +427,8 @@ void Graphics::CreatePSO()
 		reinterpret_cast<BYTE*>(mColourPSByteCode->GetBufferPointer()),
 		mColourPSByteCode->GetBufferSize()
 	};
+	
+	// Create water PSO
 	if (FAILED(D3DDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mWaterPSO))))
 	{
 		MessageBox(0, L"Water Pipeline State Creation failed", L"Error", MB_OK);
@@ -412,8 +438,7 @@ void Graphics::CreatePSO()
 
 void Graphics::CreateShaders()
 {
-	mColourVSByteCode = CompileShader(L"Shaders\\shader.hlsl", nullptr, "VS", "vs_5_1");
-	mColourPSByteCode = CompileShader(L"Shaders\\shader.hlsl", nullptr, "PS", "ps_5_1");
+	// Define base colour input layout
 	mColourInputLayout =
 	{
 		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
@@ -421,12 +446,7 @@ void Graphics::CreateShaders()
 		{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 28, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
 	};
 
-	mTexVSByteCode = CompileShader(L"Shaders\\texshader.hlsl", nullptr, "VS", "vs_5_1");
-	mTexPSByteCode = CompileShader(L"Shaders\\texshader.hlsl", nullptr, "PS", "ps_5_1");
-
-	mSimpleTexVSByteCode = CompileShader(L"Shaders\\simpletexshader.hlsl", nullptr, "VS", "vs_5_1");
-	mSimpleTexPSByteCode = CompileShader(L"Shaders\\simpletexshader.hlsl", nullptr, "PS", "ps_5_1");
-
+	// Define PBR input layout
 	mTexInputLayout =
 	{
 		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
@@ -436,17 +456,28 @@ void Graphics::CreateShaders()
 		{ "TANGENT", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 48, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
 	};
 
+	// Compile colour shaders
+	mColourVSByteCode = CompileShader(L"Shaders\\shader.hlsl", nullptr, "VS", "vs_5_1");
+	mColourPSByteCode = CompileShader(L"Shaders\\shader.hlsl", nullptr, "PS", "ps_5_1");
+
+	// Compile PBR shaders
+	mTexVSByteCode = CompileShader(L"Shaders\\texshader.hlsl", nullptr, "VS", "vs_5_1");
+	mTexPSByteCode = CompileShader(L"Shaders\\texshader.hlsl", nullptr, "PS", "ps_5_1");
+
+	// Compile albedo shaders
+	mSimpleTexVSByteCode = CompileShader(L"Shaders\\simpletexshader.hlsl", nullptr, "VS", "vs_5_1");
+	mSimpleTexPSByteCode = CompileShader(L"Shaders\\simpletexshader.hlsl", nullptr, "PS", "ps_5_1");
+
+	// Compile planet shaders
 	mPlanetVSByteCode = CompileShader(L"Shaders\\planetshader.hlsl", nullptr, "VS", "vs_5_1");
 	mPlanetPSByteCode = CompileShader(L"Shaders\\planetshader.hlsl", nullptr, "PS", "ps_5_1");
 
+	// Compile sky shaders
 	mSkyVSByteCode = CompileShader(L"Shaders\\skyshader.hlsl", nullptr, "VS", "vs_5_1");
 	mSkyPSByteCode = CompileShader(L"Shaders\\skyshader.hlsl", nullptr, "PS", "ps_5_1");
-
-
-
-
 }
 
+// Compile shader from file
 ComPtr<ID3DBlob> Graphics::CompileShader(const std::wstring& filename, const D3D_SHADER_MACRO* defines, const std::string& entrypoint, const std::string& target)
 {
 	UINT compileFlags = 0;
@@ -458,12 +489,14 @@ ComPtr<ID3DBlob> Graphics::CompileShader(const std::wstring& filename, const D3D
 	ComPtr<ID3DBlob> byteCode = nullptr;
 	ComPtr<ID3DBlob> errors;
 
+	// Attempt to compile shader
 	if (FAILED(D3DCompileFromFile(filename.c_str(), defines, D3D_COMPILE_STANDARD_FILE_INCLUDE,
 		entrypoint.c_str(), target.c_str(), compileFlags, 0, &byteCode, &errors)))
 	{
 		MessageBox(0, L"Shader compile failed", L"Error", MB_OK);
 	}
 
+	// Output if errors reported
 	if (errors != nullptr) OutputDebugStringA((char*)errors->GetBufferPointer());
 
 	return byteCode;
@@ -475,7 +508,7 @@ void Graphics::CreateCommandObjects()
 	queueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
 	queueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
 
-	// Create Command Queue
+	// Create command queue
 	if (FAILED(D3DDevice->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&CommandQueue))))
 	{
 		MessageBox(0, L"Command Queue creation failed", L"Error", MB_OK);
@@ -483,21 +516,20 @@ void Graphics::CreateCommandObjects()
 
 	for (int i = 0; i < mNumFrameResources; i++)
 	{
-		// Create Command Allocator
+		// Create base command allocators
 		if (FAILED(D3DDevice->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(mBaseCommandAllocators[i].GetAddressOf()))))
 		{
 			MessageBox(0, L"Command Allocator creation failed", L"Error", MB_OK);
 		}
 	}
 	
-
-	// Create Command List
+	// Create base command list
 	if (FAILED(D3DDevice->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, mBaseCommandAllocators[CurrentFrameResourceIndex].Get(), nullptr, IID_PPV_ARGS(mCommandList.GetAddressOf()))))
 	{
 		MessageBox(0, L"Command List creation failed", L"Error", MB_OK);
 	}
 
-	// Create command allocators per-thread / per-frame. The command lists live in the memory created by these allocators, so we need to maintain many so all the threads/frames can run at the same time
+	// Create command allocators per-thread / per-frame
 	for (int frame = 0; frame < mNumFrameResources; ++frame)
 	{
 		for (int thread = 0; thread < mMaxThreads; ++thread)
@@ -507,7 +539,7 @@ void Graphics::CreateCommandObjects()
 		}
 	}
 
-	// Create multiple command lists per-thread. Don't need per-frame since once they are commited to the queue they can be immediately reused
+	// Create multiple command lists per-thread
 	for (int thread = 0; thread < mMaxThreads; ++thread)
 	{
 		for (int list = 0; list < mMaxCommandListsPerThread; ++list)
@@ -584,6 +616,7 @@ void Graphics::Resize(int width, int height)
 	assert(mSwapChain);
 	assert(mBaseCommandAllocators[CurrentFrameResourceIndex]);
 	
+	// Empty the command queue and reset the command list
 	EmptyCommandQueue();
 	if (FAILED(mCommandList->Reset(mBaseCommandAllocators[CurrentFrameResourceIndex].Get(), nullptr)))
 	{
@@ -622,6 +655,7 @@ void Graphics::Resize(int width, int height)
 		static_cast<UINT>(height),
 		1, 1, mMSAASampleCount, mMSAAQuality - 1, D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET);
 
+	// Set background colour
 	D3D12_CLEAR_VALUE clearValue = { mBackBufferFormat, {} };
 	memcpy(clearValue.Color, mBackgroundColour, sizeof(clearValue.Color));
 
@@ -632,6 +666,8 @@ void Graphics::Resize(int width, int height)
 		D3D12_RESOURCE_STATE_RENDER_TARGET,
 		&clearValue, IID_PPV_ARGS(mMSAARenderTarget.ReleaseAndGetAddressOf()));
 
+
+	// Create MSAA desc
 	D3D12_RENDER_TARGET_VIEW_DESC msaaDesc;
 	msaaDesc.Format = mBackBufferFormat;
 	msaaDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2DMS;
@@ -769,7 +805,6 @@ void Graphics::CycleFrameResources()
 	}
 }
 
-// Empty the command queue
 void Graphics::EmptyCommandQueue()
 {
 	// Increase fence to mark commands up to this point
@@ -781,33 +816,30 @@ void Graphics::EmptyCommandQueue()
 		MessageBox(0, L"Command queue signal failed", L"Error", MB_OK);
 	}
 
-	// Wait until the GPU has completed commands up to this fence point.
+	// Wait for GPU to complete commands up to fence point
 	if (mFence->GetCompletedValue() < mCurrentFence)
 	{
 		HANDLE eventHandle = CreateEventEx(nullptr, false, false, EVENT_ALL_ACCESS);
-		// Fire event when GPU hits current fence.  
+		
+		// When GPU hits fence fire event
 		if (FAILED(mFence->SetEventOnCompletion(mCurrentFence, eventHandle)))
 		{
 			MessageBox(0, L"Fence set event failed", L"Error", MB_OK);
 		}
 
-		// Wait until the GPU hits current fence event is fired.
+		// Wait for event to fire
 		WaitForSingleObject(eventHandle, INFINITE);
 		CloseHandle(eventHandle);
 	}
 
 }
 
-// Reset the current frame's allocator for the given thread
 void Graphics::ResetCommandAllocator(int thread)
 {
-	// Only reset a command allocator when any command lists it created have finished running
 	HRESULT hr = mCommandAllocators[CurrentFrameResourceIndex][thread]->Reset();
 	if (FAILED(hr))  throw std::runtime_error("Error reseting command allocator");
 }
 
-// Reset the given thread's command lists so it is ready to record commands again - lists can be can be reset any time after commiting them
-// Returns command list ready to record
 ID3D12GraphicsCommandList* Graphics::StartCommandList(int thread, int list)
 {
 	HRESULT hr = mCommandLists[thread][list]->Reset(mCommandAllocators[CurrentFrameResourceIndex][thread].Get(), NULL);
@@ -839,8 +871,6 @@ D3D12_CPU_DESCRIPTOR_HANDLE Graphics::DepthStencilView()
 
 std::array<const CD3DX12_STATIC_SAMPLER_DESC, 6> Graphics::GetStaticSamplers()
 {
-	// Applications usually only need a handful of samplers.  So just define them all up front
-	// and keep them available as part of the root signature.  
 
 	const CD3DX12_STATIC_SAMPLER_DESC pointWrap(
 		0, // shaderRegister

@@ -27,76 +27,31 @@ public:
 
 	static const unsigned int mNumFrameResources = 3;
 
+	// Base command objects
 	ComPtr<ID3D12GraphicsCommandList> mCommandList;
 	ComPtr<ID3D12CommandAllocator> mBaseCommandAllocators[mNumFrameResources];
-	ComPtr<IDXGIFactory4> mDXGIFactory;
-	ComPtr<IDXGISwapChain> mSwapChain;
-
+	
 	ComPtr<ID3D12Fence1> mFence;
 	UINT64 mCurrentFence = 0;
 
-
-
-	static const unsigned int mMaxThreads = 64;
-	static const unsigned int mMaxCommandListsPerThread = 2;
-
-	ComPtr<ID3D12CommandAllocator> mCommandAllocators[mNumFrameResources][mMaxThreads]; //*** Multithreading - command allocators handle memory for command lists - need one per-frame / per-thread so
-	//                     so that commands from different threads / frames can all run simultaneously
-	ComPtr<ID3D12GraphicsCommandList> mCommandLists[mMaxThreads][mMaxCommandListsPerThread]; //*** Multithreading - allowing each thread to have multiple command lists, e.g. the main thread 
-	//                     uses two, one for work prior to threaded part, one for work after it
-	//                     No need for one per frame because once commited command lists can be instantly reused
-
-	const static int mSwapChainBufferCount = 2;
 	DXGI_FORMAT mBackBufferFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
-	DXGI_FORMAT mDepthStencilFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
 
-	UINT mMSAAQuality = 0;
-	int mMSAASampleCount = 4;
-
-	D3D12_VIEWPORT mViewport;
-	D3D12_RECT mScissorRect;
-
-	int mBackbufferWidth;
-	int mBackbufferHeight;
-
+	// Descriptor sizes
 	UINT mRtvDescriptorSize = 0;
 	UINT mDsvDescriptorSize = 0;
 
-	int mCurrentBackBuffer = 0;
-	ComPtr<ID3D12Resource> mSwapChainBuffer[mSwapChainBufferCount];
+	// Buffers
 	ComPtr<ID3D12Resource> mDepthStencilBuffer;
 	ComPtr<ID3D12Resource> mDepthStencilBufferGUI;
 
-	D3D12_CPU_DESCRIPTOR_HANDLE MSAAView();
-	ComPtr<ID3D12Resource> mMSAARenderTarget;
-
+	// Heaps
 	ComPtr<ID3D12DescriptorHeap> mRTVHeap;
 	ComPtr<ID3D12DescriptorHeap> mDSVHeap;
+	
 	ComPtr<ID3D12RootSignature> mRootSignature;
+	
+	// Frame resource currently in use
 	FrameResource* mCurrentFrameResource = nullptr;
-
-	XMVECTORF32 mBackgroundColour = DirectX::Colors::Purple;
-
-	bool CreateDeviceAndFence();
-	void CreateRootSignature();
-	void CreatePSO();
-	void CreateShaders();
-	ComPtr<ID3DBlob> CompileShader(const std::wstring& filename, const D3D_SHADER_MACRO* defines, const std::string& entrypoint, const std::string& target);
-	void CreateCommandObjects();
-	void CreateSwapChain(HWND hWND, int width, int height);
-
-	void Resize(int width, int height);
-	void EmptyCommandQueue();
-
-	void ResetCommandAllocator(int thread);
-
-	ID3D12GraphicsCommandList* StartCommandList(int thread, int list);
-
-	ID3D12Resource* CurrentBackBuffer(); // Returns current back buffer in swap chain
-	D3D12_CPU_DESCRIPTOR_HANDLE CurrentBackBufferView(); // Returns Render Target View to current back buffer
-	D3D12_CPU_DESCRIPTOR_HANDLE DepthStencilView(); // Returns Depth / Stencil View  to main depth buffer
-
-	std::array<const CD3DX12_STATIC_SAMPLER_DESC, 6> GetStaticSamplers();
 
 	ComPtr<ID3D12PipelineState> mSolidPSO = nullptr;
 	ComPtr<ID3D12PipelineState> mWireframePSO = nullptr;
@@ -123,26 +78,110 @@ public:
 	std::vector<D3D12_INPUT_ELEMENT_DESC> mTexInputLayout;
 
 	D3D12_RENDER_TARGET_BLEND_DESC mTransparencyBlendDesc;
+	
+	// Accessor functions
+	int GetBackbufferWidth() { return mBackbufferWidth; }
+	int GetBackbufferHeight() { return mBackbufferHeight; }
 
-	unsigned int GetBackbufferWidth() { return mBackbufferWidth; }
-	unsigned int GetBackbufferHeight() { return mBackbufferHeight; }
+	// Get view of MSAA buffer
+	D3D12_CPU_DESCRIPTOR_HANDLE MSAAView();
+	
+	// Compile shader passed into constructor
+	ComPtr<ID3DBlob> CompileShader(const std::wstring& filename, const D3D_SHADER_MACRO* defines, const std::string& entrypoint, const std::string& target);
 
-	void ExecuteCommands();
-	void CycleFrameResources();
-	void CreateDescriptorHeaps();
-	void ResolveMSAAToBackBuffer(ID3D12GraphicsCommandList* commandList);
+	// Resize render objects
+	void Resize(int width, int height);
+	
+	void EmptyCommandQueue();
+
+	// Reset the command allocator for this thread
+	void ResetCommandAllocator(int thread);
+
+	// Reset base command allocator
 	void ResetCommandAllocator(ID3D12CommandAllocator* commandAllocator);
+
+	// Start a command list for this thread
+	ID3D12GraphicsCommandList* StartCommandList(int thread, int list);
+
+	// Reset the base command list
 	void ResetCommandList(ID3D12CommandAllocator* commandAllocator, ID3D12PipelineState* pipeline);
+
+	ID3D12Resource* CurrentBackBuffer(); // Returns current back buffer in swap chain
+	D3D12_CPU_DESCRIPTOR_HANDLE CurrentBackBufferView(); // Returns Render Target View to current back buffer
+	D3D12_CPU_DESCRIPTOR_HANDLE DepthStencilView(); // Returns Depth / Stencil View  to main depth buffer
+
+	// Functions used in Draw function
 	void SetViewportAndScissorRects(ID3D12GraphicsCommandList* commandList);
+	void SetMSAARenderTarget(ID3D12GraphicsCommandList* commandList);
+	void ResolveMSAAToBackBuffer(ID3D12GraphicsCommandList* commandList);
 	void ClearBackBuffer(ID3D12GraphicsCommandList* commandList);
 	void ClearDepthBuffer(ID3D12GraphicsCommandList* commandList);
-	void SetMSAARenderTarget(ID3D12GraphicsCommandList* commandList);
 	void SetDescriptorHeap(ID3D12DescriptorHeap* descriptorHeap);
 	void SetGraphicsRootDescriptorTable(ID3D12DescriptorHeap* descriptorHeap, int cbvIndex, int rootParameterIndex);
-	void CloseAndExecuteCommandList();
-	void CloseAndExecuteCommandList(int thread, int list);
 	void SetDescriptorHeapsAndRootSignature(int thread, int list);
 	void SwapBackBuffers(bool vSync);
+
+	// Get samplers
+	std::array<const CD3DX12_STATIC_SAMPLER_DESC, 6> GetStaticSamplers();
+
+	// Execute commands on main command list
+	void ExecuteCommands();
+
+	// Close and execute base command list
+	void CloseAndExecuteCommandList();
+
+	// Close and execute command list for this thread
+	void CloseAndExecuteCommandList(int thread, int list);
+
+	// Cycle through frame resources
+	void CycleFrameResources();
+
+private:
+	// Viewport and scissor rectangle
+	D3D12_VIEWPORT mViewport;
+	D3D12_RECT mScissorRect;
+
+	ComPtr<IDXGIFactory4> mDXGIFactory;
+	ComPtr<IDXGISwapChain> mSwapChain;
+
+	static const unsigned int mSwapChainBufferCount = 2;
+
+	ComPtr<ID3D12Resource> mSwapChainBuffer[mSwapChainBufferCount];
+
+	static const unsigned int mMaxThreads = 64;
+	static const unsigned int mMaxCommandListsPerThread = 2;
+
+	// Multithreading command objects
+	ComPtr<ID3D12CommandAllocator> mCommandAllocators[mNumFrameResources][mMaxThreads];
+	ComPtr<ID3D12GraphicsCommandList> mCommandLists[mMaxThreads][mMaxCommandListsPerThread];
+
+	// Default background colour
+	XMVECTORF32 mBackgroundColour = DirectX::Colors::Purple;
+
+	// Render target for MSAA
+	ComPtr<ID3D12Resource> mMSAARenderTarget;
+
+	// MSAA variables
+	UINT mMSAAQuality = 0;
+	int mMSAASampleCount = 4;
+
+	// Backbuffer width and height
+	int mBackbufferWidth;
+	int mBackbufferHeight;
+
+	// Current back buffer
+	int mCurrentBackBuffer = 0;
+
+	DXGI_FORMAT mDepthStencilFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
+
+	// Setup functions
+	bool CreateDeviceAndFence();
+	void CreateRootSignature();
+	void CreatePSO();
+	void CreateShaders();
+	void CreateCommandObjects();
+	void CreateSwapChain(HWND hWND, int width, int height);
+	void CreateDescriptorHeaps();
 	void CreateBlendState();
 
 };

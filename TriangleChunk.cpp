@@ -112,6 +112,7 @@ void TriangleChunk::ApplyNoise(float frequency, int octaves, FastNoiseLite* nois
 	int index = 0;
 	for (auto& vertex : vertices)
 	{
+		// Dont apply noise to first triangles
 		if (index > 2)
 		{
 			XMVECTOR pos = XMLoadFloat3(&vertex.Pos);

@@ -126,8 +126,10 @@ void Planet::GetTriangles(Node* node)
 		if (node->mLevel < mMaxLOD) mTriangles.push_back(node->mTriangle);
 		else
 		{
-			if (node->mTriangleChunk) mTriangleChunks.push_back(node->mTriangleChunk);
-			else mTriangles.push_back(node->mTriangle);			
+			if (node->mTriangleChunk) 
+				mTriangleChunks.push_back(node->mTriangleChunk);
+			else 
+				mTriangles.push_back(node->mTriangle);			
 		}
 	}
 }
@@ -239,7 +241,8 @@ bool Planet::Subdivide(Node* node, int level)
 	{
 		if (node->mTriangleChunk == nullptr)
 		{
-			node->mTriangleChunk = new TriangleChunk(mVertices[node->mTriangle.Point[0]],
+			node->mTriangleChunk = new TriangleChunk(
+				mVertices[node->mTriangle.Point[0]],
 				mVertices[node->mTriangle.Point[1]],
 				mVertices[node->mTriangle.Point[2]],
 				mFrequency, mOctaves, mNoise, mCurrentCommandList);
@@ -253,15 +256,13 @@ bool Planet::Subdivide(Node* node, int level)
 	for (auto& triangle : newTriangles)
 	{
 		node->AddSub(triangle);
-		//dont use pushback
 		mTriangles.push_back(triangle);
 		node->mNumSubs++;
 	}
 	for (auto& sub : node->mSubnodes)
 	{
 		sub->mLevel = divLevel;
-		if(sub->mLevel >= mMaxLOD - 1) sub->mDistance = mRadius / mMaxLOD + 0.3;
-		else sub->mDistance = mMaxDistance / divLevel;
+		sub->mDistance = mMaxDistance / divLevel;
 	}
 	return true;
 }

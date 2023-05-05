@@ -38,46 +38,54 @@ void App::Run()
 
 void App::Initialize()
 {
+	// Create window object
 	mWindow = make_unique<Window>(800,600);
 
+	// Get reference to window handle
 	HWND hwnd = mWindow->GetHWND();
-;
+
+	// Create graphics object 
 	mGraphics = make_unique<Graphics>(hwnd, mWindow->mWidth, mWindow->mHeight);
 	
+	// Create camera object
 	mCamera = make_unique<Camera>(mWindow.get());
 
+	// Update camera
 	mCamera->Update();
 
+	// Create planet object
 	mPlanet = std::make_unique<Planet>(mGraphics.get());
 	mPlanet->CreatePlanet(0.1, 1, 1, 1,rand());
 
+	// Create model for planet and pass in planet mesh
 	mPlanetModel = new Model("", mGraphics->mCommandList.Get(), mPlanet->mMesh);
 	mPlanetModel->SetPosition(XMFLOAT3{ 0, 0, 0 },false);
 	mPlanetModel->SetRotation(XMFLOAT3{ 0, 0, 0 }, false);
 	mPlanetModel->SetScale(XMFLOAT3{ float(mPlanet->mScale), float(mPlanet->mScale), float(mPlanet->mScale) }, true);
 	mPlanetModel->mParallax = false;
-
 	mModels.push_back(mPlanetModel);
 
 	LoadModels();
 
 	CreateSkybox();
 
-	CreateMaterials();
-
-	BuildFrameResources();
-
 	mNumModels = mModels.size();
 
+	// Index materials and add to list
+	CreateMaterials();
 
+	// Create frame resource objects
+	BuildFrameResources();
+
+	// Execute all commands recorded so far
 	mGraphics->ExecuteCommands();
 
+	// Create GUI object
 	mGUI = make_unique<GUI>(SrvDescriptorHeap.get(), mWindow->mSDLWindow, D3DDevice.Get(),
 		mGraphics->mNumFrameResources, mGraphics->mBackBufferFormat);
 
-	//// Start worker threads
-
-	mNumRenderWorkers = std::thread::hardware_concurrency(); // Gives a hint about level of thread concurrency supported by system (0 means no hint given)
+	// Start worker threads
+	mNumRenderWorkers = std::thread::hardware_concurrency();
 	if (mNumRenderWorkers == 0)  mNumRenderWorkers = 8;
 	for (int i = 0; i < mNumRenderWorkers; ++i)
 	{
@@ -86,61 +94,16 @@ void App::Initialize()
 
 }
 
-void App::CreateSkybox()
-{
-	auto device = D3DDevice.Get();
-	ResourceUploadBatch upload(device);
-
-	upload.Begin();
-
-	mSkyMat = new Material();
-	mSkyMat->DiffuseSRVIndex = CurrentSRVOffset;
-	mSkyMat->Name = L"Models/4knebula.dds";
-
-	Texture* cubeTex = new Texture();
-	DDS_ALPHA_MODE mode = DDS_ALPHA_MODE_OPAQUE;
-	bool cubeMap = true;
-
-	//CreateDDSTextureFromFileEx(D3DDevice.Get(), upload, mSkyMat->Name.c_str(), 0, D3D12_RESOURCE_FLAG_NONE,
-	//	(DirectX::DX12::DDS_LOADER_FLAGS)(DirectX::DX12::DDS_LOADER_DEFAULT) | DirectX::DX12::DDS_LOADER_MIP_AUTOGEN,
-	//	cubeTex->Resource.ReleaseAndGetAddressOf(), &mode, &cubeMap);
-
-	CreateDDSTextureFromFile(D3DDevice.Get(), upload, mSkyMat->Name.c_str(), cubeTex->Resource.ReleaseAndGetAddressOf(), true, 0Ui64, &mode, &cubeMap);
-
-	CD3DX12_CPU_DESCRIPTOR_HANDLE hDescriptor(SrvDescriptorHeap->mHeap->GetCPUDescriptorHandleForHeapStart());
-	// next descriptor
-	hDescriptor.Offset(CurrentSRVOffset, CbvSrvUavDescriptorSize);
-
-	auto cubeMapRes = cubeTex->Resource;
-	
-	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-	srvDesc.Format = cubeMapRes->GetDesc().Format;
-	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE;
-	srvDesc.Texture2D.MostDetailedMip = 0;
-	srvDesc.Texture2D.MipLevels = cubeMapRes->GetDesc().MipLevels;
-	srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
-
-	device->CreateShaderResourceView(cubeMapRes.Get(), &srvDesc, hDescriptor);
-
-	// Upload the resources to the GPU.
-	auto finish = upload.End(CommandQueue.Get());
-
-	// Wait for the upload thread to terminate
-	finish.wait();
-
-	mSkyModel->mMeshes[0]->mMaterial = mSkyMat;
-	mSkyModel->mMeshes[0]->mTextures.push_back(cubeTex);
-	mSkyModel->mMeshes[0]->mMaterial->CBIndex = mCurrentMatCBIndex;
-}
-
 void App::StartFrame()
 {
 	SDL_Event event;
+	
+	// Process events from SDL
 	while (SDL_PollEvent(&event) != 0)
 	{
 		ProcessEvents(event);
 	}
+	// If the window is open, start a new imgui frame
 	if (!mWindow->mMinimized)
 	{
 		mGUI->NewFrame();
@@ -151,12 +114,13 @@ void App::LoadModels()
 {
 	auto commandList = mGraphics->mCommandList.Get();
 
-	Model* smgModel = new Model("Models/Boat1.fbx", commandList);
+	// Multiple meshes, full PBR textured per mesh
+	Model* boatModel = new Model("Models/Boat1.fbx", commandList);
 
-	smgModel->SetPosition(XMFLOAT3{ -20.0f, 0.0f, 0.0f });
-	smgModel->SetRotation(XMFLOAT3{ 0.0f, 0.0f, 0.0f });
-	smgModel->SetScale(XMFLOAT3{ 0.1f, 0.1f, 0.1f });
-	mModels.push_back(smgModel);
+	boatModel->SetPosition(XMFLOAT3{ -20.0f, 0.0f, 0.0f });
+	boatModel->SetRotation(XMFLOAT3{ 0.0f, 0.0f, 0.0f });
+	boatModel->SetScale(XMFLOAT3{ 0.1f, 0.1f, 0.1f });
+	mModels.push_back(boatModel);
 
 	//Model* roboModel = new Model("Models/snow2.fbx", commandList);
 
@@ -171,8 +135,6 @@ void App::LoadModels()
 	//bladeModel->SetRotation(XMFLOAT3{ 0.0f, 0.0f, 0.0f });
 	//bladeModel->SetScale(XMFLOAT3{ 0.01f, 0.01f, 0.01f });
 	//mModels.push_back(bladeModel);
-
-	// Multiple meshes, full PBR textured per mesh
 
 	Model* plasmaModel = new Model("Models/plasmarifle.fbx", commandList);
 
@@ -213,14 +175,7 @@ void App::LoadModels()
 
 	mModels.push_back(slimeModel);
 
-	//Model* octoModel2 = new Model("Models/octopus.x", commandList, octoModel->mMeshes[0], "pjemy");
-
-	//octoModel2->SetPosition(XMFLOAT3{ -10.0f, 0.0f, 0.0f });
-	//octoModel2->SetRotation(XMFLOAT3{ 0.0f, 0.0f, 0.0f });
-	//octoModel2->SetScale(XMFLOAT3{ 0.5, 0.5, 0.5 });
-	//mModels.push_back(octoModel2);
-	//mTexModels.push_back(octoModel2);
-
+	// Sort models by PSO
 	int index = 0;
 	for (auto& model : mModels)
 	{
@@ -251,7 +206,9 @@ void App::LoadModels()
 		index++;
 	}
 
-	// Water
+	// Water and sky are rendered independently
+
+	// Water 
 	mWaterModel = new Model("Models/Water.fbx", commandList);
 	 
 	mWaterModel->SetPosition(XMFLOAT3{ 0.0f, 0.0f, 0.0f });
@@ -278,21 +235,82 @@ void App::BuildFrameResources()
 {
 	for (int i = 0; i < mGraphics->mNumFrameResources; i++)
 	{
+		// Create a frame resource with the number of models, max base planet vertices and indices, and the number of materials 
 		FrameResources.push_back(std::make_unique<FrameResource>(D3DDevice.Get(), 1, mModels.size(), MAX_PLANET_VERTS, MAX_PLANET_VERTS * 3, mMaterials.size())); //1 for planet
 	}
 }
 
 void App::RecreatePlanetGeometry()
 {
+	// Create a new planet with the data from the GUI
 	mPlanet->CreatePlanet(mGUI->mFrequency, mGUI->mOctaves, mGUI->mLOD, mPlanet->mScale, mGUI->mSeed);
+	
+	// Set the planet model's mesh to the new planet mesh and flag as dirty
 	mModels[0]->mConstructorMesh = mPlanet->mMesh;
 	mModels[0]->mNumDirtyFrames += mGraphics->mNumFrameResources;
+}
+
+
+void App::CreateSkybox()
+{
+	// Get device and create upload batch
+	auto device = D3DDevice.Get();
+	ResourceUploadBatch upload(device);
+	upload.Begin();
+
+	// Create new sky material
+	mSkyMat = new Material();
+	mSkyMat->DiffuseSRVIndex = CurrentSRVOffset;
+	mSkyMat->Name = L"Models/4knebula.dds";
+
+	// Create cube texture
+	Texture* cubeTex = new Texture();
+	DDS_ALPHA_MODE mode = DDS_ALPHA_MODE_OPAQUE;
+	bool cubeMap = true;
+
+	//CreateDDSTextureFromFileEx(D3DDevice.Get(), upload, mSkyMat->Name.c_str(), 0, D3D12_RESOURCE_FLAG_NONE,
+	//	(DirectX::DX12::DDS_LOADER_FLAGS)(DirectX::DX12::DDS_LOADER_DEFAULT) | DirectX::DX12::DDS_LOADER_MIP_AUTOGEN,
+	//	cubeTex->Resource.ReleaseAndGetAddressOf(), &mode, &cubeMap);
+
+	// Load cube texture
+	CreateDDSTextureFromFile(D3DDevice.Get(), upload, mSkyMat->Name.c_str(), cubeTex->Resource.ReleaseAndGetAddressOf(), true, 0Ui64, &mode, &cubeMap);
+
+	// Offset to next descriptor
+	CD3DX12_CPU_DESCRIPTOR_HANDLE hDescriptor(SrvDescriptorHeap->mHeap->GetCPUDescriptorHandleForHeapStart());
+	hDescriptor.Offset(CurrentSRVOffset, CbvSrvUavDescriptorSize);
+
+	// Get cube map resource
+	auto cubeMapRes = cubeTex->Resource;
+
+	// Create descriptor
+	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	srvDesc.Format = cubeMapRes->GetDesc().Format;
+	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE;
+	srvDesc.Texture2D.MostDetailedMip = 0;
+	srvDesc.Texture2D.MipLevels = cubeMapRes->GetDesc().MipLevels;
+	srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
+
+	// Create SRV
+	device->CreateShaderResourceView(cubeMapRes.Get(), &srvDesc, hDescriptor);
+
+	// Upload the resources to the GPU.
+	auto finish = upload.End(CommandQueue.Get());
+
+	// Wait for the upload thread to terminate
+	finish.wait();
+
+	// Set skymodel material to sky material and push texture
+	mSkyModel->mMeshes[0]->mMaterial = mSkyMat;
+	mSkyModel->mMeshes[0]->mTextures.push_back(cubeTex);
+	mSkyModel->mMeshes[0]->mMaterial->CBIndex = mCurrentMatCBIndex;
 }
 
 void App::UpdatePlanetBuffers()
 {
 	if (mModels[0]->mNumDirtyFrames > 0)
 	{
+		// Copy geometry into dynamic vertex and index buffers
 		for (int i = 0; i < mPlanet->mMesh->mVertices.size(); i++)
 		{
 			mGraphics->mCurrentFrameResource->mPlanetVB->Copy(i, mPlanet->mMesh->mVertices[i]);
@@ -302,6 +320,7 @@ void App::UpdatePlanetBuffers()
 			mGraphics->mCurrentFrameResource->mPlanetIB->Copy(i, mPlanet->mMesh->mIndices[i]);
 		}
 
+		// Set the planet mesh's buffers 
 		mModels[0]->mConstructorMesh->mGPUVertexBuffer = mGraphics->mCurrentFrameResource->mPlanetVB->GetBuffer();
 		mModels[0]->mConstructorMesh->mGPUIndexBuffer = mGraphics->mCurrentFrameResource->mPlanetIB->GetBuffer();
 		// NumDirtyFrames reduced by UpdatePerObject
@@ -310,17 +329,21 @@ void App::UpdatePlanetBuffers()
 
 void App::Update(float frameTime)
 {
+	// Update GUI
 	mGUI->UpdateModelData(mModels[mGUI->mSelectedModel]);
-
 	mGUI->Update(mNumModels);
 
+	// Update Camera
 	mCamera->Update(frameTime, mGUI->mCameraOrbit, mGUI->mInvertY, mGUI->mSpeedMultipler);
 
+	// Get inputs from the window
 	if (mWindow->mScrollValue != 0) 
 	{
+		// Update camera speed when mouse wheel scrolled 
 		mCamera->UpdateSpeed(mWindow->mScrollValue);
 		mWindow->mScrollValue = 0;
 	}
+	// Camera movement
 	if (mWindow->mForward)	mCamera->MoveForward();
 	if (mWindow->mBackward) mCamera->MoveBackward();
 	if (mWindow->mLeft)	mCamera->MoveLeft();
@@ -328,14 +351,7 @@ void App::Update(float frameTime)
 	if (mWindow->mUp)	mCamera->MoveUp();
 	if (mWindow->mDown)	mCamera->MoveDown();
 
-	//Reset command allocator and list before planet updates as meshes can be spawned
-	//auto commandAllocator = mGraphics->mCurrentFrameResource->mCommandAllocator.Get();
-	//auto commandList = mGraphics->mCommandList;
-	//mGraphics->ResetCommandAllocator(commandAllocator);
-	//mGraphics->ResetCommandList(commandAllocator, mCurrentPSO);
-
-	// Reset allocator and start new command list on it
-
+	// Reset command allocator before planet updates as meshes can be spawned
 	auto commandList = mGraphics->mCommandList.Get();
 	mGraphics->ResetCommandAllocator(mGraphics->mBaseCommandAllocators[CurrentFrameResourceIndex].Get());
 	if (FAILED(commandList->Reset(mGraphics->mBaseCommandAllocators[CurrentFrameResourceIndex].Get(), nullptr)))
@@ -343,14 +359,17 @@ void App::Update(float frameTime)
 		MessageBox(0, L"Command List reset failed", L"Error", MB_OK);
 	}
 
+	// Update planet
 	if (mPlanet->Update(mCamera.get(), commandList))
 	{
+		// If planet geometry was updated set new mesh
 		mModels[0]->mNumDirtyFrames += mGraphics->mNumFrameResources;
 		mModels[0]->mConstructorMesh = mPlanet->mMesh;
 
+		// Execute commands on command list
 		mGraphics->CloseAndExecuteCommandList();
-		//mGraphics->EmptyCommandQueue();
 
+		// Reset command list
 		commandList = mGraphics->mCommandList.Get();
 		if (FAILED(commandList->Reset(mGraphics->mBaseCommandAllocators[CurrentFrameResourceIndex].Get(), nullptr)))
 		{
@@ -358,18 +377,25 @@ void App::Update(float frameTime)
 		}
 	}
 
-	UpdateSelectedModel();
-
+	// If planet's GUI values are updated
 	if (mGUI->mPlanetUpdated)
 	{
+		// Set CLOD value to GUI's value
 		mPlanet->mCLOD = mGUI->mCLOD;
+
+		// Wait for GPU
 		mGraphics->EmptyCommandQueue();
 
+		// Recreate planet
 		RecreatePlanetGeometry();
 
+		// Execute commands
 		mGraphics->CloseAndExecuteCommandList();
+		
+		// Wait for GPU
 		mGraphics->EmptyCommandQueue();
 
+		// Planet has been updated
 		mGUI->mPlanetUpdated = false;
 	}
 	else
@@ -378,6 +404,10 @@ void App::Update(float frameTime)
 		mGraphics->CloseAndExecuteCommandList();
 	}
 
+	// Update model selected in GUI
+	UpdateSelectedModel();
+
+	// Update buffers
 	UpdatePlanetBuffers();
 	UpdatePerObjectConstantBuffers();
 	UpdatePerFrameConstantBuffer();
@@ -389,6 +419,7 @@ void App::UpdateSelectedModel()
 	// If the world matrix has changed
 	if (mGUI->mWMatrixChanged)
 	{
+		// Set transform from GUI
 		mModels[mGUI->mSelectedModel]->SetPosition(mGUI->mInPosition, false);
 		mModels[mGUI->mSelectedModel]->SetRotation(mGUI->mInRotation, false);
 		mModels[mGUI->mSelectedModel]->SetScale(mGUI->mInScale, true);
@@ -449,6 +480,8 @@ void App::UpdatePerFrameConstantBuffer()
 	perFrameConstantBuffer.DeltaTime = mTimer.GetLapTime();
 	perFrameConstantBuffer.AmbientLight = { 0.01f, 0.01f, 0.01f, 1.0f };
 	perFrameConstantBuffer.TexDebugIndex = mGUI->mDebugTex;
+	
+	// Set light values
 	XMVECTOR lightDir = -SphericalToCartesian(1.0f, mSunTheta, mSunPhi);
 	XMStoreFloat3(&perFrameConstantBuffer.Lights[0].Direction, lightDir);
 
@@ -490,12 +523,9 @@ void App::UpdatePerMaterialConstantBuffers()
 
 void App::Draw(float frameTime)
 {
+	// Reset command allocator and create new list on it
 	mGraphics->ResetCommandAllocator(0);
 	auto commandList = mGraphics->StartCommandList(0, 0);
-
-	//mGraphics->ResetCommandAllocator(commandAllocator);
-
-	//mGraphics->ResetCommandList(commandAllocator, mCurrentPSO);
 
 	mGraphics->SetViewportAndScissorRects(commandList);
 
@@ -508,29 +538,34 @@ void App::Draw(float frameTime)
 
 	mGraphics->SetDescriptorHeapsAndRootSignature(0, 0);
 
+	// Set SRV heap
 	auto srvHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(SrvDescriptorHeap->mHeap->GetGPUDescriptorHandleForHeapStart());
 	commandList->SetGraphicsRootDescriptorTable(0, srvHandle);
 
+	// Set per-frame buffer
 	auto perFrameBuffer = mGraphics->mCurrentFrameResource->mPerFrameConstantBuffer->GetBuffer();
 	commandList->SetGraphicsRootConstantBufferView(2, perFrameBuffer->GetGPUVirtualAddress());
 
+	// Set skybox texture
 	CD3DX12_GPU_DESCRIPTOR_HANDLE cubeTex(SrvDescriptorHeap->mHeap->GetGPUDescriptorHandleForHeapStart());
 	cubeTex.Offset(mSkyMat->DiffuseSRVIndex, CbvSrvUavDescriptorSize);
 	commandList->SetGraphicsRootDescriptorTable(4, cubeTex);
 	
+	// Draw models
 	DrawModels(commandList);
 
+	// Draw base planet geometry
 	DrawPlanet(commandList);
 
-	// All opening commands added to first main thread command list, now execute it
+	// Execute commands
 	mGraphics->CloseAndExecuteCommandList(0, 0);
 
-	// Do Threading
+	// Thread planet chunk rendering
 	int start = 0;
 	int count = (mPlanet->mTriangleChunks.size() + mNumRenderWorkers - 1) / mNumRenderWorkers;
 	for (int i = 0; i < mNumRenderWorkers; ++i)
 	{
-		// Prepare work parameters - a chunk of the boats
+		// Prepare work
 		auto& work = mRenderWorkers[i].second;
 		work.start = start;
 		start += count;
@@ -540,70 +575,75 @@ void App::Draw(float frameTime)
 		// Flag the work as not yet complete
 		auto& workerThread = mRenderWorkers[i].first;
 		{
-			// Guard every access to shared variable "work.complete" with a mutex (see BlockSpritesThread comments)
+			// Mutex work complete
 			std::unique_lock<std::mutex> l(workerThread.lock);
 			work.complete = false;
 		}
 
-		// Notify the worker thread via a condition variable - this will wake the worker thread up
+		// Signal the worker to start work
 		workerThread.workReady.notify_one();
 	}
 
-	// Wait for all the workers to finish
+	// Wait for each worker to finish
 	for (int i = 0; i < mNumRenderWorkers; ++i)
 	{
 		auto& workerThread = mRenderWorkers[i].first;
 		auto& work = mRenderWorkers[i].second;
 
-		// Wait for a signal via a condition variable indicating that the worker is complete
-		// See comments in BlockSpritesThread regarding the mutex and the wait method
+		// Wait for work completed signal
 		std::unique_lock<std::mutex> l(workerThread.lock);
 		workerThread.workReady.wait(l, [&]() { return work.complete; });
 	}
 
+	// Start a new command list
 	commandList = mGraphics->StartCommandList(0, 1);
 
+	// Setup command list
 	mGraphics->SetDescriptorHeapsAndRootSignature(0, 1);
 	mGraphics->SetViewportAndScissorRects(commandList);
 	mGraphics->SetMSAARenderTarget(commandList);
 
+	// Set transparent pipeline state for water 
 	if (mWireframe) commandList->SetPipelineState(mGraphics->mWireframePSO.Get());
 	else commandList->SetPipelineState(mGraphics->mWaterPSO.Get());
 
 	mWaterModel->Draw(commandList);
 
+	// Set skybox pipeline state for sky 
 	commandList->SetPipelineState(mGraphics->mSkyPSO.Get());
-
 	mSkyModel->Draw(commandList);
 
+	// Resolve MSAA render target to actual back buffer
 	mGraphics->ResolveMSAAToBackBuffer(commandList);
 
+	// Render the GUI
 	mGUI->Render(commandList, mGraphics->CurrentBackBuffer(), mGraphics->CurrentBackBufferView(), mGraphics->mDSVHeap.Get(), mGraphics->mDsvDescriptorSize);
 
-	// All commands added to post threading command list, now execute it
+	// Execute commands
 	mGraphics->CloseAndExecuteCommandList(0, 1);
 
-	//mGraphics->CloseAndExecuteCommandList();
-
+	// Swap back buffers with GUI vsync option
 	mGraphics->SwapBackBuffers(mGUI->mVSync);
 }
 
 void App::DrawPlanet(ID3D12GraphicsCommandList* commandList)
 {
+	// Set pipeline state
 	if (mWireframe) { commandList->SetPipelineState(mGraphics->mWireframePSO.Get()); }
 	else { commandList->SetPipelineState(mGraphics->mPlanetPSO.Get()); }
 
 	// Get size of the per object constant buffer 
 	UINT objCBByteSize = CalculateConstantBufferSize(sizeof(PerObjectConstants));
 
-	// Get reference to current per object constant buffer
+	// Get reference to current per object constant buffer and set in command list
 	auto objectCB = mGraphics->mCurrentFrameResource->mPerObjectConstantBuffer->GetBuffer();
-
 	auto objCBAddress = objectCB->GetGPUVirtualAddress(); // Planet is first in buffer
 	commandList->SetGraphicsRootConstantBufferView(1, objCBAddress);
 
+	// Draw base planet geometry
 	mModels[0]->mConstructorMesh->Draw(commandList);
-	
+
+	// Chunks are multithreaded
 	/*for (auto& chunk : mPlanet->mTriangleChunks)
 	{
 		chunk->mMesh->Draw(commandList);
@@ -612,7 +652,7 @@ void App::DrawPlanet(ID3D12GraphicsCommandList* commandList)
 
 void App::DrawModels(ID3D12GraphicsCommandList* commandList)
 {
-
+	// Set the pipeline state for each type of model and draw
 	if (mWireframe) { commandList->SetPipelineState(mGraphics->mWireframePSO.Get()); }
 	else { commandList->SetPipelineState(mGraphics->mSolidPSO.Get()); }
 
@@ -638,37 +678,40 @@ void App::DrawModels(ID3D12GraphicsCommandList* commandList)
 	}
 }
 
-// Worker thread for rendering - exists throughout program, sleeps when waiting for work
 void App::RenderThread(int thread)
 {
 	auto& worker = mRenderWorkers[thread].first;
 	auto& work = mRenderWorkers[thread].second;
 	while (true)
 	{
-		{ // Guard access (to work.complete)
+		{	// Mutex work complete
 			std::unique_lock<std::mutex> l(worker.lock);
-			worker.workReady.wait(l, [&]() { return !work.complete; }); // Wait until a workReady signal arrives, then verify it by testing that work.complete is false
+
+			// Wait for a signal
+			worker.workReady.wait(l, [&]() { return !work.complete; });
 		}
 
-		// We have some work so do it...
-		RenderChunks(thread + 1, work.start, work.end); // Main thread counts as thread 0 so + 1
+		// Start work
+		RenderChunks(thread + 1, work.start, work.end); // Add one for main thread
 
-		{ // Guard access (to work.complete)
+		{ 
+			// Mutex work complete
 			std::unique_lock<std::mutex> l(worker.lock);
 			work.complete = true; // Flag work as complete
 		}
-		// Send a signal back to the main thread to say the work is complete, loop back and wait for more work
+
+		// Signal work completed to main
 		worker.workReady.notify_one();
 	}
 }
 
-// Threaded work - render a lot of boats
 void App::RenderChunks(int thread, int start, int end)
 {
 	// Reset the main thread command allocator and start a new command lists on it
 	mGraphics->ResetCommandAllocator(thread);
 	auto commandList = mGraphics->StartCommandList(thread, 0);
 
+	// Setup command list
 	mGraphics->SetDescriptorHeapsAndRootSignature(thread, 0);
 
 	D3D12_VIEWPORT viewport = { 0.0f, 0.0f, static_cast<float>(mGraphics->GetBackbufferWidth()), static_cast<float>(mGraphics->GetBackbufferHeight()), D3D12_MIN_DEPTH, D3D12_MAX_DEPTH };
@@ -678,12 +721,15 @@ void App::RenderChunks(int thread, int start, int end)
 
 	mGraphics->SetMSAARenderTarget(commandList);
 
+	// Set pipeline state to render planet
 	if(mWireframe) commandList->SetPipelineState(mGraphics->mWireframePSO.Get());
 	else commandList->SetPipelineState(mGraphics->mPlanetPSO.Get());
 
+	// Render section of chunks
 	for (int i = start; i < end; ++i)
 		mPlanet->mTriangleChunks[i]->mMesh->Draw(commandList);
 
+	// Execute commands
 	mGraphics->CloseAndExecuteCommandList(thread, 0);
 }
 
@@ -692,21 +738,26 @@ void App::EndFrame()
 	// Advance fence value
 	mGraphics->mCurrentFrameResource->Fence = ++mGraphics->mCurrentFence;
 
-	// Tell command queue to set new fence point, will only be set when the GPU gets to new fence value.
+	// Set a new fence point when reached by GPU
 	CommandQueue->Signal(mGraphics->mFence.Get(), mGraphics->mCurrentFence);
 
+	// Cycle through frame resources
 	mGraphics->CycleFrameResources();
 }
 
 void App::ProcessEvents(SDL_Event& event)
 {
+	// Let GUI process events
 	if(mGUI->ProcessEvents(event)) return;
 	
+	// Process events from window
 	mWindow->ProcessEvents(event);
 
+	// Stop timer when minimised
 	if (mWindow->mMinimized) mTimer.Stop();
 	else mTimer.Start();
 
+	// If window resized
 	if (mWindow->mResized)
 	{
 		mGraphics->Resize(mWindow->mWidth, mWindow->mHeight);
@@ -714,14 +765,9 @@ void App::ProcessEvents(SDL_Event& event)
 		mWindow->mResized = false;
 	}
 
-	//if (mWindow->mLeftMouse)
-	//{
-	//	mTexModels[0]->mParallax = !mTexModels[0]->mParallax;
-	//	mTexModels[0]->mNumDirtyFrames = mNumFrameResources;
-	//}
-
 	mWireframe = mWindow->mWireframe;
 
+	// Capture mouse movement
 	if (mWindow->mMouseMoved)
 	{
 		mCamera->MouseMoved(event,mWindow.get());
@@ -731,6 +777,7 @@ void App::ProcessEvents(SDL_Event& event)
 
 void App::CreateMaterials()
 {
+	// Index materials and add to list
 	mCurrentMatCBIndex = 0;
 	for (auto& model : mModels)
 	{
@@ -749,7 +796,7 @@ App::~App()
 	// Empty the command queue
 	if (D3DDevice != nullptr) { mGraphics->EmptyCommandQueue(); }
 
-	// Need to close off worker threads - they are in an infinite loop so cannot wait for them with join, so detach them - will be destroyed when app closes (should do better than this)
+	// Close worker threads
 	for (int i = 0; i < mNumRenderWorkers; ++i)
 	{
 		mRenderWorkers[i].first.thread.detach();
@@ -758,11 +805,6 @@ App::~App()
 	for (auto& model : mModels)
 	{
 		delete model;
-	}
-
-	for (auto& texture : mTextures)
-	{
-		delete texture;
 	}
 
 }
