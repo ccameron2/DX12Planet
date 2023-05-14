@@ -5,7 +5,7 @@
 #include <vector>
 #include <memory>
 
-const int MAX_PLANET_VERTS = 250000;
+const int MAX_PLANET_VERTS = 25000;
 
 extern std::vector<std::unique_ptr<FrameResource>> FrameResources;
 extern int CurrentFrameResourceIndex;
