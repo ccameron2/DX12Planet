@@ -30,6 +30,7 @@
 *.out
 *.app
 
-/.vs
-/x64
+.vs/
+x64/
+External/
 Models/nebula.dds
