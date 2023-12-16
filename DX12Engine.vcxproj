@@ -105,7 +105,7 @@
       <PreprocessorDefinitions>SFML_STATIC;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <ConformanceMode>false</ConformanceMode>
-      <AdditionalIncludeDirectories>$(ProjectDir)External\ImGui\include;$(ProjectDir)External\SDL2.26\include;$(ProjectDir)External\assimp\include;$(ProjectDir)External\DirectXTK12\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)External\ImGui\include;$(ProjectDir)External\SDL2.26\include;$(ProjectDir)External\assimp\include;$(ProjectDir)External\DirectXTK12\include;$(ProjectDir)External\DirectX-Headers\include\directx;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -123,7 +123,7 @@
       <PreprocessorDefinitions>SFML_STATIC;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <ConformanceMode>false</ConformanceMode>
-      <AdditionalIncludeDirectories>$(ProjectDir)External\SDL2.26\include;$(ProjectDir)External\ImGui\include;$(ProjectDir)External\assimp\include;$(ProjectDir)External\DirectXTK12\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)External\SDL2.26\include;$(ProjectDir)External\ImGui\include;$(ProjectDir)External\assimp\include;$(ProjectDir)External\DirectXTK12\include;$(ProjectDir)External\DirectX-Headers\include\directx;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -164,7 +164,6 @@
     <ClInclude Include="FastNoiseLite.h" />
     <ClInclude Include="FrameResource.h" />
     <ClInclude Include="App.h" />
-    <ClInclude Include="d3dx12.h" />
     <ClInclude Include="Mesh.h" />
     <ClInclude Include="Graphics.h" />
     <ClInclude Include="GUI.h" />
@@ -212,12 +211,12 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="Shaders\**">
-        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
   <ItemGroup>
     <Content Include="Models\**">
-        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

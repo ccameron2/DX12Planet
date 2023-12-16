@@ -553,7 +553,7 @@ void App::Draw(float frameTime)
 	commandList->SetGraphicsRootDescriptorTable(4, cubeTex);
 	
 	// Draw models
-	DrawModels(commandList);
+	//DrawModels(commandList);
 
 	// Draw base planet geometry
 	DrawPlanet(commandList);
